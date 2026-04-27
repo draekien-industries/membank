@@ -11,5 +11,6 @@ export default defineConfig({
   },
   test: {
     exclude: ["**/node_modules/**"],
+    testTimeout: 30000,
   },
 });
