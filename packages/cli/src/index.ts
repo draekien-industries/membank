@@ -16,6 +16,8 @@ import { statsCommand } from "./commands/stats.js";
 import { unpinCommand } from "./commands/unpin.js";
 import { Formatter } from "./formatter.js";
 import { PromptHelper } from "./prompt-helper.js";
+import { HarnessConfigWriter } from "./setup/harness-config-writer.js";
+import { SetupOrchestrator } from "./setup/setup-orchestrator.js";
 
 if (process.argv.includes("--mcp")) {
   await startServer();
@@ -193,6 +195,31 @@ program
       process.exit(2);
     } finally {
       db.close();
+    }
+  });
+
+program
+  .command("setup")
+  .description("detect installed harnesses and write MCP config for each")
+  .option("--yes", "skip all confirmation prompts")
+  .option("--dry-run", "print planned changes without writing any file")
+  .action(async (cmdOptions: { yes?: boolean; dryRun?: boolean }) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const autoYes = cmdOptions.yes === true || globalOpts.yes === true;
+    const formatter = Formatter.create().withJson(
+      globalOpts.json === true || !process.stdout.isTTY
+    );
+    const writer = new HarnessConfigWriter();
+    const promptHelper = new PromptHelper(autoYes);
+    const orchestrator = new SetupOrchestrator({
+      writer,
+      prompter: (question) => promptHelper.confirm(question),
+    });
+    try {
+      await orchestrator.run({ yes: autoYes, dryRun: cmdOptions.dryRun });
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
     }
   });
 
