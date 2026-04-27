@@ -128,9 +128,14 @@ export function createServer(core: CoreServices): Server {
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (request.params.name === "list_memory_types") {
-      return {
-        content: [{ type: "text", text: JSON.stringify(listMemoryTypes()) }],
-      };
+      try {
+        return {
+          content: [{ type: "text", text: JSON.stringify(listMemoryTypes()) }],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true };
+      }
     }
 
     if (request.params.name === "save_memory") {
@@ -158,16 +163,21 @@ export function createServer(core: CoreServices): Server {
       const tags = Array.isArray(args?.tags) ? (args.tags as string[]) : undefined;
       const scope = typeof args?.scope === "string" ? args.scope : await resolveScope();
 
-      const memory = await core.repo.save({
-        content,
-        type: type as MemoryType,
-        tags,
-        scope,
-      });
+      try {
+        const memory = await core.repo.save({
+          content,
+          type: type as MemoryType,
+          tags,
+          scope,
+        });
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(memory) }],
-      };
+        return {
+          content: [{ type: "text", text: JSON.stringify(memory) }],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true };
+      }
     }
 
     if (request.params.name === "update_memory") {
@@ -211,25 +221,30 @@ export function createServer(core: CoreServices): Server {
         );
       }
 
-      const exists =
-        core.db.db
-          .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
-          .get(id) !== undefined;
+      try {
+        const exists =
+          core.db.db
+            .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
+            .get(id) !== undefined;
 
-      if (!exists) {
-        return {
-          content: [{ type: "text", text: `Memory not found: ${id}` }],
-          isError: true,
-        };
+        if (!exists) {
+          return {
+            content: [{ type: "text", text: `Memory not found: ${id}` }],
+            isError: true,
+          };
+        }
+
+        await core.repo.delete(id);
+        return { content: [{ type: "text", text: JSON.stringify({ success: true, id }) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true };
       }
-
-      await core.repo.delete(id);
-      return { content: [{ type: "text", text: JSON.stringify({ success: true, id }) }] };
     }
 
     if (request.params.name === "query_memory") {
       const args = request.params.arguments as Record<string, unknown> | undefined;
-      const queryText = args?.["query"];
+      const queryText = args?.query;
 
       if (typeof queryText !== "string" || queryText.trim() === "") {
         throw new McpError(
@@ -238,25 +253,30 @@ export function createServer(core: CoreServices): Server {
         );
       }
 
-      const type = args?.["type"] as MemoryType | undefined;
-      const scope = args?.["scope"] as string | undefined;
-      const limit = typeof args?.["limit"] === "number" ? args["limit"] : 10;
+      const type = args?.type as MemoryType | undefined;
+      const scope = args?.scope as string | undefined;
+      const limit = typeof args?.limit === "number" ? args.limit : 10;
 
-      const results = await core.query.query({ query: queryText, type, scope, limit });
+      try {
+        const results = await core.query.query({ query: queryText, type, scope, limit });
 
-      const serialised = results.map((r) => ({
-        id: r.id,
-        content: r.content,
-        type: r.type,
-        tags: r.tags,
-        scope: r.scope,
-        pinned: r.pinned,
-        score: r.score,
-      }));
+        const serialised = results.map((r) => ({
+          id: r.id,
+          content: r.content,
+          type: r.type,
+          tags: r.tags,
+          scope: r.scope,
+          pinned: r.pinned,
+          score: r.score,
+        }));
 
-      return {
-        content: [{ type: "text", text: JSON.stringify(serialised) }],
-      };
+        return {
+          content: [{ type: "text", text: JSON.stringify(serialised) }],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true };
+      }
     }
 
     throw new Error(`Unknown tool: ${request.params.name}`);
