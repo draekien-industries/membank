@@ -1,5 +1,12 @@
-import { DatabaseManager, EmbeddingService, MemoryRepository, QueryEngine } from "@membank/core";
+import {
+  DatabaseManager,
+  EmbeddingService,
+  listMemoryTypes,
+  MemoryRepository,
+  QueryEngine,
+} from "@membank/core";
 import { Server } from "@modelcontextprotocol/sdk/server";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types";
 
 const SERVER_NAME = "membank";
 const SERVER_VERSION = "0.1.0";
@@ -27,5 +34,29 @@ export function initCore(options: ServerOptions = {}): CoreServices {
 }
 
 export function createServer(_core: CoreServices): Server {
-  return new Server({ name: SERVER_NAME, version: SERVER_VERSION }, { capabilities: {} });
+  const server = new Server(
+    { name: SERVER_NAME, version: SERVER_VERSION },
+    { capabilities: { tools: {} } }
+  );
+
+  server.setRequestHandler(ListToolsRequestSchema, () => ({
+    tools: [
+      {
+        name: "list_memory_types",
+        description: "Returns the ordered list of memory type values supported by membank.",
+        inputSchema: { type: "object", properties: {}, required: [] },
+      },
+    ],
+  }));
+
+  server.setRequestHandler(CallToolRequestSchema, (request) => {
+    if (request.params.name === "list_memory_types") {
+      return {
+        content: [{ type: "text", text: JSON.stringify(listMemoryTypes()) }],
+      };
+    }
+    throw new Error(`Unknown tool: ${request.params.name}`);
+  });
+
+  return server;
 }
