@@ -1,5 +1,13 @@
 # @membank/cli
 
+## 0.0.1
+
+### Patch Changes
+
+- 9a6db9e: Fixed `--mcp` mode exiting immediately after connecting; the server now stays alive to handle MCP requests.
+  - @membank/core@0.0.1
+  - @membank/mcp@0.0.1
+
 ## 0.0.0
 
 ### Patch Changes
