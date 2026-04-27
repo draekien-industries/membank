@@ -1,12 +1,21 @@
 import { createInterface } from "node:readline";
 import type { HarnessConfigWriter } from "./harness-config-writer.js";
+import { SUPPORTED_HARNESSES } from "./harness-config-writer.js";
 import type { DetectedHarness } from "./harness-detector.js";
 import { detectHarnesses } from "./harness-detector.js";
 
 export type Prompter = (question: string) => Promise<boolean>;
 
+export interface DownloadProgressLike {
+  totalBytes: number;
+  downloadedBytes: number;
+  percentage: number;
+  estimatedSecondsRemaining: number;
+}
+
 export interface ModelDownloaderLike {
   download(): Promise<{ skipped: boolean }>;
+  on?(event: "progress", listener: (p: DownloadProgressLike) => void): void;
 }
 
 export interface SetupResult {
@@ -15,12 +24,25 @@ export interface SetupResult {
   error?: string;
 }
 
+export interface SetupJsonOutput {
+  detectedHarnesses: string[];
+  configuredHarnesses: string[];
+  modelDownloaded: boolean;
+}
+
 export interface OrchestratorDeps {
   detector?: () => DetectedHarness[];
   writer: HarnessConfigWriter;
   prompter?: Prompter;
   modelDownloader?: ModelDownloaderLike;
   out?: (msg: string) => void;
+  progressWrite?: (text: string) => void;
+}
+
+function renderProgressBar(percentage: number, width: number): string {
+  const filled = Math.round((percentage / 100) * width);
+  const empty = width - filled;
+  return `[${"=".repeat(filled)}${" ".repeat(empty)}] ${percentage.toFixed(0)}%`;
 }
 
 function defaultPrompter(question: string): Promise<boolean> {
@@ -39,6 +61,7 @@ export class SetupOrchestrator {
   readonly #prompter: Prompter;
   readonly #modelDownloader: ModelDownloaderLike | undefined;
   readonly #out: (msg: string) => void;
+  readonly #progressWrite: (text: string) => void;
 
   constructor(deps: OrchestratorDeps) {
     this.#detector = deps.detector ?? (() => detectHarnesses());
@@ -46,40 +69,57 @@ export class SetupOrchestrator {
     this.#prompter = deps.prompter ?? defaultPrompter;
     this.#modelDownloader = deps.modelDownloader;
     this.#out = deps.out ?? ((msg) => process.stdout.write(`${msg}\n`));
+    this.#progressWrite = deps.progressWrite ?? ((text) => process.stdout.write(text));
   }
 
-  async run(opts: { yes?: boolean; dryRun?: boolean } = {}): Promise<SetupResult[]> {
-    const { yes = false, dryRun = false } = opts;
+  async run(
+    opts: { yes?: boolean; dryRun?: boolean; harness?: string; json?: boolean } = {}
+  ): Promise<SetupResult[]> {
+    const { yes = false, dryRun = false, harness, json = false } = opts;
 
-    const detected = this.#detector();
+    const out = json ? () => {} : this.#out;
+
+    let detected: DetectedHarness[];
+    if (harness !== undefined) {
+      detected = [{ name: harness as DetectedHarness["name"], configPath: "" }];
+    } else {
+      detected = this.#detector();
+    }
 
     if (detected.length === 0) {
-      this.#out("No supported harnesses detected.");
-      this.#out("");
-      this.#out("Supported harnesses: claude-code, vscode, codex, opencode");
+      out("No supported harnesses detected.");
+      out("");
+      out(`Supported harnesses: ${SUPPORTED_HARNESSES.join(", ")}`);
+      if (json) {
+        this.#out(
+          JSON.stringify({ detectedHarnesses: [], configuredHarnesses: [], modelDownloaded: false })
+        );
+      }
       return [];
     }
 
-    this.#out("Detected harnesses:");
-    for (const h of detected) {
-      this.#out(`  • ${h.name}  (${h.configPath})`);
+    if (!json) {
+      out("Detected harnesses:");
+      for (const h of detected) {
+        out(`  • ${h.name}  (${h.configPath})`);
+      }
+      out("");
     }
-    this.#out("");
 
     if (dryRun) {
-      this.#out("Planned changes (dry-run — no files written):");
+      out("Planned changes (dry-run — no files written):");
       for (const h of detected) {
-        this.#out(`  ⚠ ${h.name}: would write MCP config`);
+        out(`  ⚠ ${h.name}: would write MCP config`);
       }
-      this.#out("");
-      this.#out("Model download step: see DRA-52");
+      out("");
+      out("  ⚠ Model download: skipped (dry-run)");
       return detected.map((h) => ({ harness: h.name, status: "skipped" as const }));
     }
 
     if (!yes) {
       const proceed = await this.#prompter("Proceed with writing configs?");
       if (!proceed) {
-        this.#out("Aborted.");
+        out("Aborted.");
         return [];
       }
     }
@@ -93,7 +133,7 @@ export class SetupOrchestrator {
         writeResult = this.#writer.write(h.name);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        this.#out(`  ✗ ${h.name}: ${msg}`);
+        out(`  ✗ ${h.name}: ${msg}`);
         results.push({ harness: h.name, status: "error", error: msg });
         continue;
       }
@@ -105,45 +145,85 @@ export class SetupOrchestrator {
         }
 
         if (!overwrite) {
-          this.#out(`  ⚠ ${h.name}: already configured (skipped)`);
+          out(`  ⚠ ${h.name}: already configured (skipped)`);
           results.push({ harness: h.name, status: "already-configured" });
           continue;
         }
 
         try {
           this.#writer.write(h.name, { overwrite: true });
-          this.#out(`  ✓ ${h.name}: written (overwritten)`);
+          out(`  ✓ ${h.name}: written (overwritten)`);
           results.push({ harness: h.name, status: "written" });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          this.#out(`  ✗ ${h.name}: ${msg}`);
+          out(`  ✗ ${h.name}: ${msg}`);
           results.push({ harness: h.name, status: "error", error: msg });
         }
         continue;
       }
 
-      this.#out(`  ✓ ${h.name}: written`);
+      out(`  ✓ ${h.name}: written`);
       results.push({ harness: h.name, status: "written" });
     }
 
-    this.#out("");
+    out("");
 
-    // Model download placeholder — DRA-52 will wire up the real ModelDownloader here.
+    let modelDownloaded = false;
     if (this.#modelDownloader) {
-      await this.#modelDownloader.download();
+      const dlResult = await this.#runModelDownload(this.#modelDownloader, out);
+      modelDownloaded = !dlResult.skipped;
     } else {
-      this.#out("Model download step: see DRA-52");
+      out("Model download step: see DRA-52");
     }
 
     const written = results.filter((r) => r.status === "written").length;
     const skipped = results.filter((r) => r.status === "already-configured").length;
     const errors = results.filter((r) => r.status === "error").length;
 
-    this.#out("");
-    this.#out(
-      `Setup complete: ${written} written, ${skipped} already configured, ${errors} errors`
-    );
+    if (json) {
+      const detectedHarnesses = detected.map((h) => h.name);
+      const configuredHarnesses = results
+        .filter((r) => r.status === "written")
+        .map((r) => r.harness);
+      const output: SetupJsonOutput = { detectedHarnesses, configuredHarnesses, modelDownloaded };
+      this.#out(JSON.stringify(output));
+    } else {
+      out("");
+      out(`Setup complete: ${written} written, ${skipped} already configured, ${errors} errors`);
+    }
 
     return results;
+  }
+
+  async #runModelDownload(
+    downloader: ModelDownloaderLike,
+    out: (msg: string) => void
+  ): Promise<{ skipped: boolean }> {
+    out("Downloading embedding model (bge-small-en-v1.5, ~33 MB)...");
+
+    downloader.on?.("progress", (p) => {
+      const bar = renderProgressBar(p.percentage, 30);
+      const mb = (p.downloadedBytes / 1_048_576).toFixed(1);
+      const total = (p.totalBytes / 1_048_576).toFixed(1);
+      const eta =
+        p.estimatedSecondsRemaining > 0 ? ` ETA ${Math.ceil(p.estimatedSecondsRemaining)}s` : "";
+      this.#progressWrite(`\r  ${bar} ${mb}/${total} MB${eta}`);
+    });
+
+    try {
+      const result = await downloader.download();
+      if (result.skipped) {
+        out("  ✓ Model already cached, skipping download.");
+      } else {
+        this.#progressWrite("\r");
+        out("  ✓ Model downloaded successfully.");
+      }
+      return result;
+    } catch (err) {
+      this.#progressWrite("\r");
+      const msg = err instanceof Error ? err.message : String(err);
+      out(`  ✗ Model download failed: ${msg}`);
+      throw err;
+    }
   }
 }

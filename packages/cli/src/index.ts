@@ -16,7 +16,8 @@ import { statsCommand } from "./commands/stats.js";
 import { unpinCommand } from "./commands/unpin.js";
 import { Formatter } from "./formatter.js";
 import { PromptHelper } from "./prompt-helper.js";
-import { HarnessConfigWriter } from "./setup/harness-config-writer.js";
+import { HarnessConfigWriter, SUPPORTED_HARNESSES } from "./setup/harness-config-writer.js";
+import { ModelDownloader } from "./setup/model-downloader.js";
 import { SetupOrchestrator } from "./setup/setup-orchestrator.js";
 
 if (process.argv.includes("--mcp")) {
@@ -203,20 +204,40 @@ program
   .description("detect installed harnesses and write MCP config for each")
   .option("--yes", "skip all confirmation prompts")
   .option("--dry-run", "print planned changes without writing any file")
-  .action(async (cmdOptions: { yes?: boolean; dryRun?: boolean }) => {
+  .option("--harness <name>", "target only the named harness (skip detection)")
+  .action(async (cmdOptions: { yes?: boolean; dryRun?: boolean; harness?: string }) => {
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
     const autoYes = cmdOptions.yes === true || globalOpts.yes === true;
-    const formatter = Formatter.create().withJson(
-      globalOpts.json === true || !process.stdout.isTTY
-    );
+    const useJson = globalOpts.json === true || !process.stdout.isTTY;
+    const formatter = Formatter.create().withJson(useJson);
+
+    if (cmdOptions.harness !== undefined) {
+      const valid = SUPPORTED_HARNESSES as readonly string[];
+      if (!valid.includes(cmdOptions.harness)) {
+        formatter.error(
+          `Unknown harness: "${cmdOptions.harness}". Supported: ${SUPPORTED_HARNESSES.join(", ")}`
+        );
+        process.exit(1);
+      }
+    }
+
     const writer = new HarnessConfigWriter();
     const promptHelper = new PromptHelper(autoYes);
     const orchestrator = new SetupOrchestrator({
       writer,
       prompter: (question) => promptHelper.confirm(question),
+      modelDownloader: new ModelDownloader(),
     });
     try {
-      await orchestrator.run({ yes: autoYes, dryRun: cmdOptions.dryRun });
+      const results = await orchestrator.run({
+        yes: autoYes,
+        dryRun: cmdOptions.dryRun,
+        harness: cmdOptions.harness,
+        json: useJson,
+      });
+      if (results.some((r) => r.status === "error")) {
+        process.exit(1);
+      }
     } catch (err) {
       formatter.error(err instanceof Error ? err.message : String(err));
       process.exit(2);

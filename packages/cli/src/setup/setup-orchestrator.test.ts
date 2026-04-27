@@ -299,3 +299,173 @@ describe("model downloader injection", () => {
     expect(lines.some((l) => l.includes("DRA-52"))).toBe(true);
   });
 });
+
+// --- AC: --harness flag ---
+
+describe("--harness flag", () => {
+  it("configures only the named harness, skipping detection", async () => {
+    const detectorFn = vi.fn().mockReturnValue([makeHarness("vscode"), makeHarness("codex")]);
+    const writer = makeWriter({ "claude-code": { status: "written" } });
+    const lines: string[] = [];
+    const orchestrator = new SetupOrchestrator({
+      detector: detectorFn,
+      writer,
+      out: (msg) => lines.push(msg),
+    });
+
+    const results = await orchestrator.run({ yes: true, harness: "claude-code" });
+
+    expect(detectorFn).not.toHaveBeenCalled();
+    expect(results).toHaveLength(1);
+    expect(results[0]?.harness).toBe("claude-code");
+    expect(results[0]?.status).toBe("written");
+  });
+
+  it("writes only the targeted harness when others are also installed", async () => {
+    const writer = makeWriter({
+      "claude-code": { status: "written" },
+      vscode: { status: "written" },
+    });
+    const { orchestrator } = makeOrchestrator({
+      detected: [makeHarness("vscode")],
+      writer,
+    });
+
+    const results = await orchestrator.run({ yes: true, harness: "claude-code" });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.harness).toBe("claude-code");
+    expect(writer.write).toHaveBeenCalledTimes(1);
+  });
+});
+
+// --- AC: --json output ---
+
+describe("--json output", () => {
+  it("emits a single JSON line instead of decorated output", async () => {
+    const { orchestrator, lines } = makeOrchestrator({
+      detected: [makeHarness("claude-code")],
+    });
+
+    await orchestrator.run({ yes: true, json: true });
+
+    expect(lines).toHaveLength(1);
+    const parsed = JSON.parse(lines[0] ?? "null");
+    expect(parsed).toMatchObject({
+      detectedHarnesses: ["claude-code"],
+      configuredHarnesses: ["claude-code"],
+      modelDownloaded: false,
+    });
+  });
+
+  it("suppresses spinners and decorative symbols", async () => {
+    const { orchestrator, lines } = makeOrchestrator({
+      detected: [makeHarness("claude-code")],
+    });
+
+    await orchestrator.run({ yes: true, json: true });
+
+    const allOutput = lines.join("\n");
+    expect(allOutput).not.toContain("✓");
+    expect(allOutput).not.toContain("✗");
+    expect(allOutput).not.toContain("•");
+    expect(allOutput).not.toContain("Setup complete");
+    expect(allOutput).not.toContain("Detected harnesses");
+  });
+
+  it("JSON shape includes detectedHarnesses, configuredHarnesses, modelDownloaded", async () => {
+    const writer = makeWriter({
+      "claude-code": { status: "written" },
+      vscode: () => {
+        throw new Error("fail");
+      },
+    });
+    const { orchestrator, lines } = makeOrchestrator({
+      detected: [makeHarness("claude-code"), makeHarness("vscode")],
+      writer,
+    });
+
+    await orchestrator.run({ yes: true, json: true });
+
+    const parsed = JSON.parse(lines[0] ?? "null") as {
+      detectedHarnesses: string[];
+      configuredHarnesses: string[];
+      modelDownloaded: boolean;
+    };
+    expect(parsed.detectedHarnesses).toEqual(["claude-code", "vscode"]);
+    expect(parsed.configuredHarnesses).toEqual(["claude-code"]);
+    expect(parsed.modelDownloaded).toBe(false);
+  });
+
+  it("reflects modelDownloaded: true when downloader does not skip", async () => {
+    const download = vi.fn().mockResolvedValue({ skipped: false });
+    const { orchestrator, lines } = makeOrchestrator({
+      detected: [makeHarness("claude-code")],
+      modelDownloader: { download },
+    });
+
+    await orchestrator.run({ yes: true, json: true });
+
+    const parsed = JSON.parse(lines[0] ?? "null") as { modelDownloaded: boolean };
+    expect(parsed.modelDownloaded).toBe(true);
+  });
+});
+
+// --- AC: partial failure reporting and exit code propagation ---
+
+describe("partial failure reporting", () => {
+  it("returns error status for failed harness alongside written status for successful one", async () => {
+    const writer = makeWriter({
+      "claude-code": { status: "written" },
+      vscode: () => {
+        throw new Error("permission denied");
+      },
+    });
+    const { orchestrator } = makeOrchestrator({
+      detected: [makeHarness("claude-code"), makeHarness("vscode")],
+      writer,
+    });
+
+    const results = await orchestrator.run({ yes: true });
+
+    const claudeResult = results.find((r) => r.harness === "claude-code");
+    const vscodeResult = results.find((r) => r.harness === "vscode");
+    expect(claudeResult?.status).toBe("written");
+    expect(vscodeResult?.status).toBe("error");
+    expect(vscodeResult?.error).toContain("permission denied");
+  });
+
+  it("includes error reason in each failed result", async () => {
+    const writer = makeWriter({
+      "claude-code": () => {
+        throw new Error("disk full");
+      },
+    });
+    const { orchestrator } = makeOrchestrator({
+      detected: [makeHarness("claude-code")],
+      writer,
+    });
+
+    const results = await orchestrator.run({ yes: true });
+
+    expect(results[0]?.status).toBe("error");
+    expect(results[0]?.error).toBe("disk full");
+  });
+
+  it("returns results that the CLI can inspect to determine non-zero exit", async () => {
+    const writer = makeWriter({
+      "claude-code": { status: "written" },
+      vscode: () => {
+        throw new Error("fail");
+      },
+    });
+    const { orchestrator } = makeOrchestrator({
+      detected: [makeHarness("claude-code"), makeHarness("vscode")],
+      writer,
+    });
+
+    const results = await orchestrator.run({ yes: true });
+
+    expect(results.some((r) => r.status === "error")).toBe(true);
+  });
+});
