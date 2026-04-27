@@ -3,27 +3,33 @@
   "format_on_save": "on",
   "languages": {
     "TypeScript": {
-      "language_servers": ["biome", "!typescript-language-server"],
       "formatter": {
-        "language_server": { "name": "biome" }
+        "language_server": {
+          "name": "biome"
+        }
       }
     },
     "TSX": {
-      "language_servers": ["biome", "!typescript-language-server"],
       "formatter": {
-        "language_server": { "name": "biome" }
+        "language_server": {
+          "name": "biome"
+        }
       }
     },
     "JavaScript": {
       "language_servers": ["biome"],
       "formatter": {
-        "language_server": { "name": "biome" }
+        "language_server": {
+          "name": "biome"
+        }
       }
     },
     "JSON": {
       "language_servers": ["biome"],
       "formatter": {
-        "language_server": { "name": "biome" }
+        "language_server": {
+          "name": "biome"
+        }
       }
     }
   }

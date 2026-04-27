@@ -22,7 +22,6 @@ import { SetupOrchestrator } from "./setup/setup-orchestrator.js";
 
 if (process.argv.includes("--mcp")) {
   await startServer();
-  process.exit(0);
 }
 
 const program = new Command();
