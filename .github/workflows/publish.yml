@@ -1,22 +1,58 @@
-name: Publish
+name: Release
 
 on:
   push:
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-    branches-ignore:
+    branches:
       - main
-  pull_request:
-    types: [opened, synchronize, reopened]
+      - develop
 
 concurrency:
-  group: publish-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  publish:
-    name: Publish to npm
+  release:
+    name: Release (stable)
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Create release PR or publish
+        uses: changesets/action@v1
+        with:
+          publish: pnpm release
+          title: 'chore: version packages'
+          commit: 'chore: version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
+
+  snapshot:
+    name: Snapshot (dev prerelease)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
     permissions:
       contents: read
       id-token: write
@@ -37,51 +73,11 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Compute version and dist-tag
-        id: meta
+      - name: Publish snapshot to dev tag
         run: |
-          BASE=$(node -p "require('./packages/core/package.json').version")
-          SHA="${GITHUB_SHA::8}"
-
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            VERSION="${GITHUB_REF#refs/tags/v}"
-            TAG="latest"
-          elif [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-            PR="${{ github.event.pull_request.number }}"
-            VERSION="${BASE}-pr.${PR}.${SHA}"
-            TAG="pr-${PR}"
-          else
-            BRANCH=$(echo "${GITHUB_REF#refs/heads/}" | tr '/' '-' | sed 's/[^a-zA-Z0-9-]//g' | cut -c1-24)
-            VERSION="${BASE}-${BRANCH}.${SHA}"
-            TAG="dev"
-          fi
-
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-
-      - name: Set version in all packages
-        run: |
-          VERSION="${{ steps.meta.outputs.version }}"
-          for pkg in packages/core packages/mcp packages/cli; do
-            VERSION="$VERSION" node -e "
-              const fs = require('fs');
-              const p = JSON.parse(fs.readFileSync('${pkg}/package.json', 'utf8'));
-              p.version = process.env.VERSION;
-              fs.writeFileSync('${pkg}/package.json', JSON.stringify(p, null, 2) + '\n');
-            "
-          done
-
-      - name: Publish @membank/core
-        run: pnpm --filter @membank/core publish --no-git-checks --access public --tag ${{ steps.meta.outputs.tag }} --provenance
+          pnpm changeset version --snapshot dev
+          pnpm changeset publish --tag dev
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @membank/mcp
-        run: pnpm --filter @membank/mcp publish --no-git-checks --access public --tag ${{ steps.meta.outputs.tag }} --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @membank/cli
-        run: pnpm --filter @membank/cli publish --no-git-checks --access public --tag ${{ steps.meta.outputs.tag }} --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

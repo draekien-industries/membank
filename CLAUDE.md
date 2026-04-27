@@ -73,6 +73,28 @@ Types (enum): `correction` > `preference` > `decision` > `learning` > `fact`
 - All native deps (`better-sqlite3`, `sqlite-vec`) are external in tsdown configs — not bundled
 - TypeScript and lint rules: see `.claude/rules/typescript.md`
 
+## Changesets
+
+Every feature branch or worktree that touches user-facing behaviour **must** include a changeset before the work is considered complete.
+
+Run at the end of the work, before committing:
+
+```bash
+pnpm changeset
+```
+
+Select only the affected packages (`@membank/core`, `@membank/mcp`, `@membank/cli`). Choose the bump type:
+
+- `patch` — bug fix, internal refactor, no API change
+- `minor` — new feature, backwards-compatible
+- `major` — breaking change
+
+Write the description in past tense, one sentence: what changed and why it matters to users (not implementation detail).
+
+**When a worktree is completed:** create the changeset inside the worktree before merging or handing off the branch. The `.changeset/*.md` file must be part of the PR diff.
+
+**Skip only:** pure docs/test changes with no runtime effect, or changes scoped entirely to `@membank/dash` (stub, not published).
+
 ## Subagent worktree cleanup
 
 After any wave of subagents using `isolation: "worktree"`, clean up leftover worktrees:
