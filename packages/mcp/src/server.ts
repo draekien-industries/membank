@@ -94,6 +94,17 @@ export function createServer(core: CoreServices): Server {
         },
       },
       {
+        name: "delete_memory",
+        description: "Delete a memory by id.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Memory id to delete" },
+          },
+          required: ["id"],
+        },
+      },
+      {
         name: "query_memory",
         description:
           "Search memories by semantic similarity. Returns results ranked by confidence score.",
@@ -187,6 +198,33 @@ export function createServer(core: CoreServices): Server {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: message }], isError: true };
       }
+    }
+
+    if (request.params.name === "delete_memory") {
+      const args = request.params.arguments as Record<string, unknown> | undefined;
+      const id = args?.id;
+
+      if (typeof id !== "string" || id.trim() === "") {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "id is required and must be a non-empty string"
+        );
+      }
+
+      const exists =
+        core.db.db
+          .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
+          .get(id) !== undefined;
+
+      if (!exists) {
+        return {
+          content: [{ type: "text", text: `Memory not found: ${id}` }],
+          isError: true,
+        };
+      }
+
+      await core.repo.delete(id);
+      return { content: [{ type: "text", text: JSON.stringify({ success: true, id }) }] };
     }
 
     if (request.params.name === "query_memory") {
