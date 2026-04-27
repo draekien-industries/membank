@@ -3,7 +3,7 @@
   "version": "0.0.0-dev-20260427133418",
   "type": "module",
   "bin": {
-    "membank": "./dist/index.js"
+    "membank": "./dist/index.mjs"
   },
   "files": [
     "dist"
