@@ -47,7 +47,6 @@ jobs:
           commit: 'chore: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
 
   pr-snapshot:
@@ -79,6 +78,5 @@ jobs:
           pnpm changeset version --snapshot pr-${{ github.event.pull_request.number }}
           pnpm changeset publish --tag pr-${{ github.event.pull_request.number }}
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
