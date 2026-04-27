@@ -1,5 +1,13 @@
 # @membank/cli
 
+## 0.0.0
+
+### Patch Changes
+
+- 9212575: Fixed bin entry path from `./dist/index.js` to `./dist/index.mjs` so `npx @membank/cli setup` resolves the binary correctly instead of falling back to a system PATH lookup.
+  - @membank/core@0.0.0
+  - @membank/mcp@0.0.0
+
 ## 0.0.0-dev-20260427133418
 
 ### Minor Changes
