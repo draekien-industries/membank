@@ -2,8 +2,13 @@
   "name": "@membank/cli",
   "version": "0.0.0-dev-20260427133418",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/draekien-industries/membank.git",
+    "directory": "packages/cli"
+  },
   "bin": {
-    "membank": "./dist/index.js"
+    "membank": "./dist/index.mjs"
   },
   "files": [
     "dist"
