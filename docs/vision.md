@@ -27,7 +27,7 @@ Existing LLM memory (e.g. markdown files) suffers from:
 
 - **Language:** TypeScript (latest)
 - **Monorepo:** Turborepo
-- **Distribution:** npm — `npx membank` for zero-install CLI usage
+- **Distribution:** npm — `npx @membank/cli` for zero-install CLI usage
 
 ### Storage
 
@@ -117,7 +117,7 @@ LLMs call `query_memory` for everything else — injection is deterministic and 
 
 | Package | Description |
 |---|---|
-| `membank` | CLI entrypoint, published to npm |
+| `@membank/cli` | CLI entrypoint, published to npm |
 | `@membank/core` | Storage engine, embedding, query, dedup logic |
 | `@membank/mcp` | stdio MCP server wrapping core |
 | `@membank/dashboard` | Web UI for browsing and managing memories (future) |
@@ -175,7 +175,7 @@ Each harness gets an MCP server entry pointing to `membank`:
   "mcpServers": {
     "membank": {
       "command": "npx",
-      "args": ["membank", "--mcp"]
+      "args": ["@membank/cli", "--mcp"]
     }
   }
 }
@@ -188,7 +188,7 @@ Config written to harness-specific paths:
 - **Codex:** `~/.codex/config.json`
 - **opencode:** `~/.config/opencode/config.json`
 
-For harnesses without MCP support: install a SKILL that calls `npx membank inject --scope <project>` to prepend session context.
+For harnesses without MCP support: install a SKILL that calls `npx @membank/cli inject --scope <project>` to prepend session context.
 
 ---
 

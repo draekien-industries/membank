@@ -8,7 +8,7 @@ LLM memory management system. Stores user preferences, corrections, decisions, a
 packages/
   core/       @membank/core   — DB, embeddings, query engine, dedup logic
   mcp/        @membank/mcp    — stdio MCP server (5 tools exposed to LLMs)
-  cli/        membank         — CLI + npx entrypoint, also starts MCP server
+  cli/        @membank/cli    — CLI + npx entrypoint, also starts MCP server
   dashboard/  @membank/dash   — web UI (stub, not yet implemented)
 ```
 
@@ -30,7 +30,7 @@ Run any command scoped to one package with `--filter`:
 
 ```bash
 pnpm --filter @membank/core build
-pnpm --filter membank dev
+pnpm --filter @membank/cli dev
 ```
 
 ## Tooling
