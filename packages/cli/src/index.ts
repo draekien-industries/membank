@@ -7,6 +7,8 @@ import { startServer } from "@membank/mcp";
 import { Command } from "commander";
 import { addCommand } from "./commands/add.js";
 import { deleteCommand } from "./commands/delete.js";
+import { exportCommand } from "./commands/export.js";
+import { importCommand } from "./commands/import.js";
 import { listCommand } from "./commands/list.js";
 import { pinCommand } from "./commands/pin.js";
 import { queryCommand } from "./commands/query.js";
@@ -150,6 +152,47 @@ program
     } catch (err) {
       formatter.error(err instanceof Error ? err.message : String(err));
       process.exit(2);
+    }
+  });
+
+program
+  .command("export")
+  .description("export all memories to a JSON file")
+  .option("--output <path>", "output file path (default: membank-export-<timestamp>.json in cwd)")
+  .action((cmdOptions: { output?: string }) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create().withJson(
+      globalOpts.json === true || !process.stdout.isTTY
+    );
+    const db = DatabaseManager.open();
+    try {
+      exportCommand(db, formatter, cmdOptions);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    } finally {
+      db.close();
+    }
+  });
+
+program
+  .command("import <file>")
+  .description("import memories from a JSON export file")
+  .action(async (file: string) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create().withJson(
+      globalOpts.json === true || !process.stdout.isTTY
+    );
+    const autoConfirm = globalOpts.yes === true || !process.stdout.isTTY;
+    const prompt = new PromptHelper(autoConfirm);
+    const db = DatabaseManager.open();
+    try {
+      await importCommand(file, db, formatter, prompt);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    } finally {
+      db.close();
     }
   });
 
