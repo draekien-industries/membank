@@ -1,2 +1,2 @@
 // Memory CRUD, dedup, scoring
-export {};
+export { MemoryRepository } from "./repository.js";
