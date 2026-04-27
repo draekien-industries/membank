@@ -18,6 +18,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "@membank/core": "workspace:*",
     "@membank/mcp": "workspace:*",
     "commander": "^14.0.3",
