@@ -207,6 +207,58 @@ describe("QueryEngine", () => {
     expect(results.length).toBe(3);
   });
 
+  it("correction ranks above preference at identical cosine similarity", async () => {
+    insertMemory(dbManager, {
+      id: "preference-1",
+      content: "A preference",
+      type: "preference",
+      pinned: false,
+      embedding: unitVec(0),
+    });
+    insertMemory(dbManager, {
+      id: "correction-1",
+      content: "A correction",
+      type: "correction",
+      pinned: false,
+      embedding: unitVec(0),
+    });
+
+    vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
+
+    const results = await engine.query({ query: "test" });
+
+    expect(results.length).toBe(2);
+    expect(results[0]?.id).toBe("correction-1");
+    expect(results[1]?.id).toBe("preference-1");
+    expect(results[0]?.score).toBeGreaterThan(results[1]?.score ?? 0);
+  });
+
+  it("pinned memory ranks above unpinned memory of same type at identical similarity", async () => {
+    insertMemory(dbManager, {
+      id: "unpinned-1",
+      content: "Unpinned fact",
+      type: "fact",
+      pinned: false,
+      embedding: unitVec(0),
+    });
+    insertMemory(dbManager, {
+      id: "pinned-1",
+      content: "Pinned fact",
+      type: "fact",
+      pinned: true,
+      embedding: unitVec(0),
+    });
+
+    vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
+
+    const results = await engine.query({ query: "test" });
+
+    expect(results.length).toBe(2);
+    expect(results[0]?.id).toBe("pinned-1");
+    expect(results[1]?.id).toBe("unpinned-1");
+    expect(results[0]?.score).toBeGreaterThan(results[1]?.score ?? 0);
+  });
+
   it("filters out memories with cosine_sim <= 0 (orthogonal embeddings excluded)", async () => {
     // Insert a memory with embedding at dimension 1
     insertMemory(dbManager, {
