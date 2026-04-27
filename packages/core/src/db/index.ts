@@ -1,2 +1,2 @@
-// Database initialization and connection management
-export {};
+export { DatabaseError, MembankError } from "./errors.js";
+export { DatabaseManager } from "./manager.js";
