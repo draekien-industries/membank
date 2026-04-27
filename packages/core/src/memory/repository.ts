@@ -108,7 +108,7 @@ export class MemoryRepository {
 
     const now = new Date().toISOString();
     const sets: string[] = ["updated_at = ?"];
-    const values: unknown[] = [now];
+    const values: string[] = [now];
 
     if (patch.content !== undefined) {
       sets.push("content = ?");
@@ -121,10 +121,7 @@ export class MemoryRepository {
     }
 
     values.push(id);
-    // biome-ignore lint/suspicious/noExplicitAny: variadic run() call with dynamic columns
-    this.#db.db
-      .prepare(`UPDATE memories SET ${sets.join(", ")} WHERE id = ?`)
-      .run(...(values as any[]));
+    this.#db.db.prepare(`UPDATE memories SET ${sets.join(", ")} WHERE id = ?`).run(...values);
 
     if (patch.content !== undefined) {
       const embedding = await this.#embedding.embed(patch.content);

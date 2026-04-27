@@ -70,7 +70,5 @@ Types (enum): `correction` > `preference` > `decision` > `learning` > `fact`
 
 ## Conventions
 
-- No markdown comments in code — only add a comment when the WHY is non-obvious
-- TypeScript strict mode, `noUncheckedIndexedAccess` enabled
-- ESM throughout (`"type": "module"` in all packages)
 - All native deps (`better-sqlite3`, `sqlite-vec`) are external in tsdown configs — not bundled
+- TypeScript and lint rules: see `.claude/rules/typescript.md`
