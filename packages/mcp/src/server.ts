@@ -5,6 +5,7 @@ import {
   listMemoryTypes,
   MemoryRepository,
   QueryEngine,
+  resolveScope,
 } from "@membank/core";
 import { Server } from "@modelcontextprotocol/sdk/server";
 import {
@@ -53,6 +54,29 @@ export function createServer(core: CoreServices): Server {
         inputSchema: { type: "object", properties: {}, required: [] },
       },
       {
+        name: "save_memory",
+        description:
+          "Save a new memory. Handles deduplication automatically — near-identical memories (cosine similarity >0.92, same type and scope) overwrite the existing record.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            content: { type: "string", description: "Memory content to save" },
+            type: {
+              type: "string",
+              enum: ["correction", "preference", "decision", "learning", "fact"],
+              description: "Memory type",
+            },
+            tags: {
+              type: "array",
+              items: { type: "string" },
+              description: "Optional tags",
+            },
+            scope: { type: "string", description: "Scope (defaults to resolved project scope)" },
+          },
+          required: ["content", "type"],
+        },
+      },
+      {
         name: "query_memory",
         description:
           "Search memories by semantic similarity. Returns results ranked by confidence score.",
@@ -78,6 +102,43 @@ export function createServer(core: CoreServices): Server {
     if (request.params.name === "list_memory_types") {
       return {
         content: [{ type: "text", text: JSON.stringify(listMemoryTypes()) }],
+      };
+    }
+
+    if (request.params.name === "save_memory") {
+      const args = request.params.arguments as Record<string, unknown> | undefined;
+      const content = args?.content;
+      const type = args?.type;
+
+      if (typeof content !== "string" || content.trim() === "") {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "content is required and must be a non-empty string"
+        );
+      }
+
+      if (
+        typeof type !== "string" ||
+        !["correction", "preference", "decision", "learning", "fact"].includes(type)
+      ) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "type is required and must be one of: correction, preference, decision, learning, fact"
+        );
+      }
+
+      const tags = Array.isArray(args?.tags) ? (args.tags as string[]) : undefined;
+      const scope = typeof args?.scope === "string" ? args.scope : await resolveScope();
+
+      const memory = await core.repo.save({
+        content,
+        type: type as MemoryType,
+        tags,
+        scope,
+      });
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(memory) }],
       };
     }
 
