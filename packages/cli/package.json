@@ -5,7 +5,9 @@
   "bin": {
     "membank": "./dist/index.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
@@ -16,11 +18,11 @@
   "dependencies": {
     "@membank/core": "workspace:*",
     "@membank/mcp": "workspace:*",
-    "commander": "^13.0.0",
-    "ora": "^8.1.1"
+    "commander": "^14.0.3",
+    "ora": "^9.4.0"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "typescript": "^5.7.3"
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.3"
   }
 }
