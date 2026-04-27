@@ -1,1 +1,1 @@
-export {};
+export { resolveScope } from "./resolver.js";
