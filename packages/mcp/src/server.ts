@@ -77,6 +77,23 @@ export function createServer(core: CoreServices): Server {
         },
       },
       {
+        name: "update_memory",
+        description: "Update the content and/or tags of an existing memory by id.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Memory id to update" },
+            content: { type: "string", description: "New content for the memory" },
+            tags: {
+              type: "array",
+              items: { type: "string" },
+              description: "Replacement tags (optional)",
+            },
+          },
+          required: ["id", "content"],
+        },
+      },
+      {
         name: "query_memory",
         description:
           "Search memories by semantic similarity. Returns results ranked by confidence score.",
@@ -140,6 +157,36 @@ export function createServer(core: CoreServices): Server {
       return {
         content: [{ type: "text", text: JSON.stringify(memory) }],
       };
+    }
+
+    if (request.params.name === "update_memory") {
+      const args = request.params.arguments as Record<string, unknown> | undefined;
+      const id = args?.id;
+      const content = args?.content;
+
+      if (typeof id !== "string" || id.trim() === "") {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "id is required and must be a non-empty string"
+        );
+      }
+
+      if (typeof content !== "string" || content.trim() === "") {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "content is required and must be a non-empty string"
+        );
+      }
+
+      const tags = Array.isArray(args?.tags) ? (args.tags as string[]) : undefined;
+
+      try {
+        const memory = await core.repo.update(id, { content, tags });
+        return { content: [{ type: "text", text: JSON.stringify(memory) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true };
+      }
     }
 
     if (request.params.name === "query_memory") {
