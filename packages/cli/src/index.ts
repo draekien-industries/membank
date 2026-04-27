@@ -1,9 +1,24 @@
 #!/usr/bin/env node
+
 // CLI entry point — routes to MCP server or CLI commands based on argv
 
+import { DatabaseManager } from "@membank/core";
+import { startServer } from "@membank/mcp";
 import { Command } from "commander";
+import { addCommand } from "./commands/add.js";
+import { deleteCommand } from "./commands/delete.js";
+import { listCommand } from "./commands/list.js";
+import { pinCommand } from "./commands/pin.js";
 import { queryCommand } from "./commands/query.js";
+import { statsCommand } from "./commands/stats.js";
+import { unpinCommand } from "./commands/unpin.js";
 import { Formatter } from "./formatter.js";
+import { PromptHelper } from "./prompt-helper.js";
+
+if (process.argv.includes("--mcp")) {
+  await startServer();
+  process.exit(0);
+}
 
 const program = new Command();
 
@@ -11,7 +26,8 @@ program
   .name("membank")
   .description("LLM memory management system")
   .option("--json", "emit machine-readable JSON only")
-  .option("-y, --yes", "skip all confirmation prompts");
+  .option("-y, --yes", "skip all confirmation prompts")
+  .option("--mcp", "start the MCP stdio server (for harness integration)");
 
 program
   .command("query <queryText>")
@@ -25,6 +41,112 @@ program
     );
     try {
       await queryCommand(queryText, cmdOptions, formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+program
+  .command("list")
+  .description("list memories with optional filters")
+  .option("--type <type>", "filter by memory type (correction|preference|decision|learning|fact)")
+  .option("--pinned", "return only pinned memories")
+  .action(async (cmdOptions: { type?: string; pinned?: boolean }) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create().withJson(
+      globalOpts.json === true || !process.stdout.isTTY
+    );
+    try {
+      await listCommand(cmdOptions, formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+program
+  .command("stats")
+  .description("show memory counts by type, total, and needs_review")
+  .action(async () => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create().withJson(
+      globalOpts.json === true || !process.stdout.isTTY
+    );
+    try {
+      await statsCommand(formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+program
+  .command("delete <id>")
+  .description("delete a memory by ID")
+  .action(async (id: string) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create().withJson(
+      globalOpts.json === true || !process.stdout.isTTY
+    );
+    const autoConfirm = globalOpts.yes === true || !process.stdout.isTTY;
+    const prompt = new PromptHelper(autoConfirm);
+    const db = DatabaseManager.open();
+    try {
+      await deleteCommand(id, db, formatter, prompt);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    } finally {
+      db.close();
+    }
+  });
+
+program
+  .command("add <content>")
+  .description("save a new memory")
+  .requiredOption("--type <type>", "memory type (correction|preference|decision|learning|fact)")
+  .option("--tags <tags>", "comma-separated tags")
+  .option("--scope <scope>", "scope (global or project identifier)")
+  .action(async (content: string, cmdOptions: { type: string; tags?: string; scope?: string }) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create().withJson(
+      globalOpts.json === true || !process.stdout.isTTY
+    );
+    try {
+      await addCommand(content, cmdOptions, formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+program
+  .command("pin <id>")
+  .description("pin a memory by ID")
+  .action((id: string) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create().withJson(
+      globalOpts.json === true || !process.stdout.isTTY
+    );
+    try {
+      pinCommand(id, formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+program
+  .command("unpin <id>")
+  .description("unpin a memory by ID")
+  .action((id: string) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create().withJson(
+      globalOpts.json === true || !process.stdout.isTTY
+    );
+    try {
+      unpinCommand(id, formatter);
     } catch (err) {
       formatter.error(err instanceof Error ? err.message : String(err));
       process.exit(2);

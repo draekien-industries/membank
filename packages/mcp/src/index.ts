@@ -2,7 +2,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { CoreServices } from "./server.js";
 import { createServer, initCore } from "./server.js";
 
-async function main(): Promise<void> {
+export async function startServer(): Promise<void> {
   let core: CoreServices;
   try {
     core = initCore();
@@ -16,5 +16,3 @@ async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
-
-main();

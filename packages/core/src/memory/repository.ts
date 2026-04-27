@@ -152,6 +152,58 @@ export class MemoryRepository {
     return Promise.resolve();
   }
 
+  list(opts?: { type?: MemoryType; pinned?: boolean }): Memory[] {
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (opts?.type !== undefined) {
+      conditions.push("type = ?");
+      params.push(opts.type);
+    }
+
+    if (opts?.pinned === true) {
+      conditions.push("pinned = 1");
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const rows = this.#db.db
+      .prepare<(string | number)[], MemoryRow>(
+        `SELECT * FROM memories ${where} ORDER BY created_at DESC`
+      )
+      .all(...params);
+
+    return rows.map((r) => this.#rowToMemory(r));
+  }
+
+  stats(): { byType: Record<MemoryType, number>; total: number; needsReview: number } {
+    const allTypes: MemoryType[] = ["correction", "preference", "decision", "learning", "fact"];
+    const byType = Object.fromEntries(allTypes.map((t) => [t, 0])) as Record<MemoryType, number>;
+
+    const typeRows = this.#db.db
+      .prepare<[], { type: string; count: number }>(
+        `SELECT type, COUNT(*) as count FROM memories GROUP BY type`
+      )
+      .all();
+
+    for (const row of typeRows) {
+      if (row.type in byType) {
+        byType[row.type as MemoryType] = row.count;
+      }
+    }
+
+    const totals = this.#db.db
+      .prepare<[], { total: number; needsReview: number }>(
+        `SELECT COUNT(*) as total, SUM(needs_review) as needsReview FROM memories`
+      )
+      .get() ?? { total: 0, needsReview: 0 };
+
+    return {
+      byType,
+      total: totals.total,
+      needsReview: totals.needsReview ?? 0,
+    };
+  }
+
   incrementAccessCount(id: string): void {
     this.#db.db.prepare(`UPDATE memories SET access_count = access_count + 1 WHERE id = ?`).run(id);
   }
