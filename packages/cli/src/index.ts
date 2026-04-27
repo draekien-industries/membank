@@ -198,7 +198,7 @@ program
 
 // Catch unknown commands
 program.on("command:*", () => {
-  program.help();
+  program.outputHelp();
   process.exit(1);
 });
 
