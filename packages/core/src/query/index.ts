@@ -1,1 +1,1 @@
-export {};
+export { QueryEngine } from "./engine.js";
