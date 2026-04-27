@@ -8,10 +8,14 @@
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "typecheck": "turbo typecheck",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "changeset publish"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.13",
+    "@changesets/cli": "^2.27.0",
     "@turbo/gen": "^2.9.6",
     "lefthook": "^2.1.6",
     "tsdown": "latest",
