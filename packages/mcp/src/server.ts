@@ -13,7 +13,7 @@ import {
   ErrorCode,
   ListToolsRequestSchema,
   McpError,
-} from "@modelcontextprotocol/sdk/types";
+} from "@modelcontextprotocol/sdk/types.js";
 
 const SERVER_NAME = "membank";
 const SERVER_VERSION = "0.1.0";
