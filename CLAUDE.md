@@ -72,3 +72,16 @@ Types (enum): `correction` > `preference` > `decision` > `learning` > `fact`
 
 - All native deps (`better-sqlite3`, `sqlite-vec`) are external in tsdown configs — not bundled
 - TypeScript and lint rules: see `.claude/rules/typescript.md`
+
+## Subagent worktree cleanup
+
+After any wave of subagents using `isolation: "worktree"`, clean up leftover worktrees:
+
+```bash
+git worktree list                        # identify stale entries
+git worktree remove -f -f <path>         # unregister (use -f -f to override lock)
+git worktree prune                       # remove stale refs
+rm -rf <path>                            # delete directory if still present
+```
+
+Worktrees that made no changes are auto-cleaned by the framework. Ones that made changes (or were locked) need manual removal after their branches are merged.
