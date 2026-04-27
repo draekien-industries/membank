@@ -1,0 +1,26 @@
+{
+  "name": "membank",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "membank": "./dist/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check ./src",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@membank/core": "workspace:*",
+    "@membank/mcp": "workspace:*",
+    "commander": "^13.0.0",
+    "ora": "^8.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.3"
+  }
+}

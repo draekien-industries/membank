@@ -1,0 +1,16 @@
+{
+  "name": "@membank/dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Dashboard not yet implemented'",
+    "build": "echo 'Dashboard not yet implemented'",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check ./src",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.3"
+  }
+}

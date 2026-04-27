@@ -1,0 +1,11 @@
+packages:
+  - "packages/*"
+
+onlyBuiltDependencies:
+  - "@biomejs/biome"
+  - better-sqlite3
+  - esbuild
+  - lefthook
+  - onnxruntime-node
+  - protobufjs
+  - sharp
