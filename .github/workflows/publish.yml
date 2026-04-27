@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - develop
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 concurrency:
   group: release-${{ github.ref }}
@@ -77,6 +79,39 @@ jobs:
         run: |
           pnpm changeset version --snapshot dev
           pnpm changeset publish --tag dev
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  pr-snapshot:
+    name: Snapshot (PR prerelease)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Publish snapshot to pr-N tag
+        run: |
+          pnpm changeset version --snapshot pr-${{ github.event.pull_request.number }}
+          pnpm changeset publish --tag pr-${{ github.event.pull_request.number }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
