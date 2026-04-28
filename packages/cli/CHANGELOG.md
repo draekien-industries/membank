@@ -1,5 +1,14 @@
 # @membank/cli
 
+## 0.0.4
+
+### Patch Changes
+
+- 9620f8d: Added `inject` CLI command and session-start injection hook registration for Claude Code, Copilot CLI, Codex, and opencode harnesses.
+- 3801c10: Renamed `vscode` harness to `copilot`, targeting the GitHub Copilot CLI user config at `~/.copilot/mcp-config.json` instead of the VS Code workspace file.
+  - @membank/core@0.0.4
+  - @membank/mcp@0.0.4
+
 ## 0.0.3
 
 ### Patch Changes
