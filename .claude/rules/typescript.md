@@ -25,6 +25,9 @@ paths:
 - Prefer specific types over `unknown[]` — if all values are a known type, use that type
 - Use `type` imports (`import type { ... }`) for type-only imports
 - Narrow types at boundaries (user input, external APIs) — trust internal code and framework guarantees
+- Use `as const` for readonly arrays, objects, and string literals — preserves literal types and prevents accidental mutation
+- Use `satisfies` to validate a value against a type without widening it — prefer `satisfies` over type annotations when you need inference to flow through (e.g. `const config = { ... } satisfies Config`)
+- Combine `as const satisfies T` when you need both literal narrowing and shape validation
 
 ## Lint suppression
 

@@ -3,6 +3,7 @@ import type { HarnessConfigWriter } from "./harness-config-writer.js";
 import { SUPPORTED_HARNESSES } from "./harness-config-writer.js";
 import type { DetectedHarness } from "./harness-detector.js";
 import { detectHarnesses } from "./harness-detector.js";
+import type { InjectionHookWriter } from "./injection-hook-writer.js";
 
 export type Prompter = (question: string) => Promise<boolean>;
 
@@ -27,12 +28,14 @@ export interface SetupResult {
 export interface SetupJsonOutput {
   detectedHarnesses: string[];
   configuredHarnesses: string[];
+  injectionHooksConfigured: string[];
   modelDownloaded: boolean;
 }
 
 export interface OrchestratorDeps {
   detector?: () => DetectedHarness[];
   writer: HarnessConfigWriter;
+  hookWriter?: InjectionHookWriter;
   prompter?: Prompter;
   modelDownloader?: ModelDownloaderLike;
   out?: (msg: string) => void;
@@ -58,6 +61,7 @@ function defaultPrompter(question: string): Promise<boolean> {
 export class SetupOrchestrator {
   readonly #detector: () => DetectedHarness[];
   readonly #writer: HarnessConfigWriter;
+  readonly #hookWriter: InjectionHookWriter | undefined;
   readonly #prompter: Prompter;
   readonly #modelDownloader: ModelDownloaderLike | undefined;
   readonly #out: (msg: string) => void;
@@ -66,6 +70,7 @@ export class SetupOrchestrator {
   constructor(deps: OrchestratorDeps) {
     this.#detector = deps.detector ?? (() => detectHarnesses());
     this.#writer = deps.writer;
+    this.#hookWriter = deps.hookWriter;
     this.#prompter = deps.prompter ?? defaultPrompter;
     this.#modelDownloader = deps.modelDownloader;
     this.#out = deps.out ?? ((msg) => process.stdout.write(`${msg}\n`));
@@ -92,7 +97,12 @@ export class SetupOrchestrator {
       out(`Supported harnesses: ${SUPPORTED_HARNESSES.join(", ")}`);
       if (json) {
         this.#out(
-          JSON.stringify({ detectedHarnesses: [], configuredHarnesses: [], modelDownloaded: false })
+          JSON.stringify({
+            detectedHarnesses: [],
+            configuredHarnesses: [],
+            injectionHooksConfigured: [],
+            modelDownloaded: false,
+          })
         );
       }
       return [];
@@ -110,6 +120,9 @@ export class SetupOrchestrator {
       out("Planned changes (dry-run — no files written):");
       for (const h of detected) {
         out(`  ⚠ ${h.name}: would write MCP config`);
+        if (this.#hookWriter) {
+          out(`  ⚠ ${h.name}: would write injection hook config`);
+        }
       }
       out("");
       out("  ⚠ Model download: skipped (dry-run)");
@@ -168,6 +181,26 @@ export class SetupOrchestrator {
 
     out("");
 
+    const injectionHooksConfigured: string[] = [];
+    if (this.#hookWriter) {
+      for (const h of detected) {
+        try {
+          const hookResult = this.#hookWriter.write(h.name);
+          if (hookResult.status === "not-supported") continue;
+          if (hookResult.status === "written") {
+            out(`  ✓ ${h.name}: injection hook written`);
+            injectionHooksConfigured.push(h.name);
+          } else {
+            out(`  ⚠ ${h.name}: injection hook already configured`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          out(`  ✗ ${h.name} injection hook: ${msg}`);
+        }
+      }
+      out("");
+    }
+
     let modelDownloaded = false;
     if (this.#modelDownloader) {
       const dlResult = await this.#runModelDownload(this.#modelDownloader, out);
@@ -185,7 +218,12 @@ export class SetupOrchestrator {
       const configuredHarnesses = results
         .filter((r) => r.status === "written")
         .map((r) => r.harness);
-      const output: SetupJsonOutput = { detectedHarnesses, configuredHarnesses, modelDownloaded };
+      const output: SetupJsonOutput = {
+        detectedHarnesses,
+        configuredHarnesses,
+        injectionHooksConfigured,
+        modelDownloaded,
+      };
       this.#out(JSON.stringify(output));
     } else {
       out("");

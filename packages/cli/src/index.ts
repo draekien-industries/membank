@@ -9,6 +9,7 @@ import { addCommand } from "./commands/add.js";
 import { deleteCommand } from "./commands/delete.js";
 import { exportCommand } from "./commands/export.js";
 import { importCommand } from "./commands/import.js";
+import { injectCommand } from "./commands/inject.js";
 import { listCommand } from "./commands/list.js";
 import { pinCommand } from "./commands/pin.js";
 import { queryCommand } from "./commands/query.js";
@@ -17,6 +18,7 @@ import { unpinCommand } from "./commands/unpin.js";
 import { Formatter } from "./formatter.js";
 import { PromptHelper } from "./prompt-helper.js";
 import { HarnessConfigWriter, SUPPORTED_HARNESSES } from "./setup/harness-config-writer.js";
+import { InjectionHookWriter } from "./setup/injection-hook-writer.js";
 import { ModelDownloader } from "./setup/model-downloader.js";
 import { SetupOrchestrator } from "./setup/setup-orchestrator.js";
 
@@ -199,6 +201,23 @@ program
   });
 
 program
+  .command("inject")
+  .description("output session context for harness injection (used by setup hooks)")
+  .option(
+    "--harness <name>",
+    "format output for a specific harness (claude-code|copilot-cli|codex|opencode)"
+  )
+  .option("--scope <scope>", "project scope override (default: auto-detect from git remote)")
+  .action(async (cmdOptions: { harness?: string; scope?: string }) => {
+    try {
+      await injectCommand(cmdOptions);
+    } catch (err) {
+      process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+      process.exit(2);
+    }
+  });
+
+program
   .command("setup")
   .description("detect installed harnesses and write MCP config for each")
   .option("--yes", "skip all confirmation prompts")
@@ -221,9 +240,11 @@ program
     }
 
     const writer = new HarnessConfigWriter();
+    const hookWriter = new InjectionHookWriter();
     const promptHelper = new PromptHelper(autoYes);
     const orchestrator = new SetupOrchestrator({
       writer,
+      hookWriter,
       prompter: (question) => promptHelper.confirm(question),
       modelDownloader: new ModelDownloader(),
     });
