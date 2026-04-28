@@ -1,5 +1,13 @@
 # @membank/cli
 
+## 0.0.2
+
+### Patch Changes
+
+- 6be8fa8: Fixed `--mcp` flag falling through to Commander help output after `startServer()` resolved.
+  - @membank/core@0.0.2
+  - @membank/mcp@0.0.2
+
 ## 0.0.1
 
 ### Patch Changes
