@@ -1,5 +1,13 @@
 export type MemoryType = "correction" | "preference" | "decision" | "learning" | "fact";
 
+export const MEMORY_TYPE_VALUES = [
+  "correction",
+  "preference",
+  "decision",
+  "learning",
+  "fact",
+] as const satisfies readonly MemoryType[];
+
 export interface Memory {
   id: string;
   content: string;

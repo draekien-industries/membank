@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import type { DatabaseManager } from "@membank/core";
+import { MEMORY_TYPE_VALUES } from "@membank/core";
 import type { Formatter } from "../formatter.js";
 import type { PromptHelper } from "../prompt-helper.js";
 import type { ExportFile, ExportRecord } from "./export.js";
 
-const MEMORY_TYPES = new Set(["correction", "preference", "decision", "learning", "fact"]);
+const MEMORY_TYPES = new Set<string>(MEMORY_TYPE_VALUES);
 
 function isValidRecord(r: unknown): r is ExportRecord {
   if (typeof r !== "object" || r === null) return false;

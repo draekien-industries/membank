@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseManager } from "../db/manager.js";
 import type { EmbeddingService } from "../embedding/service.js";
 import type { Memory, MemoryType, SaveOptions } from "../types.js";
+import { MEMORY_TYPE_VALUES } from "../types.js";
 
 interface MemoryRow {
   id: string;
@@ -176,8 +177,10 @@ export class MemoryRepository {
   }
 
   stats(): { byType: Record<MemoryType, number>; total: number; needsReview: number } {
-    const allTypes: MemoryType[] = ["correction", "preference", "decision", "learning", "fact"];
-    const byType = Object.fromEntries(allTypes.map((t) => [t, 0])) as Record<MemoryType, number>;
+    const byType = Object.fromEntries(MEMORY_TYPE_VALUES.map((t) => [t, 0])) as Record<
+      MemoryType,
+      number
+    >;
 
     const typeRows = this.#db.db
       .prepare<[], { type: string; count: number }>(

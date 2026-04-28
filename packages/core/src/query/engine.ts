@@ -18,13 +18,13 @@ interface MemoryRow {
   cosine_sim: number;
 }
 
-const TYPE_WEIGHTS: Record<MemoryType, number> = {
+const TYPE_WEIGHTS = {
   correction: 1.0,
   preference: 0.8,
   decision: 0.6,
   learning: 0.4,
   fact: 0.2,
-};
+} satisfies Record<MemoryType, number>;
 
 export class QueryEngine {
   readonly #db: DatabaseManager;

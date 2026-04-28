@@ -230,8 +230,7 @@ program
     const formatter = Formatter.create().withJson(useJson);
 
     if (cmdOptions.harness !== undefined) {
-      const valid = SUPPORTED_HARNESSES as readonly string[];
-      if (!valid.includes(cmdOptions.harness)) {
+      if (!SUPPORTED_HARNESSES.some((h) => h === cmdOptions.harness)) {
         formatter.error(
           `Unknown harness: "${cmdOptions.harness}". Supported: ${SUPPORTED_HARNESSES.join(", ")}`
         );

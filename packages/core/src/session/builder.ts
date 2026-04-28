@@ -1,5 +1,6 @@
 import type { DatabaseManager } from "../db/manager.js";
 import type { Memory, MemoryType, SessionContext } from "../types.js";
+import { MEMORY_TYPE_VALUES } from "../types.js";
 
 interface MemoryRow {
   id: string;
@@ -20,8 +21,6 @@ interface TypeCountRow {
   count: number;
 }
 
-const MEMORY_TYPES: MemoryType[] = ["correction", "preference", "decision", "learning", "fact"];
-
 function rowToMemory(row: MemoryRow): Memory {
   return {
     id: row.id,
@@ -39,7 +38,7 @@ function rowToMemory(row: MemoryRow): Memory {
 }
 
 export function listMemoryTypes(): MemoryType[] {
-  return [...MEMORY_TYPES];
+  return [...MEMORY_TYPE_VALUES];
 }
 
 export class SessionContextBuilder {
@@ -64,7 +63,10 @@ export class SessionContextBuilder {
       .prepare<[], TypeCountRow>("SELECT type, COUNT(*) as count FROM memories GROUP BY type")
       .all();
 
-    const stats = Object.fromEntries(MEMORY_TYPES.map((t) => [t, 0])) as Record<MemoryType, number>;
+    const stats = Object.fromEntries(MEMORY_TYPE_VALUES.map((t) => [t, 0])) as Record<
+      MemoryType,
+      number
+    >;
     for (const row of typeCounts) {
       if (stats[row.type as MemoryType] !== undefined) {
         stats[row.type as MemoryType] = row.count;

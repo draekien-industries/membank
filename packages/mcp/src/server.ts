@@ -3,6 +3,7 @@ import {
   DatabaseManager,
   EmbeddingService,
   listMemoryTypes,
+  MEMORY_TYPE_VALUES,
   MemoryRepository,
   QueryEngine,
   resolveScope,
@@ -63,7 +64,7 @@ export function createServer(core: CoreServices): Server {
             content: { type: "string", description: "Memory content to save" },
             type: {
               type: "string",
-              enum: ["correction", "preference", "decision", "learning", "fact"],
+              enum: [...MEMORY_TYPE_VALUES],
               description: "Memory type",
             },
             tags: {
@@ -114,7 +115,7 @@ export function createServer(core: CoreServices): Server {
             query: { type: "string", description: "Search text" },
             type: {
               type: "string",
-              enum: ["correction", "preference", "decision", "learning", "fact"],
+              enum: [...MEMORY_TYPE_VALUES],
               description: "Filter by memory type",
             },
             scope: { type: "string", description: "Filter by scope" },
