@@ -35,6 +35,7 @@ paths:
 - `// biome-ignore` is **forbidden** unless there is genuinely no other solution
 - Always resolve the underlying type or lint issue rather than suppressing it
 - If a suppression is truly unavoidable, the comment must explain exactly why no fix is possible
+- you must obey the linter
 
 ## Comments
 
