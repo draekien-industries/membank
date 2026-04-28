@@ -1,5 +1,17 @@
 # @membank/cli
 
+## 0.1.0
+
+### Minor Changes
+
+- f223548: Added memory guidance to inject output so LLMs know when to query, save, update, delete, and pin memories.
+
+### Patch Changes
+
+- e81f965: `inject` now outputs "[Memory Stats]: no memories saved yet" when the database is empty, instead of producing no output.
+  - @membank/core@0.1.0
+  - @membank/mcp@0.1.0
+
 ## 0.0.4
 
 ### Patch Changes

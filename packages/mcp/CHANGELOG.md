@@ -1,5 +1,11 @@
 # @membank/mcp
 
+## 0.1.0
+
+### Patch Changes
+
+- @membank/core@0.1.0
+
 ## 0.0.4
 
 ### Patch Changes
