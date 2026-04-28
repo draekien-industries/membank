@@ -4,3 +4,12 @@ pre-commit:
       glob: "*.{ts,tsx,js,jsx,json}"
       run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
+    test-core:
+      glob: "packages/core/**/*.ts"
+      run: pnpm --filter @membank/core test
+    test-mcp:
+      glob: "packages/mcp/**/*.ts"
+      run: pnpm --filter @membank/mcp test
+    test-cli:
+      glob: "packages/cli/**/*.ts"
+      run: pnpm --filter @membank/cli test
