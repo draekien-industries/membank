@@ -1,10 +1,10 @@
 import { mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { type CommandRunner, execFileNoThrow } from "../utils/execFileNoThrow.js";
 
 export type WriteResult = { status: "written" | "already-configured" };
 
-// Injectable path resolver — defaults to home-relative and cwd-relative paths.
 export interface PathResolver {
   home: () => string;
   cwd: () => string;
@@ -19,10 +19,6 @@ const defaultPathResolver: PathResolver = {
   cwd: () => process.cwd(),
 };
 
-// Shared MCP entry value (same shape for most harnesses)
-const MEMBANK_ENTRY = { command: "npx", args: ["@membank/cli", "--mcp"] } as const;
-
-// Read existing JSON from a file, returning an empty object when missing.
 function readJson(path: string): Record<string, unknown> {
   try {
     return JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
@@ -31,7 +27,6 @@ function readJson(path: string): Record<string, unknown> {
   }
 }
 
-// Write JSON to `path` atomically via a sibling temp file + rename.
 function writeJsonAtomic(path: string, data: Record<string, unknown>): void {
   mkdirSync(dirname(path), { recursive: true });
   const tmp = join(mkdtempSync(join(tmpdir(), "membank-")), "cfg.json");
@@ -39,8 +34,6 @@ function writeJsonAtomic(path: string, data: Record<string, unknown>): void {
   renameSync(tmp, path);
 }
 
-// Check whether a nested key inside a container object already points to the
-// membank entry (we only need to verify the key exists — content may drift).
 function hasKey(container: unknown, key: string): boolean {
   return (
     container !== null &&
@@ -49,59 +42,134 @@ function hasKey(container: unknown, key: string): boolean {
   );
 }
 
-export interface HarnessWriter {
-  configPath: (resolver: PathResolver) => string;
-  isConfigured: (config: Record<string, unknown>) => boolean;
-  merge: (config: Record<string, unknown>) => Record<string, unknown>;
+// Throws a user-friendly error if the CLI was not found in PATH.
+function assertCliFound(result: { exitCode: number; stderr: string }, cli: string): void {
+  if (result.exitCode === 127) {
+    throw new Error(`${cli} CLI not found — install ${cli} first`);
+  }
+}
+
+const MEMBANK_NPX_ARGS = ["npx", "@membank/cli@latest", "--mcp"] as const;
+
+interface HarnessWriter {
+  write(
+    resolver: PathResolver,
+    run: CommandRunner,
+    opts: { overwrite?: boolean }
+  ): Promise<WriteResult>;
 }
 
 const writers: Record<string, HarnessWriter> = {
   "claude-code": {
-    configPath: (r) => join(r.home(), ".claude", "settings.json"),
-    isConfigured: (cfg) => hasKey(cfg["mcpServers"], "membank"),
-    merge: (cfg) => ({
-      ...cfg,
-      mcpServers: {
-        ...(cfg["mcpServers"] as Record<string, unknown> | undefined),
-        membank: MEMBANK_ENTRY,
-      },
-    }),
+    async write(resolver, run, { overwrite = false } = {}) {
+      const cfgPath = join(resolver.home(), ".claude.json");
+      const cfg = readJson(cfgPath);
+      const configured = hasKey(cfg["mcpServers"], "membank");
+
+      if (configured && !overwrite) return { status: "already-configured" };
+
+      if (configured) {
+        const remove = await run("claude", ["mcp", "remove", "--scope", "user", "membank"]);
+        assertCliFound(remove, "claude");
+        if (remove.exitCode !== 0) {
+          throw new Error(`claude mcp remove failed: ${remove.stderr}`);
+        }
+      }
+
+      const add = await run("claude", [
+        "mcp",
+        "add",
+        "--scope",
+        "user",
+        "membank",
+        "--",
+        ...MEMBANK_NPX_ARGS,
+      ]);
+      assertCliFound(add, "claude");
+      if (add.exitCode !== 0) {
+        throw new Error(`claude mcp add failed: ${add.stderr || add.stdout}`);
+      }
+      return { status: "written" };
+    },
   },
 
   vscode: {
-    configPath: (r) => join(r.cwd(), ".vscode", "mcp.json"),
-    isConfigured: (cfg) => hasKey(cfg["servers"], "membank"),
-    merge: (cfg) => ({
-      ...cfg,
-      servers: {
-        ...(cfg["servers"] as Record<string, unknown> | undefined),
-        membank: MEMBANK_ENTRY,
-      },
-    }),
+    async write(resolver, run, { overwrite = false } = {}) {
+      const cfgPath = join(resolver.cwd(), ".vscode", "mcp.json");
+      const cfg = readJson(cfgPath);
+      const configured = hasKey(cfg["servers"], "membank");
+
+      if (configured && !overwrite) return { status: "already-configured" };
+
+      if (configured) {
+        // No native remove command — update the JSON file directly for overwrites.
+        writeJsonAtomic(cfgPath, {
+          ...cfg,
+          servers: {
+            ...(cfg["servers"] as Record<string, unknown> | undefined),
+            membank: { command: "npx", args: ["@membank/cli@latest", "--mcp"] },
+          },
+        });
+        return { status: "written" };
+      }
+
+      const payload = JSON.stringify({
+        name: "membank",
+        command: "npx",
+        args: ["@membank/cli@latest", "--mcp"],
+      });
+      const result = await run("code", ["--folder-uri", resolver.cwd(), "--add-mcp", payload]);
+      assertCliFound(result, "code");
+      if (result.exitCode !== 0) {
+        throw new Error(`code --add-mcp failed: ${result.stderr || result.stdout}`);
+      }
+      return { status: "written" };
+    },
   },
 
   codex: {
-    configPath: (r) => join(r.home(), ".codex", "config.json"),
-    isConfigured: (cfg) => hasKey(cfg["mcpServers"], "membank"),
-    merge: (cfg) => ({
-      ...cfg,
-      mcpServers: {
-        ...(cfg["mcpServers"] as Record<string, unknown> | undefined),
-        membank: MEMBANK_ENTRY,
-      },
-    }),
+    async write(_resolver, run, { overwrite = false } = {}) {
+      const list = await run("codex", ["mcp", "list"]);
+      assertCliFound(list, "codex");
+      const configured = list.exitCode === 0 && list.stdout.includes("membank");
+
+      if (configured && !overwrite) return { status: "already-configured" };
+
+      if (configured) {
+        const remove = await run("codex", ["mcp", "remove", "membank"]);
+        assertCliFound(remove, "codex");
+        if (remove.exitCode !== 0) {
+          throw new Error(`codex mcp remove failed: ${remove.stderr}`);
+        }
+      }
+
+      const add = await run("codex", ["mcp", "add", "membank", "--", ...MEMBANK_NPX_ARGS]);
+      assertCliFound(add, "codex");
+      if (add.exitCode !== 0) {
+        throw new Error(`codex mcp add failed: ${add.stderr || add.stdout}`);
+      }
+      return { status: "written" };
+    },
   },
 
   opencode: {
-    configPath: (r) => join(r.home(), ".config", "opencode", "config.json"),
-    isConfigured: (cfg) => hasKey(cfg["mcp"], "membank"),
-    merge: (cfg) => ({
-      ...cfg,
-      mcp: {
-        ...(cfg["mcp"] as Record<string, unknown> | undefined),
-        membank: MEMBANK_ENTRY,
-      },
-    }),
+    async write(resolver, _run, { overwrite = false } = {}) {
+      const cfgPath = join(resolver.home(), ".config", "opencode", "opencode.json");
+      const cfg = readJson(cfgPath);
+      const configured = hasKey(cfg["mcp"], "membank");
+
+      if (configured && !overwrite) return { status: "already-configured" };
+
+      writeJsonAtomic(cfgPath, {
+        ...cfg,
+        mcp: {
+          ...(cfg["mcp"] as Record<string, unknown> | undefined),
+          // OpenCode requires type:"local" and command as an array.
+          membank: { type: "local", command: ["npx", "@membank/cli@latest", "--mcp"] },
+        },
+      });
+      return { status: "written" };
+    },
   },
 };
 
@@ -109,24 +177,19 @@ export const SUPPORTED_HARNESSES = Object.keys(writers) as (keyof typeof writers
 
 export class HarnessConfigWriter {
   readonly #resolver: PathResolver;
+  readonly #run: CommandRunner;
 
-  constructor(resolver: PathResolver = defaultPathResolver) {
+  constructor(resolver: PathResolver = defaultPathResolver, run: CommandRunner = execFileNoThrow) {
     this.#resolver = resolver;
+    this.#run = run;
   }
 
-  write(harness: string, { overwrite = false }: { overwrite?: boolean } = {}): WriteResult {
+  async write(
+    harness: string,
+    { overwrite = false }: { overwrite?: boolean } = {}
+  ): Promise<WriteResult> {
     const writer = writers[harness];
     if (!writer) throw new Error(`Unknown harness: ${harness}`);
-
-    const path = writer.configPath(this.#resolver);
-    const existing = readJson(path);
-
-    if (!overwrite && writer.isConfigured(existing)) {
-      return { status: "already-configured" };
-    }
-
-    const merged = writer.merge(existing);
-    writeJsonAtomic(path, merged);
-    return { status: "written" };
+    return writer.write(this.#resolver, this.#run, { overwrite });
   }
 }

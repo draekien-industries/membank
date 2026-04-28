@@ -130,7 +130,7 @@ export class SetupOrchestrator {
       let writeResult: { status: "written" | "already-configured" } | undefined;
 
       try {
-        writeResult = this.#writer.write(h.name);
+        writeResult = await this.#writer.write(h.name);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         out(`  ✗ ${h.name}: ${msg}`);
@@ -151,7 +151,7 @@ export class SetupOrchestrator {
         }
 
         try {
-          this.#writer.write(h.name, { overwrite: true });
+          await this.#writer.write(h.name, { overwrite: true });
           out(`  ✓ ${h.name}: written (overwritten)`);
           results.push({ harness: h.name, status: "written" });
         } catch (err) {

@@ -14,7 +14,19 @@ function touch(filePath: string): void {
 }
 
 describe("detectHarnesses", () => {
-  it("detects claude-code when ~/.claude/settings.json exists", () => {
+  it("detects claude-code when ~/.claude.json exists", () => {
+    const home = makeTempDir();
+    const cwd = makeTempDir();
+    touch(join(home, ".claude.json"));
+
+    const results = detectHarnesses({ homeDir: () => home, cwd: () => cwd });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.name).toBe("claude-code");
+    expect(results[0]?.configPath).toBe(join(home, ".claude.json"));
+  });
+
+  it("detects claude-code via legacy ~/.claude/settings.json fallback", () => {
     const home = makeTempDir();
     const cwd = makeTempDir();
     touch(join(home, ".claude", "settings.json"));
@@ -23,7 +35,8 @@ describe("detectHarnesses", () => {
 
     expect(results).toHaveLength(1);
     expect(results[0]?.name).toBe("claude-code");
-    expect(results[0]?.configPath).toBe(join(home, ".claude", "settings.json"));
+    // configPath always points to the canonical location, not the legacy fallback
+    expect(results[0]?.configPath).toBe(join(home, ".claude.json"));
   });
 
   it("detects vscode when .vscode/mcp.json exists in cwd", () => {
@@ -38,7 +51,19 @@ describe("detectHarnesses", () => {
     expect(results[0]?.configPath).toBe(join(cwd, ".vscode", "mcp.json"));
   });
 
-  it("detects codex when ~/.codex/config.json exists", () => {
+  it("detects codex when ~/.codex/config.toml exists", () => {
+    const home = makeTempDir();
+    const cwd = makeTempDir();
+    touch(join(home, ".codex", "config.toml"));
+
+    const results = detectHarnesses({ homeDir: () => home, cwd: () => cwd });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.name).toBe("codex");
+    expect(results[0]?.configPath).toBe(join(home, ".codex", "config.toml"));
+  });
+
+  it("detects codex via legacy ~/.codex/config.json fallback", () => {
     const home = makeTempDir();
     const cwd = makeTempDir();
     touch(join(home, ".codex", "config.json"));
@@ -47,10 +72,22 @@ describe("detectHarnesses", () => {
 
     expect(results).toHaveLength(1);
     expect(results[0]?.name).toBe("codex");
-    expect(results[0]?.configPath).toBe(join(home, ".codex", "config.json"));
+    expect(results[0]?.configPath).toBe(join(home, ".codex", "config.toml"));
   });
 
-  it("detects opencode when ~/.config/opencode/config.json exists", () => {
+  it("detects opencode when ~/.config/opencode/opencode.json exists", () => {
+    const home = makeTempDir();
+    const cwd = makeTempDir();
+    touch(join(home, ".config", "opencode", "opencode.json"));
+
+    const results = detectHarnesses({ homeDir: () => home, cwd: () => cwd });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.name).toBe("opencode");
+    expect(results[0]?.configPath).toBe(join(home, ".config", "opencode", "opencode.json"));
+  });
+
+  it("detects opencode via legacy ~/.config/opencode/config.json fallback", () => {
     const home = makeTempDir();
     const cwd = makeTempDir();
     touch(join(home, ".config", "opencode", "config.json"));
@@ -59,7 +96,7 @@ describe("detectHarnesses", () => {
 
     expect(results).toHaveLength(1);
     expect(results[0]?.name).toBe("opencode");
-    expect(results[0]?.configPath).toBe(join(home, ".config", "opencode", "config.json"));
+    expect(results[0]?.configPath).toBe(join(home, ".config", "opencode", "opencode.json"));
   });
 
   it("returns empty array when no harness config files exist", () => {
@@ -74,10 +111,10 @@ describe("detectHarnesses", () => {
   it("detects all 4 harnesses when all config files exist", () => {
     const home = makeTempDir();
     const cwd = makeTempDir();
-    touch(join(home, ".claude", "settings.json"));
+    touch(join(home, ".claude.json"));
     touch(join(cwd, ".vscode", "mcp.json"));
-    touch(join(home, ".codex", "config.json"));
-    touch(join(home, ".config", "opencode", "config.json"));
+    touch(join(home, ".codex", "config.toml"));
+    touch(join(home, ".config", "opencode", "opencode.json"));
 
     const results = detectHarnesses({ homeDir: () => home, cwd: () => cwd });
 
@@ -92,9 +129,8 @@ describe("detectHarnesses", () => {
   it("detects only present harnesses when a subset of configs exist", () => {
     const home = makeTempDir();
     const cwd = makeTempDir();
-    touch(join(home, ".claude", "settings.json"));
-    touch(join(home, ".codex", "config.json"));
-    // vscode and opencode NOT created
+    touch(join(home, ".claude.json"));
+    touch(join(home, ".codex", "config.toml"));
 
     const results = detectHarnesses({ homeDir: () => home, cwd: () => cwd });
 
@@ -109,11 +145,11 @@ describe("detectHarnesses", () => {
   it("each result includes the resolved absolute configPath", () => {
     const home = makeTempDir();
     const cwd = makeTempDir();
-    touch(join(home, ".claude", "settings.json"));
+    touch(join(home, ".claude.json"));
 
     const results = detectHarnesses({ homeDir: () => home, cwd: () => cwd });
 
-    expect(results[0]?.configPath).toMatch(/settings\.json$/);
+    expect(results[0]?.configPath).toMatch(/\.claude\.json$/);
     expect(results[0]?.configPath.startsWith(home)).toBe(true);
   });
 });
