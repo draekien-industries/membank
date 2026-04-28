@@ -1,5 +1,11 @@
 # @membank/core
 
+## 0.1.1
+
+### Patch Changes
+
+- bf48969: Bump version to fix publish conflict with previously published 0.1.0.
+
 ## 0.1.0
 
 ## 0.0.4

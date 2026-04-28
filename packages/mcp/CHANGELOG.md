@@ -1,5 +1,12 @@
 # @membank/mcp
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [bf48969]
+  - @membank/core@0.1.1
+
 ## 0.1.0
 
 ### Patch Changes
