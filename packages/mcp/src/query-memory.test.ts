@@ -94,7 +94,7 @@ describe("query_memory tool", () => {
 
     // Results must be sorted descending by score
     for (let i = 0; i < parsed.length - 1; i++) {
-      expect(parsed[i]!.score).toBeGreaterThanOrEqual(parsed[i + 1]!.score);
+      expect(parsed[i]?.score).toBeGreaterThanOrEqual(parsed[i + 1]?.score);
     }
   });
 

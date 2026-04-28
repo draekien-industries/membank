@@ -197,9 +197,9 @@ describe("vscode", () => {
     // CLI should NOT be invoked for overwrite
     expect(run).not.toHaveBeenCalled();
     const cfg = readJson(vscodePath(dir));
-    const servers = cfg["servers"] as Record<string, unknown>;
-    expect(servers["other"]).toBeDefined();
-    const membank = servers["membank"] as { command: string; args: string[] };
+    const servers = cfg.servers as Record<string, unknown>;
+    expect(servers.other).toBeDefined();
+    const membank = servers.membank as { command: string; args: string[] };
     expect(membank.command).toBe("npx");
   });
 
@@ -286,7 +286,7 @@ describe("opencode", () => {
     expect(result.status).toBe("written");
 
     const cfg = readJson(opencodePath(dir));
-    const entry = (cfg["mcp"] as Record<string, unknown>)["membank"] as {
+    const entry = (cfg.mcp as Record<string, unknown>).membank as {
       type: string;
       command: string[];
     };
@@ -306,9 +306,9 @@ describe("opencode", () => {
       mcp: { existing: { type: "local", command: ["z", "--run"] } },
     });
     await writer.write("opencode");
-    const mcp = readJson(opencodePath(dir))["mcp"] as Record<string, unknown>;
-    expect(mcp["existing"]).toBeDefined();
-    expect(mcp["membank"]).toBeDefined();
+    const mcp = readJson(opencodePath(dir)).mcp as Record<string, unknown>;
+    expect(mcp.existing).toBeDefined();
+    expect(mcp.membank).toBeDefined();
   });
 
   it("returns already-configured when mcp.membank present", async () => {
@@ -325,7 +325,7 @@ describe("opencode", () => {
     });
     const result = await writer.write("opencode", { overwrite: true });
     expect(result.status).toBe("written");
-    const entry = (readJson(opencodePath(dir))["mcp"] as Record<string, unknown>)["membank"] as {
+    const entry = (readJson(opencodePath(dir)).mcp as Record<string, unknown>).membank as {
       command: string[];
     };
     expect(entry.command).toContain("@membank/cli@latest");

@@ -12,7 +12,7 @@ export interface PathResolver {
 
 const defaultPathResolver: PathResolver = {
   home: () => {
-    const h = process.env["HOME"] ?? process.env["USERPROFILE"];
+    const h = process.env.HOME ?? process.env.USERPROFILE;
     if (!h) throw new Error("Cannot determine home directory");
     return h;
   },
@@ -64,7 +64,7 @@ const writers: Record<string, HarnessWriter> = {
     async write(resolver, run, { overwrite = false } = {}) {
       const cfgPath = join(resolver.home(), ".claude.json");
       const cfg = readJson(cfgPath);
-      const configured = hasKey(cfg["mcpServers"], "membank");
+      const configured = hasKey(cfg.mcpServers, "membank");
 
       if (configured && !overwrite) return { status: "already-configured" };
 
@@ -97,7 +97,7 @@ const writers: Record<string, HarnessWriter> = {
     async write(resolver, run, { overwrite = false } = {}) {
       const cfgPath = join(resolver.cwd(), ".vscode", "mcp.json");
       const cfg = readJson(cfgPath);
-      const configured = hasKey(cfg["servers"], "membank");
+      const configured = hasKey(cfg.servers, "membank");
 
       if (configured && !overwrite) return { status: "already-configured" };
 
@@ -106,7 +106,7 @@ const writers: Record<string, HarnessWriter> = {
         writeJsonAtomic(cfgPath, {
           ...cfg,
           servers: {
-            ...(cfg["servers"] as Record<string, unknown> | undefined),
+            ...(cfg.servers as Record<string, unknown> | undefined),
             membank: { command: "npx", args: ["@membank/cli@latest", "--mcp"] },
           },
         });
@@ -156,14 +156,14 @@ const writers: Record<string, HarnessWriter> = {
     async write(resolver, _run, { overwrite = false } = {}) {
       const cfgPath = join(resolver.home(), ".config", "opencode", "opencode.json");
       const cfg = readJson(cfgPath);
-      const configured = hasKey(cfg["mcp"], "membank");
+      const configured = hasKey(cfg.mcp, "membank");
 
       if (configured && !overwrite) return { status: "already-configured" };
 
       writeJsonAtomic(cfgPath, {
         ...cfg,
         mcp: {
-          ...(cfg["mcp"] as Record<string, unknown> | undefined),
+          ...(cfg.mcp as Record<string, unknown> | undefined),
           // OpenCode requires type:"local" and command as an array.
           membank: { type: "local", command: ["npx", "@membank/cli@latest", "--mcp"] },
         },

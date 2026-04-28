@@ -10,20 +10,20 @@ function isValidRecord(r: unknown): r is ExportRecord {
   if (typeof r !== "object" || r === null) return false;
   const rec = r as Record<string, unknown>;
   return (
-    typeof rec["id"] === "string" &&
-    rec["id"].length > 0 &&
-    typeof rec["content"] === "string" &&
-    typeof rec["type"] === "string" &&
-    MEMORY_TYPES.has(rec["type"]) &&
-    typeof rec["scope"] === "string" &&
-    rec["scope"].length > 0
+    typeof rec.id === "string" &&
+    rec.id.length > 0 &&
+    typeof rec.content === "string" &&
+    typeof rec.type === "string" &&
+    MEMORY_TYPES.has(rec.type) &&
+    typeof rec.scope === "string" &&
+    rec.scope.length > 0
   );
 }
 
 function isExportFile(parsed: unknown): parsed is ExportFile {
   if (typeof parsed !== "object" || parsed === null) return false;
   const obj = parsed as Record<string, unknown>;
-  return obj["version"] === 1 && Array.isArray(obj["memories"]);
+  return obj.version === 1 && Array.isArray(obj.memories);
 }
 
 export async function importCommand(

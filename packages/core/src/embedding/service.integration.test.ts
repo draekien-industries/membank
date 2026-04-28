@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EmbeddingService } from "./service.js";
 
-const runIntegration = process.env["MEMBANK_INTEGRATION"] === "true";
+const runIntegration = process.env.MEMBANK_INTEGRATION === "true";
 
 describe.skipIf(!runIntegration)("EmbeddingService — integration (real model)", () => {
   it("loads the model and returns Float32Array[384]", async () => {
