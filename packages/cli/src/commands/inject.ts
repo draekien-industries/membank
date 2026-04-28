@@ -3,6 +3,9 @@ import { DatabaseManager, resolveScope, SessionContextBuilder } from "@membank/c
 
 const SUPPORTED_INJECTION_HARNESSES = ["claude-code", "copilot-cli", "codex", "opencode"] as const;
 
+const MEMORY_GUIDANCE =
+  "[Memory Guidance]: query_memory before answering on topics where past preferences, corrections, or decisions may apply; save_memory when user corrects you, states a preference, makes a decision, or shares something worth retaining across sessions; update_memory to refine an existing memory (query first to find it) or to set pinned=true/false; delete_memory when a memory is wrong or no longer relevant; pin high-value memories that should always appear at session start";
+
 type InjectionHarness = (typeof SUPPORTED_INJECTION_HARNESSES)[number];
 
 function formatContext(ctx: SessionContext): string {
@@ -27,6 +30,8 @@ function formatContext(ctx: SessionContext): string {
   for (const m of ctx.pinnedProject) {
     lines.push(`[Pinned Project]: ${formatMemory(m)}`);
   }
+
+  lines.push(MEMORY_GUIDANCE);
 
   return lines.join("\n");
 }
