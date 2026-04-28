@@ -95,6 +95,14 @@ Write the description in past tense, one sentence: what changed and why it matte
 
 **Skip only:** pure docs/test changes with no runtime effect, or changes scoped entirely to `@membank/dash` (stub, not published).
 
+## Release cycle
+
+1. Feature PRs merged to `main` → CI creates/updates a `chore: version packages` PR (branch `changeset-release/main`) that batches all pending changesets
+2. That version PR open/updated → CI publishes an `rc` prerelease snapshot to npm and creates GitHub prereleases (marked pre-release)
+3. Merge the version PR → CI publishes the stable release to npm and creates GitHub releases
+
+Changelog and release notes are generated automatically by changesets from the changeset descriptions — do not write them manually.
+
 ## Subagent worktree cleanup
 
 After any wave of subagents using `isolation: "worktree"`, clean up leftover worktrees:
