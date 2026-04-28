@@ -37,8 +37,17 @@ membank delete <id>
 membank stats                              # storage and usage stats
 membank export > memories.json
 membank import < memories.json
-membank setup                              # configure MCP server
+membank setup                              # configure MCP server + injection hooks
+membank inject                             # output session context (called by hooks)
+membank inject --harness claude-code       # format output for a specific harness
+membank inject --scope <scope>            # override project scope (default: auto from git)
 ```
+
+### Injection hooks
+
+`setup` writes a session-start hook into your harness config so memories are injected automatically into every new session. Supported harnesses: `claude-code`, `copilot-cli`, `codex`, `opencode`.
+
+The hook calls `membank inject --harness <name>`, which outputs pinned global and project memories formatted for that harness. You can run `inject` manually to inspect what would be injected.
 
 ## MCP tools
 
