@@ -59,6 +59,7 @@ describe("save_memory tool", () => {
     });
 
     expect(result.content).toHaveLength(1);
+    if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     expect(block).toMatchObject({ type: "text" });
 
@@ -92,6 +93,7 @@ describe("save_memory tool", () => {
       arguments: { content: "always use strict mode", type: "preference" },
     });
 
+    if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     const memory = JSON.parse((block as { type: string; text: string }).text) as {
       scope: string;
@@ -111,6 +113,7 @@ describe("save_memory tool", () => {
       arguments: { content: "use biome for linting", type: "fact", scope: "my-project" },
     });
 
+    if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     const memory = JSON.parse((block as { type: string; text: string }).text) as {
       scope: string;
@@ -132,6 +135,7 @@ describe("save_memory tool", () => {
       },
     });
 
+    if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     const memory = JSON.parse((block as { type: string; text: string }).text) as {
       tags: string[];
@@ -154,6 +158,7 @@ describe("save_memory tool", () => {
       },
     });
 
+    if ("toolResult" in first) throw new Error("unreachable");
     const [firstBlock] = first.content;
     const firstMemory = JSON.parse((firstBlock as { type: string; text: string }).text) as {
       id: string;
@@ -169,6 +174,7 @@ describe("save_memory tool", () => {
       },
     });
 
+    if ("toolResult" in second) throw new Error("unreachable");
     const [secondBlock] = second.content;
     const secondMemory = JSON.parse((secondBlock as { type: string; text: string }).text) as {
       id: string;

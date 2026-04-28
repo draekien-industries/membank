@@ -65,6 +65,7 @@ describe("list_memory_types tool", () => {
 
     const result = await session.client.callTool({ name: "list_memory_types", arguments: {} });
     expect(result.content).toHaveLength(1);
+    if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     expect(block).toMatchObject({ type: "text" });
     const parsed = JSON.parse((block as { type: string; text: string }).text);

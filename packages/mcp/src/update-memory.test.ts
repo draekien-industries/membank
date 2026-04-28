@@ -30,10 +30,16 @@ async function startInProcess(): Promise<{
   };
 }
 
-type TextBlock = { type: string; text: string };
+type CallResult = Awaited<ReturnType<Client["callTool"]>>;
+type TextBlock = Extract<
+  Extract<CallResult, { content: unknown }>["content"][number],
+  { type: "text" }
+>;
 
-function parseText<T>(result: { content: unknown }): T {
-  const [block] = result.content as TextBlock[];
+function parseText<T>(result: CallResult): T {
+  if ("toolResult" in result) throw new Error("unreachable");
+  const [block] = result.content;
+  if (block?.type !== "text") throw new Error("unreachable");
   return JSON.parse(block.text) as T;
 }
 
@@ -111,7 +117,7 @@ describe("update_memory tool", () => {
 
     expect(result.isError).toBe(true);
     const [block] = result.content as TextBlock[];
-    expect(block.text).toMatch(/does-not-exist/);
+    expect(block!.text).toMatch(/does-not-exist/);
   });
 
   it("missing id returns a structured MCP error", async () => {

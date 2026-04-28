@@ -68,6 +68,7 @@ describe("query_memory tool", () => {
     });
 
     expect(result.content).toHaveLength(1);
+    if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     expect(block).toMatchObject({ type: "text" });
 
@@ -94,7 +95,7 @@ describe("query_memory tool", () => {
 
     // Results must be sorted descending by score
     for (let i = 0; i < parsed.length - 1; i++) {
-      expect(parsed[i]?.score).toBeGreaterThanOrEqual(parsed[i + 1]?.score);
+      expect(parsed[i]!.score).toBeGreaterThanOrEqual(parsed[i + 1]!.score);
     }
   });
 
@@ -113,6 +114,7 @@ describe("query_memory tool", () => {
       arguments: { query: "indentation style choice", type: "decision" },
     });
 
+    if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     const parsed = JSON.parse((block as { type: string; text: string }).text) as Array<{
       type: string;
@@ -144,6 +146,7 @@ describe("query_memory tool", () => {
       arguments: { query: "linting tool configuration", scope: "project-abc" },
     });
 
+    if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     const parsed = JSON.parse((block as { type: string; text: string }).text) as Array<{
       scope: string;
@@ -172,6 +175,7 @@ describe("query_memory tool", () => {
       arguments: { query: "javascript async patterns", limit: 2 },
     });
 
+    if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     const parsed = JSON.parse((block as { type: string; text: string }).text) as unknown[];
 
@@ -194,6 +198,7 @@ describe("query_memory tool", () => {
       arguments: { query: "node.js runtime" },
     });
 
+    if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     const parsed = JSON.parse((block as { type: string; text: string }).text) as unknown[];
 
