@@ -14,6 +14,8 @@ function formatContext(ctx: SessionContext): string {
 
   if (statParts.length > 0) {
     lines.push(`[Memory Stats]: ${statParts.join(", ")}`);
+  } else {
+    lines.push("[Memory Stats]: no memories saved yet");
   }
 
   const formatMemory = (m: Memory) => `"${m.content}" (${m.type})`;
