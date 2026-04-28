@@ -249,4 +249,6 @@ program.on("command:*", () => {
   process.exit(1);
 });
 
-program.parse(process.argv);
+if (!process.argv.includes("--mcp")) {
+  program.parse(process.argv);
+}
