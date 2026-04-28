@@ -28,6 +28,7 @@ paths:
 - Use `as const` for readonly arrays, objects, and string literals — preserves literal types and prevents accidental mutation
 - Use `satisfies` to validate a value against a type without widening it — prefer `satisfies` over type annotations when you need inference to flow through (e.g. `const config = { ... } satisfies Config`)
 - Combine `as const satisfies T` when you need both literal narrowing and shape validation
+- Prefer built-in type helpers over custom utility types — use `ReturnType<>`, `Parameters<>`, `Awaited<>`, `InstanceType<>`, `ConstructorParameters<>`, `keyof`, `typeof`, indexed access (`T["key"]`), and mapped/conditional types to extract types from existing code rather than redeclaring them
 
 ## Lint suppression
 
