@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export type HarnessName = "claude-code" | "vscode" | "codex" | "opencode";
+export type HarnessName = "claude-code" | "copilot" | "codex" | "opencode";
 
 export interface DetectedHarness {
   name: HarnessName;
@@ -11,12 +11,10 @@ export interface DetectedHarness {
 
 export interface PathResolver {
   homeDir: () => string;
-  cwd: () => string;
 }
 
 const defaultResolver: PathResolver = {
   homeDir: homedir,
-  cwd: () => process.cwd(),
 };
 
 interface HarnessConfig {
@@ -29,7 +27,6 @@ interface HarnessConfig {
 
 function harnessConfigs(resolver: PathResolver): HarnessConfig[] {
   const home = resolver.homeDir();
-  const cwd = resolver.cwd();
   return [
     {
       name: "claude-code",
@@ -38,8 +35,8 @@ function harnessConfigs(resolver: PathResolver): HarnessConfig[] {
       fallbackPaths: [join(home, ".claude", "settings.json")],
     },
     {
-      name: "vscode",
-      configPath: join(cwd, ".vscode", "mcp.json"),
+      name: "copilot",
+      configPath: join(home, ".copilot", "mcp-config.json"),
     },
     {
       name: "codex",

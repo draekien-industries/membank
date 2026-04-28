@@ -57,12 +57,12 @@ describe("no harnesses detected", () => {
 describe("detection output", () => {
   it("lists each detected harness before writing", async () => {
     const { orchestrator, lines } = makeOrchestrator({
-      detected: [makeHarness("claude-code"), makeHarness("vscode")],
+      detected: [makeHarness("claude-code"), makeHarness("copilot")],
     });
     await orchestrator.run({ yes: true });
 
     expect(lines.some((l) => l.includes("claude-code"))).toBe(true);
-    expect(lines.some((l) => l.includes("vscode"))).toBe(true);
+    expect(lines.some((l) => l.includes("copilot"))).toBe(true);
   });
 });
 
@@ -149,10 +149,10 @@ describe("writing results", () => {
       "claude-code": () => {
         throw new Error("fail");
       },
-      vscode: { status: "written" },
+      copilot: { status: "written" },
     });
     const { orchestrator } = makeOrchestrator({
-      detected: [makeHarness("claude-code"), makeHarness("vscode")],
+      detected: [makeHarness("claude-code"), makeHarness("copilot")],
       writer,
     });
 
@@ -226,7 +226,7 @@ describe("--dry-run", () => {
   it("prints planned changes without calling writer.write", async () => {
     const writer = makeWriter();
     const { orchestrator, lines } = makeOrchestrator({
-      detected: [makeHarness("claude-code"), makeHarness("vscode")],
+      detected: [makeHarness("claude-code"), makeHarness("copilot")],
       writer,
     });
 
@@ -256,12 +256,12 @@ describe("final summary", () => {
   it("prints a summary with written and error counts", async () => {
     const writer = makeWriter({
       "claude-code": { status: "written" },
-      vscode: () => {
+      copilot: () => {
         throw new Error("fail");
       },
     });
     const { orchestrator, lines } = makeOrchestrator({
-      detected: [makeHarness("claude-code"), makeHarness("vscode")],
+      detected: [makeHarness("claude-code"), makeHarness("copilot")],
       writer,
     });
 
@@ -304,7 +304,7 @@ describe("model downloader injection", () => {
 
 describe("--harness flag", () => {
   it("configures only the named harness, skipping detection", async () => {
-    const detectorFn = vi.fn().mockReturnValue([makeHarness("vscode"), makeHarness("codex")]);
+    const detectorFn = vi.fn().mockReturnValue([makeHarness("copilot"), makeHarness("codex")]);
     const writer = makeWriter({ "claude-code": { status: "written" } });
     const lines: string[] = [];
     const orchestrator = new SetupOrchestrator({
@@ -324,10 +324,10 @@ describe("--harness flag", () => {
   it("writes only the targeted harness when others are also installed", async () => {
     const writer = makeWriter({
       "claude-code": { status: "written" },
-      vscode: { status: "written" },
+      copilot: { status: "written" },
     });
     const { orchestrator } = makeOrchestrator({
-      detected: [makeHarness("vscode")],
+      detected: [makeHarness("copilot")],
       writer,
     });
 
@@ -376,12 +376,12 @@ describe("--json output", () => {
   it("JSON shape includes detectedHarnesses, configuredHarnesses, modelDownloaded", async () => {
     const writer = makeWriter({
       "claude-code": { status: "written" },
-      vscode: () => {
+      copilot: () => {
         throw new Error("fail");
       },
     });
     const { orchestrator, lines } = makeOrchestrator({
-      detected: [makeHarness("claude-code"), makeHarness("vscode")],
+      detected: [makeHarness("claude-code"), makeHarness("copilot")],
       writer,
     });
 
@@ -392,7 +392,7 @@ describe("--json output", () => {
       configuredHarnesses: string[];
       modelDownloaded: boolean;
     };
-    expect(parsed.detectedHarnesses).toEqual(["claude-code", "vscode"]);
+    expect(parsed.detectedHarnesses).toEqual(["claude-code", "copilot"]);
     expect(parsed.configuredHarnesses).toEqual(["claude-code"]);
     expect(parsed.modelDownloaded).toBe(false);
   });
@@ -417,22 +417,22 @@ describe("partial failure reporting", () => {
   it("returns error status for failed harness alongside written status for successful one", async () => {
     const writer = makeWriter({
       "claude-code": { status: "written" },
-      vscode: () => {
+      copilot: () => {
         throw new Error("permission denied");
       },
     });
     const { orchestrator } = makeOrchestrator({
-      detected: [makeHarness("claude-code"), makeHarness("vscode")],
+      detected: [makeHarness("claude-code"), makeHarness("copilot")],
       writer,
     });
 
     const results = await orchestrator.run({ yes: true });
 
     const claudeResult = results.find((r) => r.harness === "claude-code");
-    const vscodeResult = results.find((r) => r.harness === "vscode");
+    const copilotResult = results.find((r) => r.harness === "copilot");
     expect(claudeResult?.status).toBe("written");
-    expect(vscodeResult?.status).toBe("error");
-    expect(vscodeResult?.error).toContain("permission denied");
+    expect(copilotResult?.status).toBe("error");
+    expect(copilotResult?.error).toContain("permission denied");
   });
 
   it("includes error reason in each failed result", async () => {
@@ -455,12 +455,12 @@ describe("partial failure reporting", () => {
   it("returns results that the CLI can inspect to determine non-zero exit", async () => {
     const writer = makeWriter({
       "claude-code": { status: "written" },
-      vscode: () => {
+      copilot: () => {
         throw new Error("fail");
       },
     });
     const { orchestrator } = makeOrchestrator({
-      detected: [makeHarness("claude-code"), makeHarness("vscode")],
+      detected: [makeHarness("claude-code"), makeHarness("copilot")],
       writer,
     });
 

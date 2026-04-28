@@ -25,7 +25,7 @@ describe("setup --harness flag validation", () => {
 
   it("SUPPORTED_HARNESSES includes all four expected harness names", () => {
     expect(SUPPORTED_HARNESSES).toContain("claude-code");
-    expect(SUPPORTED_HARNESSES).toContain("vscode");
+    expect(SUPPORTED_HARNESSES).toContain("copilot");
     expect(SUPPORTED_HARNESSES).toContain("codex");
     expect(SUPPORTED_HARNESSES).toContain("opencode");
   });

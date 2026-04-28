@@ -93,36 +93,21 @@ const writers: Record<string, HarnessWriter> = {
     },
   },
 
-  vscode: {
-    async write(resolver, run, { overwrite = false } = {}) {
-      const cfgPath = join(resolver.cwd(), ".vscode", "mcp.json");
+  copilot: {
+    async write(resolver, _run, { overwrite = false } = {}) {
+      const cfgPath = join(resolver.home(), ".copilot", "mcp-config.json");
       const cfg = readJson(cfgPath);
-      const configured = hasKey(cfg.servers, "membank");
+      const configured = hasKey(cfg.mcpServers, "membank");
 
       if (configured && !overwrite) return { status: "already-configured" };
 
-      if (configured) {
-        // No native remove command — update the JSON file directly for overwrites.
-        writeJsonAtomic(cfgPath, {
-          ...cfg,
-          servers: {
-            ...(cfg.servers as Record<string, unknown> | undefined),
-            membank: { command: "npx", args: ["@membank/cli@latest", "--mcp"] },
-          },
-        });
-        return { status: "written" };
-      }
-
-      const payload = JSON.stringify({
-        name: "membank",
-        command: "npx",
-        args: ["@membank/cli@latest", "--mcp"],
+      writeJsonAtomic(cfgPath, {
+        ...cfg,
+        mcpServers: {
+          ...(cfg.mcpServers as Record<string, unknown> | undefined),
+          membank: { command: "npx", args: ["@membank/cli@latest", "--mcp"] },
+        },
       });
-      const result = await run("code", ["--folder-uri", resolver.cwd(), "--add-mcp", payload]);
-      assertCliFound(result, "code");
-      if (result.exitCode !== 0) {
-        throw new Error(`code --add-mcp failed: ${result.stderr || result.stdout}`);
-      }
       return { status: "written" };
     },
   },

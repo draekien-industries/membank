@@ -56,8 +56,8 @@ function notFoundRunner(cli: string): CommandRunner {
 function claudeJsonPath(dir: string): string {
   return join(dir, ".claude.json");
 }
-function vscodePath(dir: string): string {
-  return join(dir, ".vscode", "mcp.json");
+function copilotPath(dir: string): string {
+  return join(dir, ".copilot", "mcp-config.json");
 }
 function opencodePath(dir: string): string {
   return join(dir, ".config", "opencode", "opencode.json");
@@ -66,7 +66,7 @@ function opencodePath(dir: string): string {
 describe("HarnessConfigWriter — supported harnesses", () => {
   it("exposes all 4 expected harness names", () => {
     expect(SUPPORTED_HARNESSES).toContain("claude-code");
-    expect(SUPPORTED_HARNESSES).toContain("vscode");
+    expect(SUPPORTED_HARNESSES).toContain("copilot");
     expect(SUPPORTED_HARNESSES).toContain("codex");
     expect(SUPPORTED_HARNESSES).toContain("opencode");
     expect(SUPPORTED_HARNESSES).toHaveLength(4);
@@ -145,9 +145,9 @@ describe("claude-code", () => {
   });
 });
 
-// ---------- vscode ----------
+// ---------- copilot ----------
 
-describe("vscode", () => {
+describe("copilot", () => {
   let run: ReturnType<typeof successRunner>;
   let writer: HarnessConfigWriter;
   let dir: string;
@@ -159,56 +159,48 @@ describe("vscode", () => {
     writer = new HarnessConfigWriter(tmp.resolver, run);
   });
 
-  it("invokes code --folder-uri --add-mcp when not configured", async () => {
-    const result = await writer.write("vscode");
+  it("writes membank entry under mcpServers key in ~/.copilot/mcp-config.json", async () => {
+    const result = await writer.write("copilot");
     expect(result.status).toBe("written");
-    expect(run).toHaveBeenCalledWith("code", expect.arrayContaining(["--add-mcp"]));
-  });
-
-  it("passes a JSON payload containing membank command and args", async () => {
-    await writer.write("vscode");
-    const call = (run as ReturnType<typeof vi.fn>).mock.calls[0] as [string, string[]];
-    const payloadArg = call[1][call[1].indexOf("--add-mcp") + 1];
-    const payload = JSON.parse(payloadArg ?? "{}") as {
-      name: string;
+    expect(run).not.toHaveBeenCalled();
+    const cfg = readJson(copilotPath(dir));
+    const entry = (cfg.mcpServers as Record<string, unknown>).membank as {
       command: string;
       args: string[];
     };
-    expect(payload.name).toBe("membank");
-    expect(payload.command).toBe("npx");
-    expect(payload.args).toContain("@membank/cli@latest");
+    expect(entry.command).toBe("npx");
+    expect(entry.args).toContain("@membank/cli@latest");
   });
 
-  it("returns already-configured when servers.membank present in .vscode/mcp.json", async () => {
-    writeJson(vscodePath(dir), {
-      servers: { membank: { command: "npx", args: ["@membank/cli@latest", "--mcp"] } },
+  it("returns already-configured when mcpServers.membank present in ~/.copilot/mcp-config.json", async () => {
+    writeJson(copilotPath(dir), {
+      mcpServers: { membank: { command: "npx", args: ["@membank/cli@latest", "--mcp"] } },
     });
-    const result = await writer.write("vscode");
+    const result = await writer.write("copilot");
     expect(result.status).toBe("already-configured");
     expect(run).not.toHaveBeenCalled();
   });
 
-  it("updates .vscode/mcp.json directly for overwrite (no remove CLI)", async () => {
-    writeJson(vscodePath(dir), {
-      servers: { membank: { command: "old", args: [] }, other: { command: "other-cmd", args: [] } },
+  it("overwrites mcpServers.membank directly and preserves other keys", async () => {
+    writeJson(copilotPath(dir), {
+      mcpServers: {
+        membank: { command: "old", args: [] },
+        other: { command: "other-cmd", args: [] },
+      },
     });
-    const result = await writer.write("vscode", { overwrite: true });
+    const result = await writer.write("copilot", { overwrite: true });
     expect(result.status).toBe("written");
-    // CLI should NOT be invoked for overwrite
     expect(run).not.toHaveBeenCalled();
-    const cfg = readJson(vscodePath(dir));
-    const servers = cfg.servers as Record<string, unknown>;
+    const cfg = readJson(copilotPath(dir));
+    const servers = cfg.mcpServers as Record<string, unknown>;
     expect(servers.other).toBeDefined();
     const membank = servers.membank as { command: string; args: string[] };
     expect(membank.command).toBe("npx");
   });
 
-  it("throws a friendly error when code CLI is not found", async () => {
-    const writer2 = new HarnessConfigWriter(
-      { home: () => dir, cwd: () => dir },
-      notFoundRunner("code")
-    );
-    await expect(writer2.write("vscode")).rejects.toThrow("code CLI not found");
+  it("does not invoke the command runner (file-based write)", async () => {
+    await writer.write("copilot");
+    expect(run).not.toHaveBeenCalled();
   });
 });
 
