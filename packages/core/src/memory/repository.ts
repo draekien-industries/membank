@@ -1,22 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseManager } from "../db/manager.js";
+import type { MemoryRow } from "../db/row-types.js";
+import { rowToMemory } from "../db/row-types.js";
 import type { EmbeddingService } from "../embedding/service.js";
 import type { Memory, MemoryType, SaveOptions } from "../types.js";
 import { MEMORY_TYPE_VALUES } from "../types.js";
-
-interface MemoryRow {
-  id: string;
-  content: string;
-  type: string;
-  tags: string;
-  scope: string;
-  source: string | null;
-  access_count: number;
-  pinned: number;
-  needs_review: number;
-  created_at: string;
-  updated_at: string;
-}
 
 interface SimilarityRow extends MemoryRow {
   rowid: number;
@@ -50,7 +38,6 @@ export class MemoryRepository {
     const now = new Date().toISOString();
 
     if (top !== undefined && top.similarity > 0.92) {
-      // Overwrite existing record
       this.#db.db
         .prepare(`UPDATE memories SET content = ?, updated_at = ? WHERE id = ?`)
         .run(content, now, top.id);
@@ -64,15 +51,13 @@ export class MemoryRepository {
         .get(top.id);
 
       // updated is guaranteed to exist since we just updated it
-      return this.#rowToMemory(updated as MemoryRow);
+      return rowToMemory(updated as MemoryRow);
     }
 
     if (top !== undefined && top.similarity >= 0.75) {
-      // Flag existing as needs_review
       this.#db.db.prepare(`UPDATE memories SET needs_review = 1 WHERE id = ?`).run(top.id);
     }
 
-    // Insert new record
     const id = randomUUID();
     this.#db.db
       .prepare(
@@ -93,7 +78,7 @@ export class MemoryRepository {
       .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
       .get(id) as MemoryRow;
 
-    return this.#rowToMemory(row);
+    return rowToMemory(row);
   }
 
   async update(id: string, patch: { content?: string; tags?: string[] }): Promise<Memory> {
@@ -136,7 +121,7 @@ export class MemoryRepository {
       .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
       .get(id) as MemoryRow;
 
-    return this.#rowToMemory(updated);
+    return rowToMemory(updated);
   }
 
   delete(id: string): Promise<void> {
@@ -173,7 +158,7 @@ export class MemoryRepository {
       )
       .all(...params);
 
-    return rows.map((r) => this.#rowToMemory(r));
+    return rows.map(rowToMemory);
   }
 
   stats(): { byType: Record<MemoryType, number>; total: number; needsReview: number } {
@@ -209,21 +194,5 @@ export class MemoryRepository {
 
   incrementAccessCount(id: string): void {
     this.#db.db.prepare(`UPDATE memories SET access_count = access_count + 1 WHERE id = ?`).run(id);
-  }
-
-  #rowToMemory(row: MemoryRow): Memory {
-    return {
-      id: row.id,
-      content: row.content,
-      type: row.type as MemoryType,
-      tags: JSON.parse(row.tags) as string[],
-      scope: row.scope,
-      sourceHarness: row.source,
-      accessCount: row.access_count,
-      pinned: row.pinned !== 0,
-      needsReview: row.needs_review !== 0,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
   }
 }

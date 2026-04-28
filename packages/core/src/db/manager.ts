@@ -9,7 +9,6 @@ const DEFAULT_DB_PATH = join(homedir(), ".membank", "memory.db");
 
 type VecLoader = (db: BetterSqlite3.Database) => void;
 
-// Each entry is [targetVersion, sql]. Migrations are applied in ascending order.
 const MIGRATIONS: [number, string][] = [
   [
     1,

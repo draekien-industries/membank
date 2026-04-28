@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-// CLI entry point — routes to MCP server or CLI commands based on argv
-
 import { DatabaseManager } from "@membank/core";
 import { startServer } from "@membank/mcp";
 import { Command } from "commander";
@@ -42,9 +40,7 @@ program
   .option("--limit <n>", "maximum number of results", "10")
   .action(async (queryText: string, cmdOptions: { type?: string; limit?: string }) => {
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
-    const formatter = Formatter.create().withJson(
-      globalOpts.json === true || !process.stdout.isTTY
-    );
+    const formatter = Formatter.create(globalOpts.json === true);
     try {
       await queryCommand(queryText, cmdOptions, formatter);
     } catch (err) {
@@ -60,9 +56,7 @@ program
   .option("--pinned", "return only pinned memories")
   .action(async (cmdOptions: { type?: string; pinned?: boolean }) => {
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
-    const formatter = Formatter.create().withJson(
-      globalOpts.json === true || !process.stdout.isTTY
-    );
+    const formatter = Formatter.create(globalOpts.json === true);
     try {
       await listCommand(cmdOptions, formatter);
     } catch (err) {
@@ -76,9 +70,7 @@ program
   .description("show memory counts by type, total, and needs_review")
   .action(async () => {
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
-    const formatter = Formatter.create().withJson(
-      globalOpts.json === true || !process.stdout.isTTY
-    );
+    const formatter = Formatter.create(globalOpts.json === true);
     try {
       await statsCommand(formatter);
     } catch (err) {
@@ -92,9 +84,7 @@ program
   .description("delete a memory by ID")
   .action(async (id: string) => {
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
-    const formatter = Formatter.create().withJson(
-      globalOpts.json === true || !process.stdout.isTTY
-    );
+    const formatter = Formatter.create(globalOpts.json === true);
     const autoConfirm = globalOpts.yes === true || !process.stdout.isTTY;
     const prompt = new PromptHelper(autoConfirm);
     const db = DatabaseManager.open();
@@ -116,9 +106,7 @@ program
   .option("--scope <scope>", "scope (global or project identifier)")
   .action(async (content: string, cmdOptions: { type: string; tags?: string; scope?: string }) => {
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
-    const formatter = Formatter.create().withJson(
-      globalOpts.json === true || !process.stdout.isTTY
-    );
+    const formatter = Formatter.create(globalOpts.json === true);
     try {
       await addCommand(content, cmdOptions, formatter);
     } catch (err) {
@@ -132,9 +120,7 @@ program
   .description("pin a memory by ID")
   .action((id: string) => {
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
-    const formatter = Formatter.create().withJson(
-      globalOpts.json === true || !process.stdout.isTTY
-    );
+    const formatter = Formatter.create(globalOpts.json === true);
     try {
       pinCommand(id, formatter);
     } catch (err) {
@@ -148,9 +134,7 @@ program
   .description("unpin a memory by ID")
   .action((id: string) => {
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
-    const formatter = Formatter.create().withJson(
-      globalOpts.json === true || !process.stdout.isTTY
-    );
+    const formatter = Formatter.create(globalOpts.json === true);
     try {
       unpinCommand(id, formatter);
     } catch (err) {
@@ -165,9 +149,7 @@ program
   .option("--output <path>", "output file path (default: membank-export-<timestamp>.json in cwd)")
   .action((cmdOptions: { output?: string }) => {
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
-    const formatter = Formatter.create().withJson(
-      globalOpts.json === true || !process.stdout.isTTY
-    );
+    const formatter = Formatter.create(globalOpts.json === true);
     const db = DatabaseManager.open();
     try {
       exportCommand(db, formatter, cmdOptions);
@@ -184,9 +166,7 @@ program
   .description("import memories from a JSON export file")
   .action(async (file: string) => {
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
-    const formatter = Formatter.create().withJson(
-      globalOpts.json === true || !process.stdout.isTTY
-    );
+    const formatter = Formatter.create(globalOpts.json === true);
     const autoConfirm = globalOpts.yes === true || !process.stdout.isTTY;
     const prompt = new PromptHelper(autoConfirm);
     const db = DatabaseManager.open();
@@ -226,8 +206,7 @@ program
   .action(async (cmdOptions: { yes?: boolean; dryRun?: boolean; harness?: string }) => {
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
     const autoYes = cmdOptions.yes === true || globalOpts.yes === true;
-    const useJson = globalOpts.json === true || !process.stdout.isTTY;
-    const formatter = Formatter.create().withJson(useJson);
+    const formatter = Formatter.create(globalOpts.json === true);
 
     if (cmdOptions.harness !== undefined) {
       if (!SUPPORTED_HARNESSES.some((h) => h === cmdOptions.harness)) {
@@ -252,7 +231,7 @@ program
         yes: autoYes,
         dryRun: cmdOptions.dryRun,
         harness: cmdOptions.harness,
-        json: useJson,
+        json: formatter.isJson,
       });
       if (results.some((r) => r.status === "error")) {
         process.exit(1);
@@ -263,7 +242,6 @@ program
     }
   });
 
-// Catch unknown commands
 program.on("command:*", () => {
   program.outputHelp();
   process.exit(1);

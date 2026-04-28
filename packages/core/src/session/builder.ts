@@ -1,40 +1,12 @@
 import type { DatabaseManager } from "../db/manager.js";
-import type { Memory, MemoryType, SessionContext } from "../types.js";
+import type { MemoryRow } from "../db/row-types.js";
+import { rowToMemory } from "../db/row-types.js";
+import type { MemoryType, SessionContext } from "../types.js";
 import { MEMORY_TYPE_VALUES } from "../types.js";
-
-interface MemoryRow {
-  id: string;
-  content: string;
-  type: string;
-  tags: string;
-  scope: string;
-  source: string | null;
-  access_count: number;
-  pinned: number;
-  needs_review: number;
-  created_at: string;
-  updated_at: string;
-}
 
 interface TypeCountRow {
   type: string;
   count: number;
-}
-
-function rowToMemory(row: MemoryRow): Memory {
-  return {
-    id: row.id,
-    content: row.content,
-    type: row.type as MemoryType,
-    tags: JSON.parse(row.tags) as string[],
-    scope: row.scope,
-    sourceHarness: row.source,
-    accessCount: row.access_count,
-    pinned: row.pinned !== 0,
-    needsReview: row.needs_review !== 0,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
 }
 
 export function listMemoryTypes(): MemoryType[] {

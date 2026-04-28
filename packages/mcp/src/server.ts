@@ -151,10 +151,7 @@ export function createServer(core: CoreServices): Server {
         );
       }
 
-      if (
-        typeof type !== "string" ||
-        !["correction", "preference", "decision", "learning", "fact"].includes(type)
-      ) {
+      if (typeof type !== "string" || !(MEMORY_TYPE_VALUES as readonly string[]).includes(type)) {
         throw new McpError(
           ErrorCode.InvalidParams,
           "type is required and must be one of: correction, preference, decision, learning, fact"

@@ -17,14 +17,8 @@ export class Formatter {
     this.#isJson = isJson;
   }
 
-  static create(): Formatter {
-    // Auto-detect TTY: if stdout is not a terminal, implicitly use JSON mode
-    const isJson = !process.stdout.isTTY;
-    return new Formatter(isJson);
-  }
-
-  withJson(isJson: boolean): Formatter {
-    return new Formatter(isJson);
+  static create(forceJson = false): Formatter {
+    return new Formatter(forceJson || !process.stdout.isTTY);
   }
 
   get isJson(): boolean {
@@ -36,14 +30,7 @@ export class Formatter {
       process.stdout.write(`${JSON.stringify(memory)}\n`);
       return;
     }
-
-    const tags = memory.tags.length > 0 ? memory.tags.join(", ") : "(none)";
-    process.stdout.write(`\n[${memory.type}] ${memory.id}\n`);
-    process.stdout.write(`  Content : ${memory.content}\n`);
-    process.stdout.write(`  Tags    : ${tags}\n`);
-    process.stdout.write(`  Scope   : ${memory.scope}\n`);
-    process.stdout.write(`  Pinned  : ${memory.pinned}\n`);
-    process.stdout.write("\n");
+    this.#writeMemoryBlock(memory, `  Pinned  : ${memory.pinned}\n`);
   }
 
   outputMemories(memories: Memory[]): void {
@@ -58,11 +45,7 @@ export class Formatter {
     }
 
     for (const memory of memories) {
-      const tags = memory.tags.length > 0 ? memory.tags.join(", ") : "(none)";
-      process.stdout.write(`\n[${memory.type}] ${memory.id}\n`);
-      process.stdout.write(`  Content : ${memory.content}\n`);
-      process.stdout.write(`  Tags    : ${tags}\n`);
-      process.stdout.write(`  Scope   : ${memory.scope}\n`);
+      this.#writeMemoryBlock(memory);
     }
     process.stdout.write("\n");
   }
@@ -93,12 +76,7 @@ export class Formatter {
     }
 
     for (const result of results) {
-      const tags = result.tags.length > 0 ? result.tags.join(", ") : "(none)";
-      process.stdout.write(`\n[${result.type}] ${result.id}\n`);
-      process.stdout.write(`  Content : ${result.content}\n`);
-      process.stdout.write(`  Tags    : ${tags}\n`);
-      process.stdout.write(`  Scope   : ${result.scope}\n`);
-      process.stdout.write(`  Score   : ${result.score.toFixed(4)}\n`);
+      this.#writeMemoryBlock(result, `  Score   : ${result.score.toFixed(4)}\n`);
     }
     process.stdout.write("\n");
   }
@@ -109,5 +87,17 @@ export class Formatter {
     } else {
       process.stderr.write(`Error: ${msg}\n`);
     }
+  }
+
+  #writeMemoryBlock(memory: Memory, extra?: string): void {
+    const tags = memory.tags.length > 0 ? memory.tags.join(", ") : "(none)";
+    process.stdout.write(`\n[${memory.type}] ${memory.id}\n`);
+    process.stdout.write(`  Content : ${memory.content}\n`);
+    process.stdout.write(`  Tags    : ${tags}\n`);
+    process.stdout.write(`  Scope   : ${memory.scope}\n`);
+    if (extra !== undefined) {
+      process.stdout.write(extra);
+    }
+    process.stdout.write("\n");
   }
 }
