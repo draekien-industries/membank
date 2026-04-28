@@ -61,7 +61,7 @@ describe("error hardening", () => {
 
       expect(result.isError).toBe(true);
       const [block] = result.content as TextBlock[];
-      expect(block!.text).toMatch(/DB locked/);
+      expect(block?.text).toMatch(/DB locked/);
     });
 
     it("server stays responsive after save_memory core error", async () => {
@@ -85,7 +85,8 @@ describe("error hardening", () => {
 
       expect(result.isError).toBeUndefined();
       const [block] = result.content as TextBlock[];
-      const types = JSON.parse(block!.text) as string[];
+      if (!block) throw new Error("unreachable");
+      const types = JSON.parse(block.text) as string[];
       expect(types).toContain("preference");
     });
   });
@@ -104,7 +105,7 @@ describe("error hardening", () => {
 
       expect(result.isError).toBe(true);
       const [block] = result.content as TextBlock[];
-      expect(block!.text).toMatch(/DB locked/);
+      expect(block?.text).toMatch(/DB locked/);
     });
 
     it("server stays responsive after update_memory core error", async () => {
@@ -149,7 +150,7 @@ describe("error hardening", () => {
 
       expect(result.isError).toBe(true);
       const [block] = result.content as TextBlock[];
-      expect(block!.text).toMatch(/DB locked/);
+      expect(block?.text).toMatch(/DB locked/);
     });
 
     it("server stays responsive after delete_memory core error", async () => {
@@ -194,7 +195,7 @@ describe("error hardening", () => {
 
       expect(result.isError).toBe(true);
       const [block] = result.content as TextBlock[];
-      expect(block!.text).toMatch(/DB locked/);
+      expect(block?.text).toMatch(/DB locked/);
     });
 
     it("server stays responsive after query_memory core error", async () => {
@@ -236,7 +237,8 @@ describe("error hardening", () => {
 
       expect(result.isError).toBeUndefined();
       const [block] = result.content as TextBlock[];
-      const types = JSON.parse(block!.text) as string[];
+      if (!block) throw new Error("unreachable");
+      const types = JSON.parse(block.text) as string[];
       expect(types).toEqual(["correction", "preference", "decision", "learning", "fact"]);
     });
   });
@@ -286,7 +288,7 @@ describe("error hardening", () => {
         });
         expect(saveResult.isError).toBe(true);
         const [saveBlock] = saveResult.content as TextBlock[];
-        expect(saveBlock!.text).toMatch(/malformed/);
+        expect(saveBlock?.text).toMatch(/malformed/);
 
         const queryResult = await client.callTool({
           name: "query_memory",

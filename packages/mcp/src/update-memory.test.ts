@@ -117,7 +117,7 @@ describe("update_memory tool", () => {
 
     expect(result.isError).toBe(true);
     const [block] = result.content as TextBlock[];
-    expect(block!.text).toMatch(/does-not-exist/);
+    expect(block?.text).toMatch(/does-not-exist/);
   });
 
   it("missing id returns a structured MCP error", async () => {

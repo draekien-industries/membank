@@ -95,7 +95,10 @@ describe("query_memory tool", () => {
 
     // Results must be sorted descending by score
     for (let i = 0; i < parsed.length - 1; i++) {
-      expect(parsed[i]!.score).toBeGreaterThanOrEqual(parsed[i + 1]!.score);
+      const curr = parsed[i];
+      const next = parsed[i + 1];
+      if (curr === undefined || next === undefined) break;
+      expect(curr.score).toBeGreaterThanOrEqual(next.score);
     }
   });
 
