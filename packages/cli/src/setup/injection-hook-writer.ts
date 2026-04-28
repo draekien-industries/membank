@@ -63,7 +63,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const cfg = readJson(cfgPath);
 
       const hooks = cfg.hooks as Record<string, unknown> | undefined;
-      const sessionStart = hooks?.["SessionStart"];
+      const sessionStart = hooks?.SessionStart;
 
       if (
         Array.isArray(sessionStart) &&
@@ -102,7 +102,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const cfg = readJson(cfgPath);
 
       const hooks = cfg.hooks as Record<string, unknown> | undefined;
-      const sessionStart = hooks?.["sessionStart"];
+      const sessionStart = hooks?.sessionStart;
 
       if (Array.isArray(sessionStart) && containsMembankInject(sessionStart)) {
         return { status: "already-configured" };
@@ -134,7 +134,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const cfg = readJson(cfgPath);
 
       const hooks = cfg.hooks as Record<string, unknown> | undefined;
-      const sessionStart = hooks?.["SessionStart"];
+      const sessionStart = hooks?.SessionStart;
 
       if (
         Array.isArray(sessionStart) &&
