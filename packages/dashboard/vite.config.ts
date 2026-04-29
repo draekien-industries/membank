@@ -10,6 +10,21 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src/client"),
     },
   },
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:3847",
+        configure: (proxy) => {
+          proxy.on("error", (_err, _req, res) => {
+            if (!res.headersSent) {
+              res.writeHead(503);
+              res.end("API server starting...");
+            }
+          });
+        },
+      },
+    },
+  },
   build: {
     outDir: "dist/client",
     emptyOutDir: true,

@@ -79,13 +79,7 @@ async function findFreePort(preferred: number): Promise<number> {
   }
 }
 
-export async function startDashboard(opts?: { port?: number }): Promise<void> {
-  const port = await findFreePort(opts?.port ?? PREFERRED_PORT);
-
-  const db = DatabaseManager.open();
-  const embedding = new EmbeddingService();
-  const repo = new MemoryRepository(db, embedding);
-
+export function createApiApp(db: DatabaseManager, repo: MemoryRepository): Hono {
   const app = new Hono();
 
   // List memories with optional filters
@@ -224,6 +218,18 @@ export async function startDashboard(opts?: { port?: number }): Promise<void> {
     return c.json({ byType, total: totals.total, needsReview: totals.needsReview ?? 0 });
   });
 
+  return app;
+}
+
+export async function startDashboard(opts?: { port?: number }): Promise<void> {
+  const port = await findFreePort(opts?.port ?? PREFERRED_PORT);
+
+  const db = DatabaseManager.open();
+  const embedding = new EmbeddingService();
+  const repo = new MemoryRepository(db, embedding);
+
+  const app = createApiApp(db, repo);
+
   // Static file serving + SPA fallback
   const __dir = dirname(fileURLToPath(import.meta.url));
   const clientDir = join(__dir, "client");
@@ -238,7 +244,6 @@ export async function startDashboard(opts?: { port?: number }): Promise<void> {
       return new Response(content, { headers: { "content-type": mime } });
     }
 
-    // SPA fallback
     const html = readFileSync(join(clientDir, "index.html"));
     return new Response(html, { headers: { "content-type": "text/html" } });
   });
@@ -255,6 +260,5 @@ export async function startDashboard(opts?: { port?: number }): Promise<void> {
 
   await open(`http://localhost:${port}`);
 
-  // Block until SIGINT
   await new Promise<never>(() => {});
 }
