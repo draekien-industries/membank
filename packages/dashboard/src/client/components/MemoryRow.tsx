@@ -31,26 +31,31 @@ export function MemoryRow({ memory, selected, onSelect, onPin, onDelete }: Memor
         selected && "bg-accent/60"
       )}
     >
-      <button
-        type="button"
-        onClick={onSelect}
-        className="absolute inset-0 w-full"
-        aria-label="Select memory"
-      />
-      <div className="relative flex items-start gap-2">
-        <Badge variant={memory.type as MemoryType} className="mt-px shrink-0">
-          {TYPE_ABBREV[memory.type]}
-        </Badge>
-        <p className="flex-1 text-xs leading-relaxed text-foreground line-clamp-2 min-w-0">
-          {preview}
-        </p>
-        <div className="relative flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+      <div className="flex items-start gap-2">
+        <Button
+          variant="ghost"
+          onClick={onSelect}
+          className="h-auto flex-1 min-w-0 items-start justify-start whitespace-normal p-0 font-normal hover:bg-transparent"
+        >
+          <Badge variant={memory.type as MemoryType} className="mt-px shrink-0">
+            {TYPE_ABBREV[memory.type]}
+          </Badge>
+          <p className="flex-1 text-xs leading-relaxed text-foreground line-clamp-2 min-w-0 text-left">
+            {preview}
+          </p>
+        </Button>
+        <div
+          className={cn(
+            "flex items-center gap-1 transition-opacity shrink-0",
+            memory.pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          )}
+        >
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={onPin}
             aria-label={memory.pinned ? "Unpin" : "Pin"}
-            className={cn(memory.pinned && "text-primary opacity-100")}
+            className={cn(memory.pinned && "text-primary")}
           >
             <PushPin weight={memory.pinned ? "fill" : "regular"} />
           </Button>
@@ -59,13 +64,16 @@ export function MemoryRow({ memory, selected, onSelect, onPin, onDelete }: Memor
             size="icon-sm"
             onClick={onDelete}
             aria-label="Delete"
-            className="hover:text-destructive"
+            className={cn(
+              "hover:text-destructive",
+              memory.pinned && "opacity-0 group-hover:opacity-100 transition-opacity"
+            )}
           >
             <Trash weight="regular" />
           </Button>
         </div>
       </div>
-      <div className="relative flex items-center gap-2 pl-[42px]">
+      <div className="flex items-center gap-2 pl-[42px]">
         {memory.tags.length > 0 && (
           <div className="flex gap-1 flex-wrap">
             {memory.tags.map((tag) => (
