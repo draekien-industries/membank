@@ -4,6 +4,7 @@ import { DatabaseManager } from "@membank/core";
 import { startServer } from "@membank/mcp";
 import { Command } from "commander";
 import { addCommand } from "./commands/add.js";
+import { dashboardCommand } from "./commands/dashboard.js";
 import { deleteCommand } from "./commands/delete.js";
 import { exportCommand } from "./commands/export.js";
 import { importCommand } from "./commands/import.js";
@@ -247,6 +248,19 @@ program
       }
     } catch (err) {
       formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+program
+  .command("dashboard")
+  .description("open the memory management dashboard in the browser")
+  .option("--port <port>", "port to listen on (default: 3847, fallback to random)")
+  .action(async (cmdOptions: { port?: string }) => {
+    try {
+      await dashboardCommand(cmdOptions);
+    } catch (err) {
+      process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
       process.exit(2);
     }
   });
