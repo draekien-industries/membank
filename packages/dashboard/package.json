@@ -1,8 +1,12 @@
 {
   "name": "@membank/dashboard",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/draekien-industries/membank.git",
+    "directory": "packages/dashboard"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.mjs"
