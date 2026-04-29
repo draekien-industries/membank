@@ -83,6 +83,32 @@ function filterOutMembankFlat(hooks: unknown[]): unknown[] {
   return hooks.filter((h) => !containsMembankInject([h]));
 }
 
+// Strip every membank entry from a nested-group event slot. If the slot ends up empty,
+// delete the key so the config stays tidy.
+function pruneNestedEvent(hooks: Record<string, unknown>, eventKey: string): void {
+  const existing = hooks[eventKey];
+  if (!Array.isArray(existing)) return;
+  const cleaned = filterOutMembank(existing);
+  if (cleaned.length === 0) {
+    delete hooks[eventKey];
+  } else {
+    hooks[eventKey] = cleaned;
+  }
+}
+
+// Strip every membank entry from a flat-array event slot. If the slot ends up empty,
+// delete the key so the config stays tidy.
+function pruneFlatEvent(hooks: Record<string, unknown>, eventKey: string): void {
+  const existing = hooks[eventKey];
+  if (!Array.isArray(existing)) return;
+  const cleaned = filterOutMembankFlat(existing);
+  if (cleaned.length === 0) {
+    delete hooks[eventKey];
+  } else {
+    hooks[eventKey] = cleaned;
+  }
+}
+
 interface HarnessInjectionWriter {
   inspect(resolver: InjectionPathResolver): InspectResult;
   write(resolver: InjectionPathResolver, events: string[]): InjectionWriteResult;
@@ -98,12 +124,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const sessionStartInner = (
         Array.isArray(hooks.SessionStart) ? hooks.SessionStart : []
       ).flatMap(getHooksArray);
-      const userPromptInner = (
-        Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : []
-      ).flatMap(getHooksArray);
-      const toolFailureInner = (
-        Array.isArray(hooks.PostToolUseFailure) ? hooks.PostToolUseFailure : []
-      ).flatMap(getHooksArray);
 
       return {
         status: "ready",
@@ -112,16 +132,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
             event: "SessionStart",
             command: "npx @membank/cli@latest inject --harness claude-code",
             existingCommand: extractInjectCommand(sessionStartInner) || null,
-          },
-          {
-            event: "UserPromptSubmit",
-            command: "npx @membank/cli@latest inject --event user-prompt --harness claude-code",
-            existingCommand: extractInjectCommand(userPromptInner) || null,
-          },
-          {
-            event: "PostToolUseFailure",
-            command: "npx @membank/cli@latest inject --event tool-failure --harness claude-code",
-            existingCommand: extractInjectCommand(toolFailureInner) || null,
           },
         ],
       };
@@ -133,6 +143,10 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const hooks = (cfg.hooks as Record<string, unknown> | undefined) ?? {};
       const newHooks: Record<string, unknown> = { ...hooks };
 
+      // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
+      pruneNestedEvent(newHooks, "UserPromptSubmit");
+      pruneNestedEvent(newHooks, "PostToolUseFailure");
+
       if (events.includes("SessionStart")) {
         const existing = Array.isArray(hooks.SessionStart) ? hooks.SessionStart : [];
         newHooks.SessionStart = [
@@ -141,39 +155,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
             matcher: "",
             hooks: [
               { type: "command", command: "npx @membank/cli@latest inject --harness claude-code" },
-            ],
-          },
-        ];
-      }
-
-      if (events.includes("UserPromptSubmit")) {
-        const existing = Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : [];
-        newHooks.UserPromptSubmit = [
-          ...filterOutMembank(existing),
-          {
-            matcher: "",
-            hooks: [
-              {
-                type: "command",
-                command: "npx @membank/cli@latest inject --event user-prompt --harness claude-code",
-              },
-            ],
-          },
-        ];
-      }
-
-      if (events.includes("PostToolUseFailure")) {
-        const existing = Array.isArray(hooks.PostToolUseFailure) ? hooks.PostToolUseFailure : [];
-        newHooks.PostToolUseFailure = [
-          ...filterOutMembank(existing),
-          {
-            matcher: "",
-            hooks: [
-              {
-                type: "command",
-                command:
-                  "npx @membank/cli@latest inject --event tool-failure --harness claude-code",
-              },
             ],
           },
         ];
@@ -191,8 +172,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const hooks = (cfg.hooks as Record<string, unknown> | undefined) ?? {};
 
       const sessionStart = Array.isArray(hooks.sessionStart) ? hooks.sessionStart : [];
-      const userPrompt = Array.isArray(hooks.userPromptSubmitted) ? hooks.userPromptSubmitted : [];
-      const toolFailure = Array.isArray(hooks.postToolUseFailure) ? hooks.postToolUseFailure : [];
 
       return {
         status: "ready",
@@ -201,16 +180,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
             event: "sessionStart",
             command: "npx @membank/cli@latest inject --harness copilot-cli",
             existingCommand: extractInjectCommand(sessionStart) || null,
-          },
-          {
-            event: "userPromptSubmitted",
-            command: "npx @membank/cli@latest inject --event user-prompt --harness copilot-cli",
-            existingCommand: extractInjectCommand(userPrompt) || null,
-          },
-          {
-            event: "postToolUseFailure",
-            command: "npx @membank/cli@latest inject --event tool-failure --harness copilot-cli",
-            existingCommand: extractInjectCommand(toolFailure) || null,
           },
         ],
       };
@@ -222,6 +191,10 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const hooks = (cfg.hooks as Record<string, unknown> | undefined) ?? {};
       const newHooks: Record<string, unknown> = { ...hooks };
 
+      // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
+      pruneFlatEvent(newHooks, "userPromptSubmitted");
+      pruneFlatEvent(newHooks, "postToolUseFailure");
+
       if (events.includes("sessionStart")) {
         const existing = Array.isArray(hooks.sessionStart) ? hooks.sessionStart : [];
         newHooks.sessionStart = [
@@ -229,30 +202,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
           {
             type: "command",
             bash: "npx @membank/cli@latest inject --harness copilot-cli",
-            timeoutSec: 30,
-          },
-        ];
-      }
-
-      if (events.includes("userPromptSubmitted")) {
-        const existing = Array.isArray(hooks.userPromptSubmitted) ? hooks.userPromptSubmitted : [];
-        newHooks.userPromptSubmitted = [
-          ...filterOutMembankFlat(existing),
-          {
-            type: "command",
-            bash: "npx @membank/cli@latest inject --event user-prompt --harness copilot-cli",
-            timeoutSec: 30,
-          },
-        ];
-      }
-
-      if (events.includes("postToolUseFailure")) {
-        const existing = Array.isArray(hooks.postToolUseFailure) ? hooks.postToolUseFailure : [];
-        newHooks.postToolUseFailure = [
-          ...filterOutMembankFlat(existing),
-          {
-            type: "command",
-            bash: "npx @membank/cli@latest inject --event tool-failure --harness copilot-cli",
             timeoutSec: 30,
           },
         ];
@@ -276,12 +225,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const sessionStartInner = (
         Array.isArray(hooks.SessionStart) ? hooks.SessionStart : []
       ).flatMap(getHooksArray);
-      const userPromptInner = (
-        Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : []
-      ).flatMap(getHooksArray);
-      const toolUseInner = (Array.isArray(hooks.PostToolUse) ? hooks.PostToolUse : []).flatMap(
-        getHooksArray
-      );
 
       return {
         status: "ready",
@@ -290,16 +233,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
             event: "SessionStart",
             command: "npx @membank/cli@latest inject --harness codex",
             existingCommand: extractInjectCommand(sessionStartInner) || null,
-          },
-          {
-            event: "UserPromptSubmit",
-            command: "npx @membank/cli@latest inject --event user-prompt --harness codex",
-            existingCommand: extractInjectCommand(userPromptInner) || null,
-          },
-          {
-            event: "PostToolUse",
-            command: "npx @membank/cli@latest inject --event tool-failure --harness codex",
-            existingCommand: extractInjectCommand(toolUseInner) || null,
           },
         ],
       };
@@ -311,6 +244,10 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const hooks = (cfg.hooks as Record<string, unknown> | undefined) ?? {};
       const newHooks: Record<string, unknown> = { ...hooks };
 
+      // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
+      pruneNestedEvent(newHooks, "UserPromptSubmit");
+      pruneNestedEvent(newHooks, "PostToolUse");
+
       if (events.includes("SessionStart")) {
         const existing = Array.isArray(hooks.SessionStart) ? hooks.SessionStart : [];
         newHooks.SessionStart = [
@@ -321,40 +258,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
               {
                 type: "command",
                 command: "npx @membank/cli@latest inject --harness codex",
-                timeout: 30,
-              },
-            ],
-          },
-        ];
-      }
-
-      if (events.includes("UserPromptSubmit")) {
-        const existing = Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : [];
-        newHooks.UserPromptSubmit = [
-          ...filterOutMembank(existing),
-          {
-            matcher: "",
-            hooks: [
-              {
-                type: "command",
-                command: "npx @membank/cli@latest inject --event user-prompt --harness codex",
-                timeout: 30,
-              },
-            ],
-          },
-        ];
-      }
-
-      if (events.includes("PostToolUse")) {
-        const existing = Array.isArray(hooks.PostToolUse) ? hooks.PostToolUse : [];
-        newHooks.PostToolUse = [
-          ...filterOutMembank(existing),
-          {
-            matcher: "",
-            hooks: [
-              {
-                type: "command",
-                command: "npx @membank/cli@latest inject --event tool-failure --harness codex",
                 timeout: 30,
               },
             ],
@@ -405,18 +308,6 @@ function newOpencodePlugin(): string {
     "  hooks: {",
     '    "session.start": async ({ $ }) => {',
     "      return await $`npx @membank/cli@latest inject`.text();",
-    "    },",
-    '    "chat.message": async ({ $, message }) => {',
-    '      const input = JSON.stringify({ prompt: message?.content ?? "" });',
-    "      return await $`npx @membank/cli@latest inject --event user-prompt`.stdin(input).text();",
-    "    },",
-    '    "tool.execute.after": async ({ $, result }) => {',
-    "      if (!result?.exitCode && !result?.error) return;",
-    "      const payload = JSON.stringify({",
-    '        tool_name: result.tool ?? "unknown",',
-    '        error_message: result.error ?? ("exit code " + result.exitCode),',
-    "      });",
-    "      return await $`npx @membank/cli@latest inject --event tool-failure`.stdin(payload).text();",
     "    },",
     "  },",
     "};",

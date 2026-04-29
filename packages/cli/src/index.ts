@@ -191,7 +191,7 @@ program
   .option("--scope <scope>", "project scope override (default: auto-detect from git remote)")
   .option(
     "--event <event>",
-    "hook event type (session-start|user-prompt|tool-failure)",
+    "hook event type (only session-start is supported; other values no-op for legacy hook compatibility)",
     "session-start"
   )
   .action(async (cmdOptions: { harness?: string; scope?: string; event?: string }) => {

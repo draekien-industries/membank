@@ -22,8 +22,6 @@ function writeJson(path: string, data: Record<string, unknown>): void {
   writeFileSync(path, JSON.stringify(data, null, 2));
 }
 
-const ALL_CLAUDE_EVENTS = ["SessionStart", "UserPromptSubmit", "PostToolUseFailure"] as const;
-
 describe("INJECTION_HARNESSES", () => {
   it("contains all 4 harnesses", () => {
     expect(INJECTION_HARNESSES).toContain("claude-code");
@@ -60,89 +58,26 @@ describe("claude-code", () => {
     writer = new InjectionHookWriter(tmp.resolver);
   });
 
-  it("writes SessionStart, UserPromptSubmit, and PostToolUseFailure hooks", () => {
-    const result = writer.write("claude-code", [...ALL_CLAUDE_EVENTS]);
+  it("writes the SessionStart hook with the correct command", () => {
+    const result = writer.write("claude-code", ["SessionStart"]);
     expect(result.status).toBe("written");
 
     const cfg = readJson(join(dir, ".claude", "settings.json"));
     const hooks = cfg.hooks as Record<string, unknown>;
 
     expect(Array.isArray(hooks.SessionStart)).toBe(true);
-    expect(Array.isArray(hooks.UserPromptSubmit)).toBe(true);
-    expect(Array.isArray(hooks.PostToolUseFailure)).toBe(true);
-  });
-
-  it("SessionStart hook uses correct command", () => {
-    writer.write("claude-code", [...ALL_CLAUDE_EVENTS]);
-    const cfg = readJson(join(dir, ".claude", "settings.json"));
     type GroupHooks = { hooks: { command: string }[] }[];
-    const hooks = cfg.hooks as {
-      SessionStart: GroupHooks;
-      UserPromptSubmit: GroupHooks;
-      PostToolUseFailure: GroupHooks;
-    };
-    const cmd = hooks.SessionStart[0]?.hooks[0]?.command ?? "";
-    expect(cmd).toContain("inject --harness claude-code");
-    expect(cmd).not.toContain("--event");
+    const cmd = (hooks.SessionStart as GroupHooks)[0]?.hooks[0]?.command ?? "";
+    expect(cmd).toBe("npx @membank/cli@latest inject --harness claude-code");
   });
 
-  it("UserPromptSubmit hook uses --event user-prompt", () => {
-    writer.write("claude-code", [...ALL_CLAUDE_EVENTS]);
-    const cfg = readJson(join(dir, ".claude", "settings.json"));
-    type GroupHooks = { hooks: { command: string }[] }[];
-    const hooks = cfg.hooks as {
-      SessionStart: GroupHooks;
-      UserPromptSubmit: GroupHooks;
-      PostToolUseFailure: GroupHooks;
-    };
-    const cmd = hooks.UserPromptSubmit[0]?.hooks[0]?.command ?? "";
-    expect(cmd).toContain("--event user-prompt");
-    expect(cmd).toContain("--harness claude-code");
-  });
-
-  it("PostToolUseFailure hook uses --event tool-failure", () => {
-    writer.write("claude-code", [...ALL_CLAUDE_EVENTS]);
-    const cfg = readJson(join(dir, ".claude", "settings.json"));
-    type GroupHooks = { hooks: { command: string }[] }[];
-    const hooks = cfg.hooks as {
-      SessionStart: GroupHooks;
-      UserPromptSubmit: GroupHooks;
-      PostToolUseFailure: GroupHooks;
-    };
-    const cmd = hooks.PostToolUseFailure[0]?.hooks[0]?.command ?? "";
-    expect(cmd).toContain("--event tool-failure");
-    expect(cmd).toContain("--harness claude-code");
-  });
-
-  it("only writes the requested events", () => {
+  it("only writes SessionStart when only SessionStart is requested", () => {
     writer.write("claude-code", ["SessionStart"]);
     const cfg = readJson(join(dir, ".claude", "settings.json"));
     const hooks = cfg.hooks as Record<string, unknown>;
     expect(Array.isArray(hooks.SessionStart)).toBe(true);
     expect(hooks.UserPromptSubmit).toBeUndefined();
     expect(hooks.PostToolUseFailure).toBeUndefined();
-  });
-
-  it("overwrites only the requested events while preserving others", () => {
-    const cfgPath = join(dir, ".claude", "settings.json");
-    writeJson(cfgPath, {
-      hooks: {
-        SessionStart: [
-          {
-            matcher: "",
-            hooks: [
-              { type: "command", command: "npx @membank/cli@latest inject --harness claude-code" },
-            ],
-          },
-        ],
-      },
-    });
-    writer.write("claude-code", ["UserPromptSubmit", "PostToolUseFailure"]);
-    const cfg = readJson(cfgPath);
-    const hooks = cfg.hooks as Record<string, unknown[]>;
-    expect(hooks.SessionStart).toHaveLength(1); // preserved unchanged
-    expect(hooks.UserPromptSubmit).toHaveLength(1);
-    expect(hooks.PostToolUseFailure).toHaveLength(1);
   });
 
   it("preserves non-membank hooks in SessionStart on overwrite", () => {
@@ -166,29 +101,49 @@ describe("claude-code", () => {
     expect(hooks.SessionStart).toHaveLength(2); // echo hello preserved + new membank
   });
 
-  it("inspect returns not-configured when no hooks exist", () => {
-    const result = writer.inspect("claude-code");
-    expect(result.status).toBe("ready");
-    if (result.status !== "ready") return;
-    expect(result.hooks).toHaveLength(3);
-    for (const hook of result.hooks) {
-      expect(hook.existingCommand).toBeNull();
-    }
-  });
-
-  it("inspect returns existing commands when hooks are configured", () => {
+  it("prunes legacy membank entries from removed event slots on write", () => {
     const cfgPath = join(dir, ".claude", "settings.json");
     writeJson(cfgPath, {
       hooks: {
-        SessionStart: [
+        UserPromptSubmit: [
           {
             matcher: "",
             hooks: [
-              { type: "command", command: "npx @membank/cli@latest inject --harness claude-code" },
+              {
+                type: "command",
+                command: "npx @membank/cli@latest inject --event user-prompt --harness claude-code",
+              },
             ],
           },
         ],
+        PostToolUseFailure: [
+          {
+            matcher: "",
+            hooks: [
+              {
+                type: "command",
+                command:
+                  "npx @membank/cli@latest inject --event tool-failure --harness claude-code",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    writer.write("claude-code", ["SessionStart"]);
+    const cfg = readJson(cfgPath);
+    const hooks = cfg.hooks as Record<string, unknown>;
+    expect(hooks.UserPromptSubmit).toBeUndefined();
+    expect(hooks.PostToolUseFailure).toBeUndefined();
+    expect(Array.isArray(hooks.SessionStart)).toBe(true);
+  });
+
+  it("preserves non-membank hooks in legacy event slots while pruning membank ones", () => {
+    const cfgPath = join(dir, ".claude", "settings.json");
+    writeJson(cfgPath, {
+      hooks: {
         UserPromptSubmit: [
+          { matcher: "", hooks: [{ type: "command", command: "echo not-membank" }] },
           {
             matcher: "",
             hooks: [
@@ -201,41 +156,41 @@ describe("claude-code", () => {
         ],
       },
     });
-    const result = writer.inspect("claude-code");
-    expect(result.status).toBe("ready");
-    if (result.status !== "ready") return;
-
-    const sessionStart = result.hooks.find((h) => h.event === "SessionStart");
-    const userPrompt = result.hooks.find((h) => h.event === "UserPromptSubmit");
-    const toolFailure = result.hooks.find((h) => h.event === "PostToolUseFailure");
-
-    expect(sessionStart?.existingCommand).toBe(
-      "npx @membank/cli@latest inject --harness claude-code"
-    );
-    expect(userPrompt?.existingCommand).toBe(
-      "npx @membank/cli@latest inject --event user-prompt --harness claude-code"
-    );
-    expect(toolFailure?.existingCommand).toBeNull();
+    writer.write("claude-code", ["SessionStart"]);
+    const cfg = readJson(cfgPath);
+    const hooks = cfg.hooks as Record<string, unknown[]>;
+    expect(hooks.UserPromptSubmit).toHaveLength(1); // non-membank survives
   });
 
-  it("inspect returns all three events with correct replacement commands", () => {
+  it("inspect returns one hook entry (SessionStart only) when nothing is configured", () => {
     const result = writer.inspect("claude-code");
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
+    expect(result.hooks).toHaveLength(1);
+    expect(result.hooks[0]?.event).toBe("SessionStart");
+    expect(result.hooks[0]?.existingCommand).toBeNull();
+  });
 
-    const events = result.hooks.map((h) => h.event);
-    expect(events).toContain("SessionStart");
-    expect(events).toContain("UserPromptSubmit");
-    expect(events).toContain("PostToolUseFailure");
-
-    const sessionStart = result.hooks.find((h) => h.event === "SessionStart");
-    expect(sessionStart?.command).toBe("npx @membank/cli@latest inject --harness claude-code");
-
-    const userPrompt = result.hooks.find((h) => h.event === "UserPromptSubmit");
-    expect(userPrompt?.command).toContain("--event user-prompt");
-
-    const toolFailure = result.hooks.find((h) => h.event === "PostToolUseFailure");
-    expect(toolFailure?.command).toContain("--event tool-failure");
+  it("inspect returns the existing SessionStart command when configured", () => {
+    const cfgPath = join(dir, ".claude", "settings.json");
+    writeJson(cfgPath, {
+      hooks: {
+        SessionStart: [
+          {
+            matcher: "",
+            hooks: [
+              { type: "command", command: "npx @membank/cli@latest inject --harness claude-code" },
+            ],
+          },
+        ],
+      },
+    });
+    const result = writer.inspect("claude-code");
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+    expect(result.hooks[0]?.existingCommand).toBe(
+      "npx @membank/cli@latest inject --harness claude-code"
+    );
   });
 });
 
@@ -251,40 +206,44 @@ describe("copilot-cli", () => {
     writer = new InjectionHookWriter(tmp.resolver);
   });
 
-  it("writes sessionStart, userPromptSubmitted, and postToolUseFailure hooks", () => {
-    const result = writer.write("copilot-cli", [
-      "sessionStart",
-      "userPromptSubmitted",
-      "postToolUseFailure",
-    ]);
+  it("writes the sessionStart hook with the correct command", () => {
+    const result = writer.write("copilot-cli", ["sessionStart"]);
     expect(result.status).toBe("written");
 
     const cfg = readJson(join(dir, ".copilot", "settings.json"));
     const hooks = cfg.hooks as Record<string, unknown>;
+    type FlatHooks = { bash: string }[];
+    const bash = (hooks.sessionStart as FlatHooks)[0]?.bash ?? "";
+    expect(bash).toBe("npx @membank/cli@latest inject --harness copilot-cli");
+  });
 
+  it("prunes legacy membank entries from removed event slots on write", () => {
+    const cfgPath = join(dir, ".copilot", "settings.json");
+    writeJson(cfgPath, {
+      version: 1,
+      hooks: {
+        userPromptSubmitted: [
+          {
+            type: "command",
+            bash: "npx @membank/cli@latest inject --event user-prompt --harness copilot-cli",
+            timeoutSec: 30,
+          },
+        ],
+        postToolUseFailure: [
+          {
+            type: "command",
+            bash: "npx @membank/cli@latest inject --event tool-failure --harness copilot-cli",
+            timeoutSec: 30,
+          },
+        ],
+      },
+    });
+    writer.write("copilot-cli", ["sessionStart"]);
+    const cfg = readJson(cfgPath);
+    const hooks = cfg.hooks as Record<string, unknown>;
+    expect(hooks.userPromptSubmitted).toBeUndefined();
+    expect(hooks.postToolUseFailure).toBeUndefined();
     expect(Array.isArray(hooks.sessionStart)).toBe(true);
-    expect(Array.isArray(hooks.userPromptSubmitted)).toBe(true);
-    expect(Array.isArray(hooks.postToolUseFailure)).toBe(true);
-  });
-
-  it("userPromptSubmitted uses --event user-prompt", () => {
-    writer.write("copilot-cli", ["sessionStart", "userPromptSubmitted", "postToolUseFailure"]);
-    const cfg = readJson(join(dir, ".copilot", "settings.json"));
-    type FlatHooks = { bash: string }[];
-    const hooks = cfg.hooks as { userPromptSubmitted: FlatHooks; postToolUseFailure: FlatHooks };
-    const bash = hooks.userPromptSubmitted[0]?.bash ?? "";
-    expect(bash).toContain("--event user-prompt");
-    expect(bash).toContain("--harness copilot-cli");
-  });
-
-  it("postToolUseFailure uses --event tool-failure", () => {
-    writer.write("copilot-cli", ["sessionStart", "userPromptSubmitted", "postToolUseFailure"]);
-    const cfg = readJson(join(dir, ".copilot", "settings.json"));
-    type FlatHooks = { bash: string }[];
-    const hooks = cfg.hooks as { userPromptSubmitted: FlatHooks; postToolUseFailure: FlatHooks };
-    const bash = hooks.postToolUseFailure[0]?.bash ?? "";
-    expect(bash).toContain("--event tool-failure");
-    expect(bash).toContain("--harness copilot-cli");
   });
 
   it("inspect returns existing command when sessionStart hook present", () => {
@@ -304,8 +263,8 @@ describe("copilot-cli", () => {
     const result = writer.inspect("copilot-cli");
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
-    const sessionStart = result.hooks.find((h) => h.event === "sessionStart");
-    expect(sessionStart?.existingCommand).toBe(
+    expect(result.hooks).toHaveLength(1);
+    expect(result.hooks[0]?.existingCommand).toBe(
       "npx @membank/cli@latest inject --harness copilot-cli"
     );
   });
@@ -314,9 +273,8 @@ describe("copilot-cli", () => {
     const result = writer.inspect("copilot-cli");
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
-    for (const hook of result.hooks) {
-      expect(hook.existingCommand).toBeNull();
-    }
+    expect(result.hooks).toHaveLength(1);
+    expect(result.hooks[0]?.existingCommand).toBeNull();
   });
 });
 
@@ -332,36 +290,53 @@ describe("codex", () => {
     writer = new InjectionHookWriter(tmp.resolver);
   });
 
-  it("writes SessionStart, UserPromptSubmit, and PostToolUse hooks", () => {
-    const result = writer.write("codex", ["SessionStart", "UserPromptSubmit", "PostToolUse"]);
+  it("writes the SessionStart hook with the correct command", () => {
+    const result = writer.write("codex", ["SessionStart"]);
     expect(result.status).toBe("written");
 
     const cfg = readJson(join(dir, ".codex", "hooks.json"));
     const hooks = cfg.hooks as Record<string, unknown>;
+    type GroupHooks = { hooks: { command: string }[] }[];
+    const cmd = (hooks.SessionStart as GroupHooks)[0]?.hooks[0]?.command ?? "";
+    expect(cmd).toBe("npx @membank/cli@latest inject --harness codex");
+  });
 
+  it("prunes legacy membank entries from removed event slots on write", () => {
+    const cfgPath = join(dir, ".codex", "hooks.json");
+    writeJson(cfgPath, {
+      hooks: {
+        UserPromptSubmit: [
+          {
+            matcher: "",
+            hooks: [
+              {
+                type: "command",
+                command: "npx @membank/cli@latest inject --event user-prompt --harness codex",
+                timeout: 30,
+              },
+            ],
+          },
+        ],
+        PostToolUse: [
+          {
+            matcher: "",
+            hooks: [
+              {
+                type: "command",
+                command: "npx @membank/cli@latest inject --event tool-failure --harness codex",
+                timeout: 30,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    writer.write("codex", ["SessionStart"]);
+    const cfg = readJson(cfgPath);
+    const hooks = cfg.hooks as Record<string, unknown>;
+    expect(hooks.UserPromptSubmit).toBeUndefined();
+    expect(hooks.PostToolUse).toBeUndefined();
     expect(Array.isArray(hooks.SessionStart)).toBe(true);
-    expect(Array.isArray(hooks.UserPromptSubmit)).toBe(true);
-    expect(Array.isArray(hooks.PostToolUse)).toBe(true);
-  });
-
-  it("UserPromptSubmit uses --event user-prompt", () => {
-    writer.write("codex", ["SessionStart", "UserPromptSubmit", "PostToolUse"]);
-    const cfg = readJson(join(dir, ".codex", "hooks.json"));
-    type GroupHooks = { hooks: { command: string }[] }[];
-    const hooks = cfg.hooks as { UserPromptSubmit: GroupHooks; PostToolUse: GroupHooks };
-    const cmd = hooks.UserPromptSubmit[0]?.hooks[0]?.command ?? "";
-    expect(cmd).toContain("--event user-prompt");
-    expect(cmd).toContain("--harness codex");
-  });
-
-  it("PostToolUse uses --event tool-failure", () => {
-    writer.write("codex", ["SessionStart", "UserPromptSubmit", "PostToolUse"]);
-    const cfg = readJson(join(dir, ".codex", "hooks.json"));
-    type GroupHooks = { hooks: { command: string }[] }[];
-    const hooks = cfg.hooks as { UserPromptSubmit: GroupHooks; PostToolUse: GroupHooks };
-    const cmd = hooks.PostToolUse[0]?.hooks[0]?.command ?? "";
-    expect(cmd).toContain("--event tool-failure");
-    expect(cmd).toContain("--harness codex");
   });
 
   it("inspect returns existing command when SessionStart hook present", () => {
@@ -385,8 +360,8 @@ describe("codex", () => {
     const result = writer.inspect("codex");
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
-    const sessionStart = result.hooks.find((h) => h.event === "SessionStart");
-    expect(sessionStart?.existingCommand).toBe("npx @membank/cli@latest inject --harness codex");
+    expect(result.hooks).toHaveLength(1);
+    expect(result.hooks[0]?.existingCommand).toBe("npx @membank/cli@latest inject --harness codex");
   });
 });
 
@@ -402,7 +377,7 @@ describe("opencode", () => {
     writer = new InjectionHookWriter(tmp.resolver);
   });
 
-  it("writes membank.js plugin with all three hooks", () => {
+  it("writes membank.js plugin with only the session.start hook", () => {
     const result = writer.write("opencode", ["plugin"]);
     expect(result.status).toBe("written");
 
@@ -411,10 +386,10 @@ describe("opencode", () => {
 
     const content = readFileSync(pluginPath, "utf8");
     expect(content).toContain("session.start");
-    expect(content).toContain("chat.message");
-    expect(content).toContain("tool.execute.after");
-    expect(content).toContain("--event user-prompt");
-    expect(content).toContain("--event tool-failure");
+    expect(content).not.toContain("chat.message");
+    expect(content).not.toContain("tool.execute.after");
+    expect(content).not.toContain("--event user-prompt");
+    expect(content).not.toContain("--event tool-failure");
   });
 
   it("inspect returns null existingCommand when plugin does not exist", () => {
@@ -438,14 +413,24 @@ describe("opencode", () => {
     expect(result.hooks[0]?.existingCommand).toBe(pluginPath);
   });
 
-  it("overwrites plugin when called with plugin event", () => {
+  it("overwrites plugin when called with plugin event (replaces legacy multi-hook plugin)", () => {
     const pluginPath = join(dir, ".config", "opencode", "plugins", "membank.js");
     mkdirSync(join(pluginPath, ".."), { recursive: true });
-    writeFileSync(pluginPath, "old content");
+    writeFileSync(
+      pluginPath,
+      [
+        "export default {",
+        "  hooks: {",
+        '    "session.start": async ({ $ }) => $`npx @membank/cli@latest inject`.text(),',
+        '    "chat.message": async ({ $, message }) => $`npx @membank/cli@latest inject --event user-prompt`.text(),',
+        "  },",
+        "};",
+      ].join("\n")
+    );
     const result = writer.write("opencode", ["plugin"]);
     expect(result.status).toBe("written");
     const content = readFileSync(pluginPath, "utf8");
     expect(content).toContain("session.start");
-    expect(content).toContain("chat.message");
+    expect(content).not.toContain("chat.message");
   });
 });
