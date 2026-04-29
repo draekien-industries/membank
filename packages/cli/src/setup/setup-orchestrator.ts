@@ -29,7 +29,6 @@ export interface SetupJsonOutput {
   detectedHarnesses: string[];
   configuredHarnesses: string[];
   injectionHooksConfigured: string[];
-  stopHooksConfigured: string[];
   modelDownloaded: boolean;
 }
 
@@ -102,7 +101,6 @@ export class SetupOrchestrator {
             detectedHarnesses: [],
             configuredHarnesses: [],
             injectionHooksConfigured: [],
-            stopHooksConfigured: [],
             modelDownloaded: false,
           } satisfies SetupJsonOutput)
         );
@@ -124,7 +122,6 @@ export class SetupOrchestrator {
         out(`  ⚠ ${h.name}: would write MCP config`);
         if (this.#hookWriter) {
           out(`  ⚠ ${h.name}: would write injection hook config`);
-          out(`  ⚠ ${h.name}: would write stop hook config`);
         }
       }
       out("");
@@ -185,7 +182,6 @@ export class SetupOrchestrator {
     out("");
 
     const injectionHooksConfigured: string[] = [];
-    const stopHooksConfigured: string[] = [];
     if (this.#hookWriter) {
       const w = this.#hookWriter;
       injectionHooksConfigured.push(
@@ -193,15 +189,6 @@ export class SetupOrchestrator {
           detected,
           "injection hook",
           (h, ow) => w.write(h, ow),
-          yes,
-          out
-        ))
-      );
-      stopHooksConfigured.push(
-        ...(await this.#runHookLoop(
-          detected,
-          "stop hook",
-          (h, ow) => w.writeStopHook(h, ow),
           yes,
           out
         ))
@@ -230,7 +217,6 @@ export class SetupOrchestrator {
         detectedHarnesses,
         configuredHarnesses,
         injectionHooksConfigured,
-        stopHooksConfigured,
         modelDownloaded,
       };
       this.#out(JSON.stringify(output));

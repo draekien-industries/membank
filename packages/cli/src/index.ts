@@ -13,7 +13,6 @@ import { listCommand } from "./commands/list.js";
 import { pinCommand } from "./commands/pin.js";
 import { queryCommand } from "./commands/query.js";
 import { statsCommand } from "./commands/stats.js";
-import { stopHookCommand } from "./commands/stop-hook.js";
 import { unpinCommand } from "./commands/unpin.js";
 import { Formatter } from "./formatter.js";
 import { PromptHelper } from "./prompt-helper.js";
@@ -197,14 +196,6 @@ program
       process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
       process.exit(2);
     }
-  });
-
-program
-  .command("stop-hook")
-  .description("output session-end prompt for harness stop hooks (called by hooks, not users)")
-  .option("--harness <name>", "harness name (copilot-cli, codex, opencode)")
-  .action((cmdOptions: { harness?: string }) => {
-    stopHookCommand(cmdOptions);
   });
 
 program

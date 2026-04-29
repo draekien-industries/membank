@@ -205,199 +205,19 @@ const writers: Record<string, HarnessInjectionWriter> = {
   },
 };
 
-function newOpencodePlugin(includeIdle = false): string {
-  const idleHook = includeIdle
-    ? [
-        '    "session.idle": async ({ $ }) => {',
-        "      return await $`npx @membank/cli stop-hook --harness opencode`.text();",
-        "    },",
-      ]
-    : [];
+function newOpencodePlugin(): string {
   return [
     "export default {",
     "  hooks: {",
     '    "session.start": async ({ $ }) => {',
     "      return await $`npx @membank/cli inject`.text();",
     "    },",
-    ...idleHook,
     "  },",
     "};",
   ].join("\n");
 }
 
 export const INJECTION_HARNESSES = Object.keys(writers) as (keyof typeof writers)[];
-
-export const STOP_HOOK_PROMPT =
-  "If this conversation contains unsaved user preferences, corrections, decisions, or learnings, call save_memory for each.";
-
-function containsMembankStopHookCmd(hooks: unknown[]): boolean {
-  return findMembankHookCommand(hooks, "@membank/cli stop-hook") !== "";
-}
-
-function extractStopHookCmd(hooks: unknown[]): string {
-  return findMembankHookCommand(hooks, "@membank/cli stop-hook");
-}
-
-function containsMembankStopPrompt(stopGroups: unknown[]): boolean {
-  return stopGroups.some((g) =>
-    getHooksArray(g).some(
-      (h) =>
-        typeof h === "object" &&
-        h !== null &&
-        "type" in h &&
-        h.type === "prompt" &&
-        "prompt" in h &&
-        typeof h.prompt === "string" &&
-        h.prompt.includes("save_memory")
-    )
-  );
-}
-
-function extractStopPrompt(stopGroups: unknown[]): string {
-  for (const g of stopGroups) {
-    for (const h of getHooksArray(g)) {
-      if (
-        typeof h === "object" &&
-        h !== null &&
-        "type" in h &&
-        h.type === "prompt" &&
-        "prompt" in h &&
-        typeof h.prompt === "string" &&
-        h.prompt.includes("save_memory")
-      ) {
-        return h.prompt;
-      }
-    }
-  }
-  return "";
-}
-
-interface HarnessStopHookWriter {
-  write(resolver: InjectionPathResolver, overwrite?: boolean): InjectionWriteResult;
-}
-
-const stopHookWriters: Record<string, HarnessStopHookWriter> = {
-  "claude-code": {
-    write(resolver, overwrite = false) {
-      const cfgPath = join(resolver.home(), ".claude", "settings.json");
-      const cfg = readJson(cfgPath);
-
-      const hooks = cfg.hooks as Record<string, unknown> | undefined;
-      const existingStop = Array.isArray(hooks?.Stop) ? hooks.Stop : [];
-
-      if (!overwrite && containsMembankStopPrompt(existingStop)) {
-        return {
-          status: "already-configured",
-          existing: extractStopPrompt(existingStop),
-          replacement: STOP_HOOK_PROMPT,
-        };
-      }
-
-      const filteredStop = overwrite
-        ? existingStop.filter((g) => !containsMembankStopPrompt([g]))
-        : existingStop;
-
-      writeJsonAtomic(cfgPath, {
-        ...cfg,
-        hooks: {
-          ...(hooks ?? {}),
-          Stop: [...filteredStop, { hooks: [{ type: "prompt", prompt: STOP_HOOK_PROMPT }] }],
-        },
-      });
-      return { status: "written" };
-    },
-  },
-
-  "copilot-cli": {
-    write(resolver, overwrite = false) {
-      const cfgPath = join(resolver.home(), ".copilot", "settings.json");
-      const cfg = readJson(cfgPath);
-      const replacement = "npx @membank/cli stop-hook --harness copilot-cli";
-
-      const hooks = cfg.hooks as Record<string, unknown> | undefined;
-      const existingStop = Array.isArray(hooks?.stop) ? hooks.stop : [];
-
-      if (!overwrite && containsMembankStopHookCmd(existingStop)) {
-        return {
-          status: "already-configured",
-          existing: extractStopHookCmd(existingStop),
-          replacement,
-        };
-      }
-
-      const filteredStop = overwrite
-        ? existingStop.filter((h) => !containsMembankStopHookCmd([h]))
-        : existingStop;
-
-      writeJsonAtomic(cfgPath, {
-        version: (cfg.version as number | undefined) ?? 1,
-        ...cfg,
-        hooks: {
-          ...(hooks ?? {}),
-          stop: [...filteredStop, { type: "command", bash: replacement, timeoutSec: 30 }],
-        },
-      });
-      return { status: "written" };
-    },
-  },
-
-  codex: {
-    write(resolver, overwrite = false) {
-      const cfgPath = join(resolver.home(), ".codex", "hooks.json");
-      const cfg = readJson(cfgPath);
-      const replacement = "npx @membank/cli stop-hook --harness codex";
-
-      const hooks = cfg.hooks as Record<string, unknown> | undefined;
-      const existingGroups = Array.isArray(hooks?.Stop) ? hooks.Stop : [];
-      const innerHooks = existingGroups.flatMap(getHooksArray);
-
-      if (!overwrite && containsMembankStopHookCmd(innerHooks)) {
-        return {
-          status: "already-configured",
-          existing: extractStopHookCmd(innerHooks),
-          replacement,
-        };
-      }
-
-      const filteredGroups = overwrite
-        ? existingGroups.filter((g) => !containsMembankStopHookCmd(getHooksArray(g)))
-        : existingGroups;
-
-      writeJsonAtomic(cfgPath, {
-        ...cfg,
-        hooks: {
-          ...(hooks ?? {}),
-          Stop: [
-            ...filteredGroups,
-            { matcher: "", hooks: [{ type: "command", command: replacement, timeout: 30 }] },
-          ],
-        },
-      });
-      return { status: "written" };
-    },
-  },
-
-  opencode: {
-    write(resolver, overwrite = false) {
-      const pluginPath = join(resolver.home(), ".config", "opencode", "plugins", "membank.js");
-
-      if (!overwrite && existsSync(pluginPath)) {
-        const existing = readFileSync(pluginPath, "utf8");
-        if (existing.includes("@membank/cli stop-hook")) {
-          return {
-            status: "already-configured",
-            existing: existing.trim(),
-            replacement: newOpencodePlugin(true),
-          };
-        }
-      }
-
-      mkdirSync(dirname(pluginPath), { recursive: true });
-      writeFileSync(pluginPath, `${newOpencodePlugin(true)}\n`, "utf8");
-      return { status: "written" };
-    },
-  },
-};
 
 export class InjectionHookWriter {
   readonly #resolver: InjectionPathResolver;
@@ -408,12 +228,6 @@ export class InjectionHookWriter {
 
   write(harness: string, overwrite?: boolean): InjectionWriteResult {
     const writer = writers[harness];
-    if (!writer) return { status: "not-supported" };
-    return writer.write(this.#resolver, overwrite);
-  }
-
-  writeStopHook(harness: string, overwrite?: boolean): InjectionWriteResult {
-    const writer = stopHookWriters[harness];
     if (!writer) return { status: "not-supported" };
     return writer.write(this.#resolver, overwrite);
   }
