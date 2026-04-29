@@ -25,6 +25,18 @@
     },
     "clean": {
       "cache": false
+    },
+    "sweep": {
+      "cache": false,
+      "dependsOn": ["build"]
+    },
+    "smoke": {
+      "cache": false,
+      "dependsOn": ["build"]
+    },
+    "report": {
+      "cache": false,
+      "dependsOn": ["build"]
     }
   }
 }

@@ -7,3 +7,7 @@ dist/
 .claude/worktrees
 *.local.*
 .fallow
+tools/eval/results/*.jsonl
+tools/eval/results/report-*.md
+tools/eval/results/winners.json
+tools/eval/.env

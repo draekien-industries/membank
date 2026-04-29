@@ -1,0 +1,32 @@
+{
+  "name": "@membank/eval",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "membank-eval": "./dist/cli.mjs"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check ./src",
+    "test": "vitest run",
+    "smoke": "node ./dist/cli.mjs smoke",
+    "sweep": "node ./dist/cli.mjs sweep",
+    "report": "node ./dist/cli.mjs report",
+    "clean": "rm -rf dist *.tsbuildinfo results/*.jsonl results/report-*.md results/winners.json"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.50.0",
+    "commander": "^14.0.3",
+    "dotenv": "^17.2.3",
+    "p-limit": "^7.1.1",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.4"
+  }
+}
