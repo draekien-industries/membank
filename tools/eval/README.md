@@ -2,8 +2,6 @@
 
 Internal tooling. Not published. Sweeps `MEMORY_GUIDANCE` prompt variants against Claude Haiku across all four supported harnesses to find the most reliable autonomous-trigger wording for `save_memory`.
 
-See `C:\Users\William\.claude\plans\using-haiku-subagents-analyse-recursive-kahan.md` for the methodology.
-
 ## Run
 
 Copy `tools/eval/.env.example` to `tools/eval/.env` and fill in your `ANTHROPIC_API_KEY`. The `.env` file is gitignored. Alternatively `export ANTHROPIC_API_KEY=...` in your shell — both work. The CLI looks for the key in `tools/eval/.env`, then the repo-root `.env`, then the process environment.
