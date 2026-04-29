@@ -1,5 +1,17 @@
 # @membank/cli
 
+## 0.2.0
+
+### Minor Changes
+
+- 09e2f28: Added stop hook to `membank setup`: writes a Claude Code `Stop` prompt hook that asks Claude to reflect on the session and save anything worth remembering to membank via the `save_memory` MCP tool.
+- 7ab1872: Added Stop hook support for copilot-cli, codex, and opencode harnesses. Running `membank setup` now writes session-end hooks for all supported harnesses, prompting the LLM to save memories at the end of each session. Also adds `membank stop-hook --harness <name>` command used by those hooks.
+
+### Patch Changes
+
+- @membank/core@0.2.0
+- @membank/mcp@0.2.0
+
 ## 0.1.1
 
 ### Patch Changes
