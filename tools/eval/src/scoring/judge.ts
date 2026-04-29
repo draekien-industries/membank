@@ -40,7 +40,6 @@ export async function judgeRun(run: RawRun): Promise<JudgeVerdict> {
       getClient().messages.create({
         model: JUDGE_MODEL,
         max_tokens: 200,
-        temperature: 0,
         system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: userMessage }],
       }),

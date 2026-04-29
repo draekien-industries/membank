@@ -4,19 +4,29 @@ let client: Anthropic | undefined;
 
 export function getClient(): Anthropic {
   if (!client) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
+    const oauthToken = process.env.CLAUDE_CODE_OAUTH_TOKEN ?? process.env.ANTHROPIC_OAUTH_TOKEN;
+    const rawKey = process.env.ANTHROPIC_API_KEY;
+    const looksOauth = rawKey?.startsWith("sk-ant-oat");
+
+    if (oauthToken || looksOauth) {
+      client = new Anthropic({
+        authToken: (oauthToken ?? rawKey) as string,
+        apiKey: null,
+        defaultHeaders: { "anthropic-beta": "oauth-2025-04-20" },
+      });
+    } else if (rawKey) {
+      client = new Anthropic({ apiKey: rawKey });
+    } else {
       throw new Error(
-        "ANTHROPIC_API_KEY is not set. Export it before running the sweep — see tools/eval/README.md."
+        "No credentials. Set CLAUDE_CODE_OAUTH_TOKEN (OAuth) or ANTHROPIC_API_KEY (API key)."
       );
     }
-    client = new Anthropic({ apiKey });
   }
   return client;
 }
 
 export const HAIKU_MODEL = "claude-haiku-4-5-20251001" as const;
-export const JUDGE_MODEL = "claude-sonnet-4-7" as const;
+export const JUDGE_MODEL = "claude-haiku-4-5" as const;
 
 const RETRY_DELAYS_MS = [1000, 3000, 8000, 20000];
 
