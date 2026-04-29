@@ -1,5 +1,20 @@
 # @membank/cli
 
+## 0.4.0
+
+### Minor Changes
+
+- a5aacb0: Removed the `user-prompt` and `tool-failure` injection events — only `SessionStart` is now used. Stale hooks from prior versions are tolerated at runtime (silent no-op) and pruned from settings on the next `membank setup` run. The SessionStart memory guidance prompt was rewritten as a stronger cost-of-omission framing chosen empirically across 18 isolated subagent A/B runs (haiku, 6 variants × 3 reps × 6 scenarios; winner scored 28/30 vs 24/30 for the previous version, with higher save-type accuracy on correction/preference/decision scenarios).
+
+### Patch Changes
+
+- 0bdaf77: Fixed tool-failure injection for Codex (exit_code detection) and copilot-cli (error field mapping).
+- a500d4a: Fixed setup command to prompt for each injection hook individually and perform a single write per harness, so the CLI accurately reflects what is written to the vendor config file.
+- Updated dependencies [356a873]
+  - @membank/dashboard@0.2.0
+  - @membank/core@0.4.0
+  - @membank/mcp@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes
