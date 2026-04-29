@@ -68,7 +68,7 @@ describe("claude-code", () => {
     expect(Array.isArray(hooks.SessionStart)).toBe(true);
     type GroupHooks = { hooks: { command: string }[] }[];
     const cmd = (hooks.SessionStart as GroupHooks)[0]?.hooks[0]?.command ?? "";
-    expect(cmd).toBe("npx @membank/cli@latest inject --harness claude-code");
+    expect(cmd).toBe("npx -y @membank/cli@latest inject --harness claude-code");
   });
 
   it("only writes SessionStart when only SessionStart is requested", () => {
@@ -214,7 +214,7 @@ describe("copilot-cli", () => {
     const hooks = cfg.hooks as Record<string, unknown>;
     type FlatHooks = { bash: string }[];
     const bash = (hooks.sessionStart as FlatHooks)[0]?.bash ?? "";
-    expect(bash).toBe("npx @membank/cli@latest inject --harness copilot-cli");
+    expect(bash).toBe("npx -y @membank/cli@latest inject --harness copilot-cli");
   });
 
   it("prunes legacy membank entries from removed event slots on write", () => {
@@ -298,7 +298,7 @@ describe("codex", () => {
     const hooks = cfg.hooks as Record<string, unknown>;
     type GroupHooks = { hooks: { command: string }[] }[];
     const cmd = (hooks.SessionStart as GroupHooks)[0]?.hooks[0]?.command ?? "";
-    expect(cmd).toBe("npx @membank/cli@latest inject --harness codex");
+    expect(cmd).toBe("npx -y @membank/cli@latest inject --harness codex");
   });
 
   it("prunes legacy membank entries from removed event slots on write", () => {
