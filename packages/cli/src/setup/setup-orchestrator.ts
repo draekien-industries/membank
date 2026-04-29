@@ -3,7 +3,7 @@ import type { HarnessConfigWriter } from "./harness-config-writer.js";
 import { SUPPORTED_HARNESSES } from "./harness-config-writer.js";
 import type { DetectedHarness } from "./harness-detector.js";
 import { detectHarnesses } from "./harness-detector.js";
-import type { InjectionHookWriter } from "./injection-hook-writer.js";
+import type { InjectionHookWriter, InjectionWriteResult } from "./injection-hook-writer.js";
 
 export type Prompter = (question: string) => Promise<boolean>;
 
@@ -29,6 +29,7 @@ export interface SetupJsonOutput {
   detectedHarnesses: string[];
   configuredHarnesses: string[];
   injectionHooksConfigured: string[];
+  stopHooksConfigured: string[];
   modelDownloaded: boolean;
 }
 
@@ -101,8 +102,9 @@ export class SetupOrchestrator {
             detectedHarnesses: [],
             configuredHarnesses: [],
             injectionHooksConfigured: [],
+            stopHooksConfigured: [],
             modelDownloaded: false,
-          })
+          } satisfies SetupJsonOutput)
         );
       }
       return [];
@@ -122,6 +124,7 @@ export class SetupOrchestrator {
         out(`  ⚠ ${h.name}: would write MCP config`);
         if (this.#hookWriter) {
           out(`  ⚠ ${h.name}: would write injection hook config`);
+          out(`  ⚠ ${h.name}: would write stop hook config`);
         }
       }
       out("");
@@ -182,22 +185,27 @@ export class SetupOrchestrator {
     out("");
 
     const injectionHooksConfigured: string[] = [];
+    const stopHooksConfigured: string[] = [];
     if (this.#hookWriter) {
-      for (const h of detected) {
-        try {
-          const hookResult = this.#hookWriter.write(h.name);
-          if (hookResult.status === "not-supported") continue;
-          if (hookResult.status === "written") {
-            out(`  ✓ ${h.name}: injection hook written`);
-            injectionHooksConfigured.push(h.name);
-          } else {
-            out(`  ⚠ ${h.name}: injection hook already configured`);
-          }
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          out(`  ✗ ${h.name} injection hook: ${msg}`);
-        }
-      }
+      const w = this.#hookWriter;
+      injectionHooksConfigured.push(
+        ...(await this.#runHookLoop(
+          detected,
+          "injection hook",
+          (h, ow) => w.write(h, ow),
+          yes,
+          out
+        ))
+      );
+      stopHooksConfigured.push(
+        ...(await this.#runHookLoop(
+          detected,
+          "stop hook",
+          (h, ow) => w.writeStopHook(h, ow),
+          yes,
+          out
+        ))
+      );
       out("");
     }
 
@@ -222,6 +230,7 @@ export class SetupOrchestrator {
         detectedHarnesses,
         configuredHarnesses,
         injectionHooksConfigured,
+        stopHooksConfigured,
         modelDownloaded,
       };
       this.#out(JSON.stringify(output));
@@ -231,6 +240,42 @@ export class SetupOrchestrator {
     }
 
     return results;
+  }
+
+  async #runHookLoop(
+    detected: DetectedHarness[],
+    label: string,
+    write: (harness: string, overwrite?: boolean) => InjectionWriteResult,
+    yes: boolean,
+    out: (msg: string) => void
+  ): Promise<string[]> {
+    const configured: string[] = [];
+    for (const h of detected) {
+      try {
+        const result = write(h.name);
+        if (result.status === "not-supported") continue;
+        if (result.status === "written") {
+          out(`  ✓ ${h.name}: ${label} written`);
+          configured.push(h.name);
+        } else {
+          out(`  ⚠ ${h.name}: ${label} already configured`);
+          out(`    Current: ${result.existing}`);
+          out(`    New:     ${result.replacement}`);
+          const replace = yes || (await this.#prompter(`  Replace ${label} for ${h.name}?`));
+          if (replace) {
+            const overwriteResult = write(h.name, true);
+            if (overwriteResult.status === "written") {
+              out(`  ✓ ${h.name}: ${label} replaced`);
+              configured.push(h.name);
+            }
+          }
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        out(`  ✗ ${h.name} ${label}: ${msg}`);
+      }
+    }
+    return configured;
   }
 
   async #runModelDownload(
