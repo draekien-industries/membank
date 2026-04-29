@@ -1,5 +1,14 @@
 # @membank/cli
 
+## 0.4.1
+
+### Patch Changes
+
+- 017e9b9: Pass `-y` to `npx` in generated MCP server configs and session-start hook commands so installs auto-accept the npx prompt instead of hanging on first run.
+  - @membank/core@0.4.1
+  - @membank/mcp@0.4.1
+  - @membank/dashboard@0.2.1
+
 ## 0.4.0
 
 ### Minor Changes
