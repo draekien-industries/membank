@@ -47,34 +47,25 @@ function getHooksArray(group: unknown): unknown[] {
   return Array.isArray(h) ? h : [];
 }
 
-function containsMembankInject(hooks: unknown): boolean {
-  if (!Array.isArray(hooks)) return false;
-  return hooks.some(
-    (h) =>
-      typeof h === "object" &&
-      h !== null &&
-      (("command" in h &&
-        typeof h.command === "string" &&
-        h.command.includes("@membank/cli inject")) ||
-        ("bash" in h && typeof h.bash === "string" && h.bash.includes("@membank/cli inject")))
-  );
-}
-
-function extractInjectCommand(innerHooks: unknown[]): string {
-  for (const h of innerHooks) {
+function findMembankHookCommand(hooks: unknown[], pattern: string): string {
+  for (const h of hooks) {
     if (typeof h !== "object" || h === null) continue;
-    if (
-      "command" in h &&
-      typeof h.command === "string" &&
-      h.command.includes("@membank/cli inject")
-    ) {
+    if ("command" in h && typeof h.command === "string" && h.command.includes(pattern)) {
       return h.command;
     }
-    if ("bash" in h && typeof h.bash === "string" && h.bash.includes("@membank/cli inject")) {
+    if ("bash" in h && typeof h.bash === "string" && h.bash.includes(pattern)) {
       return h.bash;
     }
   }
   return "";
+}
+
+function containsMembankInject(hooks: unknown[]): boolean {
+  return findMembankHookCommand(hooks, "@membank/cli inject") !== "";
+}
+
+function extractInjectCommand(hooks: unknown[]): string {
+  return findMembankHookCommand(hooks, "@membank/cli inject");
 }
 
 interface HarnessInjectionWriter {
@@ -214,13 +205,21 @@ const writers: Record<string, HarnessInjectionWriter> = {
   },
 };
 
-function newOpencodePlugin(): string {
+function newOpencodePlugin(includeIdle = false): string {
+  const idleHook = includeIdle
+    ? [
+        '    "session.idle": async ({ $ }) => {',
+        "      return await $`npx @membank/cli stop-hook --harness opencode`.text();",
+        "    },",
+      ]
+    : [];
   return [
     "export default {",
     "  hooks: {",
     '    "session.start": async ({ $ }) => {',
     "      return await $`npx @membank/cli inject`.text();",
     "    },",
+    ...idleHook,
     "  },",
     "};",
   ].join("\n");
@@ -228,8 +227,16 @@ function newOpencodePlugin(): string {
 
 export const INJECTION_HARNESSES = Object.keys(writers) as (keyof typeof writers)[];
 
-const STOP_HOOK_PROMPT =
+export const STOP_HOOK_PROMPT =
   "Review this session and consider whether any user preferences, corrections, decisions, or learnings are worth saving for future sessions. If so, use the save_memory MCP tool to store them. Be selective — only save what would genuinely help in a future conversation. Skip ephemeral task details.";
+
+function containsMembankStopHookCmd(hooks: unknown[]): boolean {
+  return findMembankHookCommand(hooks, "@membank/cli stop-hook") !== "";
+}
+
+function extractStopHookCmd(hooks: unknown[]): string {
+  return findMembankHookCommand(hooks, "@membank/cli stop-hook");
+}
 
 function containsMembankStopPrompt(stopGroups: unknown[]): boolean {
   return stopGroups.some((g) =>
@@ -297,6 +304,96 @@ const stopHookWriters: Record<string, HarnessStopHookWriter> = {
           Stop: [...filteredStop, { hooks: [{ type: "prompt", prompt: STOP_HOOK_PROMPT }] }],
         },
       });
+      return { status: "written" };
+    },
+  },
+
+  "copilot-cli": {
+    write(resolver, overwrite = false) {
+      const cfgPath = join(resolver.home(), ".copilot", "settings.json");
+      const cfg = readJson(cfgPath);
+      const replacement = "npx @membank/cli stop-hook --harness copilot-cli";
+
+      const hooks = cfg.hooks as Record<string, unknown> | undefined;
+      const existingStop = Array.isArray(hooks?.stop) ? hooks.stop : [];
+
+      if (!overwrite && containsMembankStopHookCmd(existingStop)) {
+        return {
+          status: "already-configured",
+          existing: extractStopHookCmd(existingStop),
+          replacement,
+        };
+      }
+
+      const filteredStop = overwrite
+        ? existingStop.filter((h) => !containsMembankStopHookCmd([h]))
+        : existingStop;
+
+      writeJsonAtomic(cfgPath, {
+        version: (cfg.version as number | undefined) ?? 1,
+        ...cfg,
+        hooks: {
+          ...(hooks ?? {}),
+          stop: [...filteredStop, { type: "command", bash: replacement, timeoutSec: 30 }],
+        },
+      });
+      return { status: "written" };
+    },
+  },
+
+  codex: {
+    write(resolver, overwrite = false) {
+      const cfgPath = join(resolver.home(), ".codex", "hooks.json");
+      const cfg = readJson(cfgPath);
+      const replacement = "npx @membank/cli stop-hook --harness codex";
+
+      const hooks = cfg.hooks as Record<string, unknown> | undefined;
+      const existingGroups = Array.isArray(hooks?.Stop) ? hooks.Stop : [];
+      const innerHooks = existingGroups.flatMap(getHooksArray);
+
+      if (!overwrite && containsMembankStopHookCmd(innerHooks)) {
+        return {
+          status: "already-configured",
+          existing: extractStopHookCmd(innerHooks),
+          replacement,
+        };
+      }
+
+      const filteredGroups = overwrite
+        ? existingGroups.filter((g) => !containsMembankStopHookCmd(getHooksArray(g)))
+        : existingGroups;
+
+      writeJsonAtomic(cfgPath, {
+        ...cfg,
+        hooks: {
+          ...(hooks ?? {}),
+          Stop: [
+            ...filteredGroups,
+            { matcher: "", hooks: [{ type: "command", command: replacement, timeout: 30 }] },
+          ],
+        },
+      });
+      return { status: "written" };
+    },
+  },
+
+  opencode: {
+    write(resolver, overwrite = false) {
+      const pluginPath = join(resolver.home(), ".config", "opencode", "plugins", "membank.js");
+
+      if (!overwrite && existsSync(pluginPath)) {
+        const existing = readFileSync(pluginPath, "utf8");
+        if (existing.includes("@membank/cli stop-hook")) {
+          return {
+            status: "already-configured",
+            existing: existing.trim(),
+            replacement: newOpencodePlugin(true),
+          };
+        }
+      }
+
+      mkdirSync(dirname(pluginPath), { recursive: true });
+      writeFileSync(pluginPath, `${newOpencodePlugin(true)}\n`, "utf8");
       return { status: "written" };
     },
   },

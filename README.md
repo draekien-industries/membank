@@ -23,6 +23,8 @@ npx @membank/cli setup
 
 `setup` auto-detects your installed LLM harness and writes the MCP server config. Use `--harness <name>` to target a specific harness, `--yes` to skip prompts, `--json` for machine-readable output.
 
+Supported harnesses: `claude-code`, `copilot-cli`, `codex`, `opencode`.
+
 After setup, restart your harness. Membank will start injecting memories into every session.
 
 ## CLI
@@ -41,13 +43,24 @@ membank setup                              # configure MCP server + injection ho
 membank inject                             # output session context (called by hooks)
 membank inject --harness claude-code       # format output for a specific harness
 membank inject --scope <scope>            # override project scope (default: auto from git)
+membank stop-hook --harness copilot-cli   # output session-end prompt (called by stop hooks)
 ```
 
 ### Injection hooks
 
-`setup` writes a session-start hook into your harness config so memories are injected automatically into every new session. Supported harnesses: `claude-code`, `copilot-cli`, `codex`, `opencode`.
+`setup` writes two hooks into your harness config:
 
-The hook calls `membank inject --harness <name>`, which outputs pinned global and project memories formatted for that harness. You can run `inject` manually to inspect what would be injected.
+- **Session-start hook** — injects pinned memories into every new session context. Calls `membank inject --harness <name>`.
+- **Stop hook** — prompts the LLM at session end to review the conversation and save any new preferences, corrections, or decisions. Calls `membank stop-hook --harness <name>` (or uses a native prompt hook for `claude-code`).
+
+Supported harnesses and their hook mechanisms:
+
+| Harness | Config file | Session-start | Stop |
+|---------|-------------|---------------|------|
+| `claude-code` | `~/.claude/settings.json` | `SessionStart` command hook | `Stop` prompt hook (native) |
+| `copilot-cli` | `~/.copilot/settings.json` | `sessionStart` command hook | `stop` command hook |
+| `codex` | `~/.codex/hooks.json` | `SessionStart` command hook | `Stop` command hook |
+| `opencode` | `~/.config/opencode/plugins/membank.js` | `session.start` plugin event | `session.idle` plugin event |
 
 ## MCP tools
 
