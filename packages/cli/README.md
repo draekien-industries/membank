@@ -33,7 +33,7 @@ Options:
 --json             Machine-readable output
 ```
 
-Supported harnesses: `claude-code`, `copilot`, `codex`, `opencode`
+Supported harnesses: `claude-code`, `copilot`, `codex`, `opencode` (see `membank setup` for harness-specific setup instructions)
 
 ## Commands
 
@@ -125,6 +125,16 @@ Output session context formatted for a harness. Called automatically by session 
 membank inject --harness claude-code --scope <project-scope>
 ```
 
+### `membank dashboard`
+
+Start the web dashboard for browsing and managing memories.
+
+```bash
+membank dashboard
+```
+
+Opens http://localhost:3847 by default. Features: full-text search, filtering by type/scope/pin status, edit memory metadata, view dedup reviews, and storage statistics.
+
 ## Global flags
 
 ```
@@ -143,11 +153,9 @@ Starts the stdio MCP server. This is what harnesses connect to — `setup` write
 
 ## Session hooks
 
-`setup` installs two hooks:
+`setup` installs a hook for Claude Code that injects memories at the start of each session:
 
-**Session start** — calls `membank inject` to prepend pinned memories into the LLM context at the beginning of every session.
-
-**Session stop (Claude Code only)** — prompts the LLM to review the session and call `save_memory` for any notable corrections, preferences, or decisions.
+**SessionStart** — calls `membank inject` to prepend pinned memories into the LLM context at the beginning of every session.
 
 ## Requirements
 

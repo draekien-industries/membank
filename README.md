@@ -23,7 +23,7 @@ npx @membank/cli setup
 
 `setup` auto-detects your installed LLM harness and writes the MCP server config. Use `--harness <name>` to target a specific harness, `--yes` to skip prompts, `--json` for machine-readable output.
 
-Supported harnesses: `claude-code`, `copilot-cli`, `codex`, `opencode`.
+Supported harnesses: `claude-code`, `copilot`, `codex`, `opencode`.
 
 After setup, restart your harness. Membank will start injecting memories into every session.
 
@@ -47,16 +47,16 @@ membank inject --scope <scope>             # override project scope (default: au
 
 ### Injection hooks
 
-`setup` writes session-start hooks into your harness config to inject pinned memories at the beginning of each session. Calls `membank inject --harness <name>`.
+`setup` configures MCP servers for all supported harnesses. For Claude Code specifically, it also installs a SessionStart hook that injects pinned memories at the beginning of each session.
 
 Supported harnesses and their hook mechanisms:
 
-| Harness | Config file | Session-start hook |
-|---------|-------------|-------------------|
-| `claude-code` | `~/.claude/settings.json` | `SessionStart` command hook |
-| `copilot-cli` | `~/.copilot/settings.json` | `sessionStart` command hook |
-| `codex` | `~/.codex/hooks.json` | `SessionStart` command hook |
-| `opencode` | `~/.config/opencode/plugins/membank.js` | `session.start` plugin event |
+| Harness | MCP config location | Session hooks |
+|---------|------------------|---------------|
+| `claude-code` | Managed by `claude mcp` | SessionStart hook injects pinned memories |
+| `copilot` | `~/.copilot/mcp-config.json` | MCP server only |
+| `codex` | Managed by `codex mcp` | MCP server only |
+| `opencode` | `~/.config/opencode/opencode.json` | MCP server only |
 
 ## Web dashboard
 
