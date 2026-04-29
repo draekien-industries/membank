@@ -189,7 +189,12 @@ program
     "format output for a specific harness (claude-code|copilot-cli|codex|opencode)"
   )
   .option("--scope <scope>", "project scope override (default: auto-detect from git remote)")
-  .action(async (cmdOptions: { harness?: string; scope?: string }) => {
+  .option(
+    "--event <event>",
+    "hook event type (session-start|user-prompt|tool-failure)",
+    "session-start"
+  )
+  .action(async (cmdOptions: { harness?: string; scope?: string; event?: string }) => {
     try {
       await injectCommand(cmdOptions);
     } catch (err) {

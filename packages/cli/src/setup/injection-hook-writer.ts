@@ -68,6 +68,16 @@ function extractInjectCommand(hooks: unknown[]): string {
   return findMembankHookCommand(hooks, "@membank/cli inject");
 }
 
+// Removes hook groups that contain any membank inject command (any --event variant).
+function filterOutMembank(groups: unknown[]): unknown[] {
+  return groups.filter((g) => !containsMembankInject(getHooksArray(g)));
+}
+
+// Removes flat hook entries that contain any membank inject command.
+function filterOutMembankFlat(hooks: unknown[]): unknown[] {
+  return hooks.filter((h) => !containsMembankInject([h]));
+}
+
 interface HarnessInjectionWriter {
   write(resolver: InjectionPathResolver, overwrite?: boolean): InjectionWriteResult;
   readonly replacement: string;
@@ -81,8 +91,8 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const cfg = readJson(cfgPath);
 
       const hooks = cfg.hooks as Record<string, unknown> | undefined;
-      const existingGroups = Array.isArray(hooks?.SessionStart) ? hooks.SessionStart : [];
-      const innerHooks = existingGroups.flatMap(getHooksArray);
+      const existingSessionStart = Array.isArray(hooks?.SessionStart) ? hooks.SessionStart : [];
+      const innerHooks = existingSessionStart.flatMap(getHooksArray);
 
       if (!overwrite && containsMembankInject(innerHooks)) {
         return {
@@ -92,17 +102,53 @@ const writers: Record<string, HarnessInjectionWriter> = {
         };
       }
 
-      const filteredGroups = overwrite
-        ? existingGroups.filter((g) => !containsMembankInject(getHooksArray(g)))
-        : existingGroups;
+      const filteredSessionStart = overwrite
+        ? filterOutMembank(existingSessionStart)
+        : existingSessionStart;
+
+      const existingUserPrompt = Array.isArray(hooks?.UserPromptSubmit)
+        ? hooks.UserPromptSubmit
+        : [];
+      const existingToolFailure = Array.isArray(hooks?.PostToolUseFailure)
+        ? hooks.PostToolUseFailure
+        : [];
 
       writeJsonAtomic(cfgPath, {
         ...cfg,
         hooks: {
           ...(hooks ?? {}),
           SessionStart: [
-            ...filteredGroups,
-            { matcher: "", hooks: [{ type: "command", command: this.replacement }] },
+            ...filteredSessionStart,
+            {
+              matcher: "",
+              hooks: [
+                { type: "command", command: "npx @membank/cli inject --harness claude-code" },
+              ],
+            },
+          ],
+          UserPromptSubmit: [
+            ...filterOutMembank(existingUserPrompt),
+            {
+              matcher: "",
+              hooks: [
+                {
+                  type: "command",
+                  command: "npx @membank/cli inject --event user-prompt --harness claude-code",
+                },
+              ],
+            },
+          ],
+          PostToolUseFailure: [
+            ...filterOutMembank(existingToolFailure),
+            {
+              matcher: "",
+              hooks: [
+                {
+                  type: "command",
+                  command: "npx @membank/cli inject --event tool-failure --harness claude-code",
+                },
+              ],
+            },
           ],
         },
       });
@@ -117,19 +163,26 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const cfg = readJson(cfgPath);
 
       const hooks = cfg.hooks as Record<string, unknown> | undefined;
-      const existingHooks = Array.isArray(hooks?.sessionStart) ? hooks.sessionStart : [];
+      const existingSessionStart = Array.isArray(hooks?.sessionStart) ? hooks.sessionStart : [];
 
-      if (!overwrite && containsMembankInject(existingHooks)) {
+      if (!overwrite && containsMembankInject(existingSessionStart)) {
         return {
           status: "already-configured",
-          existing: extractInjectCommand(existingHooks),
+          existing: extractInjectCommand(existingSessionStart),
           replacement: this.replacement,
         };
       }
 
-      const filteredHooks = overwrite
-        ? existingHooks.filter((h) => !containsMembankInject([h]))
-        : existingHooks;
+      const filteredSessionStart = overwrite
+        ? filterOutMembankFlat(existingSessionStart)
+        : existingSessionStart;
+
+      const existingUserPrompt = Array.isArray(hooks?.userPromptSubmitted)
+        ? hooks.userPromptSubmitted
+        : [];
+      const existingToolFailure = Array.isArray(hooks?.postToolUseFailure)
+        ? hooks.postToolUseFailure
+        : [];
 
       writeJsonAtomic(cfgPath, {
         version: (cfg.version as number | undefined) ?? 1,
@@ -137,8 +190,28 @@ const writers: Record<string, HarnessInjectionWriter> = {
         hooks: {
           ...(hooks ?? {}),
           sessionStart: [
-            ...filteredHooks,
-            { type: "command", bash: this.replacement, timeoutSec: 30 },
+            ...filteredSessionStart,
+            {
+              type: "command",
+              bash: "npx @membank/cli inject --harness copilot-cli",
+              timeoutSec: 30,
+            },
+          ],
+          userPromptSubmitted: [
+            ...filterOutMembankFlat(existingUserPrompt),
+            {
+              type: "command",
+              bash: "npx @membank/cli inject --event user-prompt --harness copilot-cli",
+              timeoutSec: 30,
+            },
+          ],
+          postToolUseFailure: [
+            ...filterOutMembankFlat(existingToolFailure),
+            {
+              type: "command",
+              bash: "npx @membank/cli inject --event tool-failure --harness copilot-cli",
+              timeoutSec: 30,
+            },
           ],
         },
       });
@@ -153,8 +226,8 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const cfg = readJson(cfgPath);
 
       const hooks = cfg.hooks as Record<string, unknown> | undefined;
-      const existingGroups = Array.isArray(hooks?.SessionStart) ? hooks.SessionStart : [];
-      const innerHooks = existingGroups.flatMap(getHooksArray);
+      const existingSessionStart = Array.isArray(hooks?.SessionStart) ? hooks.SessionStart : [];
+      const innerHooks = existingSessionStart.flatMap(getHooksArray);
 
       if (!overwrite && containsMembankInject(innerHooks)) {
         return {
@@ -164,17 +237,57 @@ const writers: Record<string, HarnessInjectionWriter> = {
         };
       }
 
-      const filteredGroups = overwrite
-        ? existingGroups.filter((g) => !containsMembankInject(getHooksArray(g)))
-        : existingGroups;
+      const filteredSessionStart = overwrite
+        ? filterOutMembank(existingSessionStart)
+        : existingSessionStart;
+
+      const existingUserPrompt = Array.isArray(hooks?.UserPromptSubmit)
+        ? hooks.UserPromptSubmit
+        : [];
+      const existingToolFailure = Array.isArray(hooks?.PostToolUse) ? hooks.PostToolUse : [];
 
       writeJsonAtomic(cfgPath, {
         ...cfg,
         hooks: {
           ...(hooks ?? {}),
           SessionStart: [
-            ...filteredGroups,
-            { matcher: "", hooks: [{ type: "command", command: this.replacement, timeout: 30 }] },
+            ...filteredSessionStart,
+            {
+              matcher: "",
+              hooks: [
+                {
+                  type: "command",
+                  command: "npx @membank/cli inject --harness codex",
+                  timeout: 30,
+                },
+              ],
+            },
+          ],
+          UserPromptSubmit: [
+            ...filterOutMembank(existingUserPrompt),
+            {
+              matcher: "",
+              hooks: [
+                {
+                  type: "command",
+                  command: "npx @membank/cli inject --event user-prompt --harness codex",
+                  timeout: 30,
+                },
+              ],
+            },
+          ],
+          PostToolUse: [
+            ...filterOutMembank(existingToolFailure),
+            {
+              matcher: "",
+              hooks: [
+                {
+                  type: "command",
+                  command: "npx @membank/cli inject --event tool-failure --harness codex",
+                  timeout: 30,
+                },
+              ],
+            },
           ],
         },
       });
@@ -211,6 +324,18 @@ function newOpencodePlugin(): string {
     "  hooks: {",
     '    "session.start": async ({ $ }) => {',
     "      return await $`npx @membank/cli inject`.text();",
+    "    },",
+    '    "chat.message": async ({ $, message }) => {',
+    '      const input = JSON.stringify({ prompt: message?.content ?? "" });',
+    "      return await $`npx @membank/cli inject --event user-prompt`.stdin(input).text();",
+    "    },",
+    '    "tool.execute.after": async ({ $, result }) => {',
+    "      if (!result?.exitCode && !result?.error) return;",
+    "      const payload = JSON.stringify({",
+    '        tool_name: result.tool ?? "unknown",',
+    '        error_message: result.error ?? ("exit code " + result.exitCode),',
+    "      });",
+    "      return await $`npx @membank/cli inject --event tool-failure`.stdin(payload).text();",
     "    },",
     "  },",
     "};",

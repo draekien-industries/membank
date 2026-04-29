@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { HarnessConfigWriter } from "./harness-config-writer.js";
 import type { DetectedHarness } from "./harness-detector.js";
+import type { InjectionHookWriter, InjectionWriteResult } from "./injection-hook-writer.js";
 import { SetupOrchestrator } from "./setup-orchestrator.js";
 
 // Minimal HarnessConfigWriter stub
@@ -408,6 +409,127 @@ describe("--json output", () => {
 
     const parsed = JSON.parse(lines[0] ?? "null") as { modelDownloaded: boolean };
     expect(parsed.modelDownloaded).toBe(true);
+  });
+});
+
+// --- AC: injection hook writer integration (idempotency) ---
+
+function makeHookWriter(responses: Record<string, InjectionWriteResult> = {}): InjectionHookWriter {
+  return {
+    write: vi.fn((harness: string, overwrite?: boolean) => {
+      const key = overwrite ? `${harness}:overwrite` : harness;
+      return responses[key] ?? responses[harness] ?? { status: "written" };
+    }),
+  } as unknown as InjectionHookWriter;
+}
+
+function makeOrchestratorWithHooks(opts: {
+  detected: DetectedHarness[];
+  hookWriter: InjectionHookWriter;
+  prompter?: (q: string) => Promise<boolean>;
+}): { orchestrator: SetupOrchestrator; lines: string[] } {
+  const lines: string[] = [];
+  const orchestrator = new SetupOrchestrator({
+    detector: () => opts.detected,
+    writer: makeWriter(),
+    hookWriter: opts.hookWriter,
+    prompter: opts.prompter,
+    out: (msg) => lines.push(msg),
+  });
+  return { orchestrator, lines };
+}
+
+describe("injection hook writer integration", () => {
+  it("calls hookWriter.write for each detected harness", async () => {
+    const hookWriter = makeHookWriter();
+    const { orchestrator } = makeOrchestratorWithHooks({
+      detected: [makeHarness("claude-code"), makeHarness("copilot-cli")],
+      hookWriter,
+    });
+    await orchestrator.run({ yes: true });
+    expect(hookWriter.write).toHaveBeenCalledWith("claude-code", undefined);
+    expect(hookWriter.write).toHaveBeenCalledWith("copilot-cli", undefined);
+  });
+
+  it("reports written injection hooks as ✓", async () => {
+    const hookWriter = makeHookWriter({ "claude-code": { status: "written" } });
+    const { orchestrator, lines } = makeOrchestratorWithHooks({
+      detected: [makeHarness("claude-code")],
+      hookWriter,
+    });
+    await orchestrator.run({ yes: true });
+    expect(
+      lines.some(
+        (l) => l.includes("✓") && l.includes("claude-code") && l.includes("injection hook")
+      )
+    ).toBe(true);
+  });
+
+  it("already-configured hook: prompts user to replace when --yes not set", async () => {
+    const hookWriter = makeHookWriter({
+      "claude-code": {
+        status: "already-configured",
+        existing: "npx @membank/cli inject --harness claude-code",
+        replacement: "npx @membank/cli inject --harness claude-code",
+      },
+      "claude-code:overwrite": { status: "written" },
+    });
+    const prompter = vi.fn().mockResolvedValue(true);
+    const { orchestrator } = makeOrchestratorWithHooks({
+      detected: [makeHarness("claude-code")],
+      hookWriter,
+      prompter,
+    });
+    await orchestrator.run({ yes: false });
+    // "Proceed with writing configs?" + "Replace injection hook for claude-code?"
+    expect(prompter).toHaveBeenCalledTimes(2);
+    expect(hookWriter.write).toHaveBeenCalledWith("claude-code", true);
+  });
+
+  it("already-configured hook: auto-overwrites with --yes (idempotent re-run)", async () => {
+    const hookWriter = makeHookWriter({
+      "claude-code": {
+        status: "already-configured",
+        existing: "npx @membank/cli inject --harness claude-code",
+        replacement: "npx @membank/cli inject --harness claude-code",
+      },
+      "claude-code:overwrite": { status: "written" },
+    });
+    const prompter = vi.fn();
+    const { orchestrator, lines } = makeOrchestratorWithHooks({
+      detected: [makeHarness("claude-code")],
+      hookWriter,
+      prompter,
+    });
+    await orchestrator.run({ yes: true });
+    expect(prompter).not.toHaveBeenCalled();
+    expect(hookWriter.write).toHaveBeenCalledWith("claude-code", true);
+    expect(lines.some((l) => l.includes("✓") && l.includes("replaced"))).toBe(true);
+  });
+
+  it("skips hook writing in --dry-run mode", async () => {
+    const hookWriter = makeHookWriter();
+    const { orchestrator, lines } = makeOrchestratorWithHooks({
+      detected: [makeHarness("claude-code")],
+      hookWriter,
+    });
+    await orchestrator.run({ dryRun: true });
+    expect(hookWriter.write).not.toHaveBeenCalled();
+    expect(lines.some((l) => l.includes("would write injection hook"))).toBe(true);
+  });
+
+  it("includes injectionHooksConfigured in JSON output", async () => {
+    const hookWriter = makeHookWriter({ "claude-code": { status: "written" } });
+    const lines: string[] = [];
+    const orchestrator = new SetupOrchestrator({
+      detector: () => [makeHarness("claude-code")],
+      writer: makeWriter(),
+      hookWriter,
+      out: (msg) => lines.push(msg),
+    });
+    await orchestrator.run({ yes: true, json: true });
+    const parsed = JSON.parse(lines[0] ?? "null") as { injectionHooksConfigured: string[] };
+    expect(parsed.injectionHooksConfigured).toContain("claude-code");
   });
 });
 
