@@ -228,7 +228,7 @@ function newOpencodePlugin(includeIdle = false): string {
 export const INJECTION_HARNESSES = Object.keys(writers) as (keyof typeof writers)[];
 
 export const STOP_HOOK_PROMPT =
-  "Silently review this session so far. If the user expressed a preference, correction, decision, or learning worth retaining across sessions that hasn't been saved before, call save_memory. Do not respond to this message.";
+  "Silently review this session so far. If the user expressed a preference, correction, decision, or learning worth retaining across sessions that hasn't been saved before, call save_memory. Output nothing — no text, no acknowledgement, no explanation. Your only permitted action is calling save_memory if needed.";
 
 function containsMembankStopHookCmd(hooks: unknown[]): boolean {
   return findMembankHookCommand(hooks, "@membank/cli stop-hook") !== "";
