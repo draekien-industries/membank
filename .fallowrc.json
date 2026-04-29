@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "packages/cli/src/index.ts",
+    "packages/core/src/index.ts",
+    "packages/dashboard/src/client/main.tsx",
+    "packages/dashboard/src/server/index.ts",
+    "packages/dashboard/src/server/dev.ts",
+    "packages/mcp/src/index.ts"
+  ],
+  "workspaces": {
+    "packages": ["packages/*"]
+  },
+  "rules": {},
+  "publicPackages": ["@membank/cli", "@membank/dashboard", "@membank/core", "@membank/mcp"],
+  "ignorePatterns": ["**/*.gen.ts", "**/tsdown.config.ts"],
+  "dynamicallyLoaded": ["packages/dashboard/src/client/**/*.tsx"]
+}
