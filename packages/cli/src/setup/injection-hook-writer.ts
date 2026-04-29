@@ -66,11 +66,11 @@ function findMembankHookCommand(hooks: unknown[], pattern: string): string {
 }
 
 function containsMembankInject(hooks: unknown[]): boolean {
-  return findMembankHookCommand(hooks, "@membank/cli inject") !== "";
+  return findMembankHookCommand(hooks, "@membank/cli") !== "";
 }
 
 function extractInjectCommand(hooks: unknown[]): string {
-  return findMembankHookCommand(hooks, "@membank/cli inject");
+  return findMembankHookCommand(hooks, "@membank/cli");
 }
 
 // Removes hook groups that contain any membank inject command (any --event variant).
@@ -110,17 +110,17 @@ const writers: Record<string, HarnessInjectionWriter> = {
         hooks: [
           {
             event: "SessionStart",
-            command: "npx @membank/cli inject --harness claude-code",
+            command: "npx @membank/cli@latest inject --harness claude-code",
             existingCommand: extractInjectCommand(sessionStartInner) || null,
           },
           {
             event: "UserPromptSubmit",
-            command: "npx @membank/cli inject --event user-prompt --harness claude-code",
+            command: "npx @membank/cli@latest inject --event user-prompt --harness claude-code",
             existingCommand: extractInjectCommand(userPromptInner) || null,
           },
           {
             event: "PostToolUseFailure",
-            command: "npx @membank/cli inject --event tool-failure --harness claude-code",
+            command: "npx @membank/cli@latest inject --event tool-failure --harness claude-code",
             existingCommand: extractInjectCommand(toolFailureInner) || null,
           },
         ],
@@ -139,7 +139,9 @@ const writers: Record<string, HarnessInjectionWriter> = {
           ...filterOutMembank(existing),
           {
             matcher: "",
-            hooks: [{ type: "command", command: "npx @membank/cli inject --harness claude-code" }],
+            hooks: [
+              { type: "command", command: "npx @membank/cli@latest inject --harness claude-code" },
+            ],
           },
         ];
       }
@@ -153,7 +155,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
             hooks: [
               {
                 type: "command",
-                command: "npx @membank/cli inject --event user-prompt --harness claude-code",
+                command: "npx @membank/cli@latest inject --event user-prompt --harness claude-code",
               },
             ],
           },
@@ -169,7 +171,8 @@ const writers: Record<string, HarnessInjectionWriter> = {
             hooks: [
               {
                 type: "command",
-                command: "npx @membank/cli inject --event tool-failure --harness claude-code",
+                command:
+                  "npx @membank/cli@latest inject --event tool-failure --harness claude-code",
               },
             ],
           },
@@ -196,17 +199,17 @@ const writers: Record<string, HarnessInjectionWriter> = {
         hooks: [
           {
             event: "sessionStart",
-            command: "npx @membank/cli inject --harness copilot-cli",
+            command: "npx @membank/cli@latest inject --harness copilot-cli",
             existingCommand: extractInjectCommand(sessionStart) || null,
           },
           {
             event: "userPromptSubmitted",
-            command: "npx @membank/cli inject --event user-prompt --harness copilot-cli",
+            command: "npx @membank/cli@latest inject --event user-prompt --harness copilot-cli",
             existingCommand: extractInjectCommand(userPrompt) || null,
           },
           {
             event: "postToolUseFailure",
-            command: "npx @membank/cli inject --event tool-failure --harness copilot-cli",
+            command: "npx @membank/cli@latest inject --event tool-failure --harness copilot-cli",
             existingCommand: extractInjectCommand(toolFailure) || null,
           },
         ],
@@ -225,7 +228,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
           ...filterOutMembankFlat(existing),
           {
             type: "command",
-            bash: "npx @membank/cli inject --harness copilot-cli",
+            bash: "npx @membank/cli@latest inject --harness copilot-cli",
             timeoutSec: 30,
           },
         ];
@@ -237,7 +240,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
           ...filterOutMembankFlat(existing),
           {
             type: "command",
-            bash: "npx @membank/cli inject --event user-prompt --harness copilot-cli",
+            bash: "npx @membank/cli@latest inject --event user-prompt --harness copilot-cli",
             timeoutSec: 30,
           },
         ];
@@ -249,7 +252,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
           ...filterOutMembankFlat(existing),
           {
             type: "command",
-            bash: "npx @membank/cli inject --event tool-failure --harness copilot-cli",
+            bash: "npx @membank/cli@latest inject --event tool-failure --harness copilot-cli",
             timeoutSec: 30,
           },
         ];
@@ -285,17 +288,17 @@ const writers: Record<string, HarnessInjectionWriter> = {
         hooks: [
           {
             event: "SessionStart",
-            command: "npx @membank/cli inject --harness codex",
+            command: "npx @membank/cli@latest inject --harness codex",
             existingCommand: extractInjectCommand(sessionStartInner) || null,
           },
           {
             event: "UserPromptSubmit",
-            command: "npx @membank/cli inject --event user-prompt --harness codex",
+            command: "npx @membank/cli@latest inject --event user-prompt --harness codex",
             existingCommand: extractInjectCommand(userPromptInner) || null,
           },
           {
             event: "PostToolUse",
-            command: "npx @membank/cli inject --event tool-failure --harness codex",
+            command: "npx @membank/cli@latest inject --event tool-failure --harness codex",
             existingCommand: extractInjectCommand(toolUseInner) || null,
           },
         ],
@@ -315,7 +318,11 @@ const writers: Record<string, HarnessInjectionWriter> = {
           {
             matcher: "",
             hooks: [
-              { type: "command", command: "npx @membank/cli inject --harness codex", timeout: 30 },
+              {
+                type: "command",
+                command: "npx @membank/cli@latest inject --harness codex",
+                timeout: 30,
+              },
             ],
           },
         ];
@@ -330,7 +337,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
             hooks: [
               {
                 type: "command",
-                command: "npx @membank/cli inject --event user-prompt --harness codex",
+                command: "npx @membank/cli@latest inject --event user-prompt --harness codex",
                 timeout: 30,
               },
             ],
@@ -347,7 +354,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
             hooks: [
               {
                 type: "command",
-                command: "npx @membank/cli inject --event tool-failure --harness codex",
+                command: "npx @membank/cli@latest inject --event tool-failure --harness codex",
                 timeout: 30,
               },
             ],
@@ -366,7 +373,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
       let existingCommand: string | null = null;
       if (existsSync(pluginPath)) {
         const content = readFileSync(pluginPath, "utf8");
-        if (content.includes("@membank/cli inject")) {
+        if (content.includes("@membank/cli")) {
           existingCommand = pluginPath;
         }
       }
@@ -397,11 +404,11 @@ function newOpencodePlugin(): string {
     "export default {",
     "  hooks: {",
     '    "session.start": async ({ $ }) => {',
-    "      return await $`npx @membank/cli inject`.text();",
+    "      return await $`npx @membank/cli@latest inject`.text();",
     "    },",
     '    "chat.message": async ({ $, message }) => {',
     '      const input = JSON.stringify({ prompt: message?.content ?? "" });',
-    "      return await $`npx @membank/cli inject --event user-prompt`.stdin(input).text();",
+    "      return await $`npx @membank/cli@latest inject --event user-prompt`.stdin(input).text();",
     "    },",
     '    "tool.execute.after": async ({ $, result }) => {',
     "      if (!result?.exitCode && !result?.error) return;",
@@ -409,7 +416,7 @@ function newOpencodePlugin(): string {
     '        tool_name: result.tool ?? "unknown",',
     '        error_message: result.error ?? ("exit code " + result.exitCode),',
     "      });",
-    "      return await $`npx @membank/cli inject --event tool-failure`.stdin(payload).text();",
+    "      return await $`npx @membank/cli@latest inject --event tool-failure`.stdin(payload).text();",
     "    },",
     "  },",
     "};",

@@ -130,7 +130,9 @@ describe("claude-code", () => {
         SessionStart: [
           {
             matcher: "",
-            hooks: [{ type: "command", command: "npx @membank/cli inject --harness claude-code" }],
+            hooks: [
+              { type: "command", command: "npx @membank/cli@latest inject --harness claude-code" },
+            ],
           },
         ],
       },
@@ -151,7 +153,9 @@ describe("claude-code", () => {
           { matcher: "", hooks: [{ type: "command", command: "echo hello" }] },
           {
             matcher: "",
-            hooks: [{ type: "command", command: "npx @membank/cli inject --harness claude-code" }],
+            hooks: [
+              { type: "command", command: "npx @membank/cli@latest inject --harness claude-code" },
+            ],
           },
         ],
       },
@@ -179,7 +183,9 @@ describe("claude-code", () => {
         SessionStart: [
           {
             matcher: "",
-            hooks: [{ type: "command", command: "npx @membank/cli inject --harness claude-code" }],
+            hooks: [
+              { type: "command", command: "npx @membank/cli@latest inject --harness claude-code" },
+            ],
           },
         ],
         UserPromptSubmit: [
@@ -188,7 +194,7 @@ describe("claude-code", () => {
             hooks: [
               {
                 type: "command",
-                command: "npx @membank/cli inject --event user-prompt --harness claude-code",
+                command: "npx @membank/cli@latest inject --event user-prompt --harness claude-code",
               },
             ],
           },
@@ -203,9 +209,11 @@ describe("claude-code", () => {
     const userPrompt = result.hooks.find((h) => h.event === "UserPromptSubmit");
     const toolFailure = result.hooks.find((h) => h.event === "PostToolUseFailure");
 
-    expect(sessionStart?.existingCommand).toBe("npx @membank/cli inject --harness claude-code");
+    expect(sessionStart?.existingCommand).toBe(
+      "npx @membank/cli@latest inject --harness claude-code"
+    );
     expect(userPrompt?.existingCommand).toBe(
-      "npx @membank/cli inject --event user-prompt --harness claude-code"
+      "npx @membank/cli@latest inject --event user-prompt --harness claude-code"
     );
     expect(toolFailure?.existingCommand).toBeNull();
   });
@@ -221,7 +229,7 @@ describe("claude-code", () => {
     expect(events).toContain("PostToolUseFailure");
 
     const sessionStart = result.hooks.find((h) => h.event === "SessionStart");
-    expect(sessionStart?.command).toBe("npx @membank/cli inject --harness claude-code");
+    expect(sessionStart?.command).toBe("npx @membank/cli@latest inject --harness claude-code");
 
     const userPrompt = result.hooks.find((h) => h.event === "UserPromptSubmit");
     expect(userPrompt?.command).toContain("--event user-prompt");
@@ -287,7 +295,7 @@ describe("copilot-cli", () => {
         sessionStart: [
           {
             type: "command",
-            bash: "npx @membank/cli inject --harness copilot-cli",
+            bash: "npx @membank/cli@latest inject --harness copilot-cli",
             timeoutSec: 30,
           },
         ],
@@ -297,7 +305,9 @@ describe("copilot-cli", () => {
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
     const sessionStart = result.hooks.find((h) => h.event === "sessionStart");
-    expect(sessionStart?.existingCommand).toBe("npx @membank/cli inject --harness copilot-cli");
+    expect(sessionStart?.existingCommand).toBe(
+      "npx @membank/cli@latest inject --harness copilot-cli"
+    );
   });
 
   it("inspect returns null existingCommand when not configured", () => {
@@ -362,7 +372,11 @@ describe("codex", () => {
           {
             matcher: "",
             hooks: [
-              { type: "command", command: "npx @membank/cli inject --harness codex", timeout: 30 },
+              {
+                type: "command",
+                command: "npx @membank/cli@latest inject --harness codex",
+                timeout: 30,
+              },
             ],
           },
         ],
@@ -372,7 +386,7 @@ describe("codex", () => {
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
     const sessionStart = result.hooks.find((h) => h.event === "SessionStart");
-    expect(sessionStart?.existingCommand).toBe("npx @membank/cli inject --harness codex");
+    expect(sessionStart?.existingCommand).toBe("npx @membank/cli@latest inject --harness codex");
   });
 });
 
@@ -416,7 +430,7 @@ describe("opencode", () => {
     mkdirSync(join(pluginPath, ".."), { recursive: true });
     writeFileSync(
       pluginPath,
-      "export default { hooks: { 'session.start': async ({ $ }) => $`npx @membank/cli inject`.text() } }"
+      "export default { hooks: { 'session.start': async ({ $ }) => $`npx @membank/cli@latest inject`.text() } }"
     );
     const result = writer.inspect("opencode");
     expect(result.status).toBe("ready");
