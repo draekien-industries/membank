@@ -1,5 +1,21 @@
 # @membank/cli
 
+## 0.3.0
+
+### Minor Changes
+
+- 5b00b4e: Added `membank dashboard` command that opens a browser-based UI for browsing, filtering, editing, pinning, and approving memories stored in SQLite.
+- c475120: Added `UserPromptSubmit` and `PostToolUseFailure` hook injection support. Running `membank setup` now registers three hooks per harness: session-start (existing), user-prompt (detects feedback in prompts and reminds Claude to save it), and tool-failure (reminds Claude to save a memory when a tool fails). Supports all four harnesses: claude-code, copilot-cli, codex, and opencode.
+- 6751184: Removed stop hook setup from all harnesses (claude-code, copilot-cli, codex, opencode) to prevent infinite tool-call loops triggered by the hook itself.
+
+### Patch Changes
+
+- e2553ec: Fixed Stop hook prompt to suppress output, preventing the hook response from re-triggering the Stop event in a loop.
+- Updated dependencies [5b00b4e]
+  - @membank/dashboard@0.1.0
+  - @membank/core@0.3.0
+  - @membank/mcp@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes
