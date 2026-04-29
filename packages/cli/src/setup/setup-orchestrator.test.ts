@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { HarnessConfigWriter } from "./harness-config-writer.js";
 import type { DetectedHarness } from "./harness-detector.js";
-import type { InjectionHookWriter, InjectionWriteResult } from "./injection-hook-writer.js";
+import type { InjectionHookWriter, InspectResult } from "./injection-hook-writer.js";
 import { SetupOrchestrator } from "./setup-orchestrator.js";
 
 // Minimal HarnessConfigWriter stub
@@ -412,15 +412,29 @@ describe("--json output", () => {
   });
 });
 
-// --- AC: injection hook writer integration (idempotency) ---
+// --- AC: injection hook writer integration ---
 
-function makeHookWriter(responses: Record<string, InjectionWriteResult> = {}): InjectionHookWriter {
+function makeHookWriter(
+  inspectResults: Record<string, InspectResult> = {},
+  writeFn?: (harness: string, events: string[]) => void
+): InjectionHookWriter {
   return {
-    write: vi.fn((harness: string, overwrite?: boolean) => {
-      const key = overwrite ? `${harness}:overwrite` : harness;
-      return responses[key] ?? responses[harness] ?? { status: "written" };
+    inspect: vi.fn((harness: string) => {
+      return inspectResults[harness] ?? { status: "ready", hooks: [] };
+    }),
+    write: vi.fn((harness: string, events: string[]) => {
+      writeFn?.(harness, events);
+      return { status: "written" };
     }),
   } as unknown as InjectionHookWriter;
+}
+
+function makeNewHook(event: string, command: string) {
+  return { event, command, existingCommand: null };
+}
+
+function makeExistingHook(event: string, command: string, existing?: string) {
+  return { event, command, existingCommand: existing ?? command };
 }
 
 function makeOrchestratorWithHooks(opts: {
@@ -440,19 +454,53 @@ function makeOrchestratorWithHooks(opts: {
 }
 
 describe("injection hook writer integration", () => {
-  it("calls hookWriter.write for each detected harness", async () => {
+  it("calls hookWriter.inspect for each detected harness", async () => {
     const hookWriter = makeHookWriter();
     const { orchestrator } = makeOrchestratorWithHooks({
       detected: [makeHarness("claude-code"), makeHarness("copilot-cli")],
       hookWriter,
     });
     await orchestrator.run({ yes: true });
-    expect(hookWriter.write).toHaveBeenCalledWith("claude-code", undefined);
-    expect(hookWriter.write).toHaveBeenCalledWith("copilot-cli", undefined);
+    expect(hookWriter.inspect).toHaveBeenCalledWith("claude-code");
+    expect(hookWriter.inspect).toHaveBeenCalledWith("copilot-cli");
+  });
+
+  it("calls hookWriter.write with approved events when yes=true", async () => {
+    const hookWriter = makeHookWriter({
+      "claude-code": {
+        status: "ready",
+        hooks: [
+          makeNewHook("SessionStart", "npx @membank/cli inject --harness claude-code"),
+          makeNewHook(
+            "UserPromptSubmit",
+            "npx @membank/cli inject --event user-prompt --harness claude-code"
+          ),
+          makeNewHook(
+            "PostToolUseFailure",
+            "npx @membank/cli inject --event tool-failure --harness claude-code"
+          ),
+        ],
+      },
+    });
+    const { orchestrator } = makeOrchestratorWithHooks({
+      detected: [makeHarness("claude-code")],
+      hookWriter,
+    });
+    await orchestrator.run({ yes: true });
+    expect(hookWriter.write).toHaveBeenCalledWith("claude-code", [
+      "SessionStart",
+      "UserPromptSubmit",
+      "PostToolUseFailure",
+    ]);
   });
 
   it("reports written injection hooks as ✓", async () => {
-    const hookWriter = makeHookWriter({ "claude-code": { status: "written" } });
+    const hookWriter = makeHookWriter({
+      "claude-code": {
+        status: "ready",
+        hooks: [makeNewHook("SessionStart", "npx @membank/cli inject --harness claude-code")],
+      },
+    });
     const { orchestrator, lines } = makeOrchestratorWithHooks({
       detected: [makeHarness("claude-code")],
       hookWriter,
@@ -465,14 +513,18 @@ describe("injection hook writer integration", () => {
     ).toBe(true);
   });
 
-  it("already-configured hook: prompts user to replace when --yes not set", async () => {
+  it("prompts per-hook when hooks are new and --yes not set", async () => {
     const hookWriter = makeHookWriter({
       "claude-code": {
-        status: "already-configured",
-        existing: "npx @membank/cli inject --harness claude-code",
-        replacement: "npx @membank/cli inject --harness claude-code",
+        status: "ready",
+        hooks: [
+          makeNewHook("SessionStart", "npx @membank/cli inject --harness claude-code"),
+          makeNewHook(
+            "UserPromptSubmit",
+            "npx @membank/cli inject --event user-prompt --harness claude-code"
+          ),
+        ],
       },
-      "claude-code:overwrite": { status: "written" },
     });
     const prompter = vi.fn().mockResolvedValue(true);
     const { orchestrator } = makeOrchestratorWithHooks({
@@ -481,19 +533,45 @@ describe("injection hook writer integration", () => {
       prompter,
     });
     await orchestrator.run({ yes: false });
-    // "Proceed with writing configs?" + "Replace injection hook for claude-code?"
-    expect(prompter).toHaveBeenCalledTimes(2);
-    expect(hookWriter.write).toHaveBeenCalledWith("claude-code", true);
+    // "Proceed with writing configs?" + 2 hook prompts
+    expect(prompter).toHaveBeenCalledTimes(3);
   });
 
-  it("already-configured hook: auto-overwrites with --yes (idempotent re-run)", async () => {
+  it("already-configured hook: prompts per-hook to replace when --yes not set", async () => {
     const hookWriter = makeHookWriter({
       "claude-code": {
-        status: "already-configured",
-        existing: "npx @membank/cli inject --harness claude-code",
-        replacement: "npx @membank/cli inject --harness claude-code",
+        status: "ready",
+        hooks: [makeExistingHook("SessionStart", "npx @membank/cli inject --harness claude-code")],
       },
-      "claude-code:overwrite": { status: "written" },
+    });
+    const prompter = vi.fn().mockResolvedValue(true);
+    const { orchestrator } = makeOrchestratorWithHooks({
+      detected: [makeHarness("claude-code")],
+      hookWriter,
+      prompter,
+    });
+    await orchestrator.run({ yes: false });
+    // "Proceed with writing configs?" + "Replace SessionStart injection hook for claude-code?"
+    expect(prompter).toHaveBeenCalledTimes(2);
+    expect(hookWriter.write).toHaveBeenCalledWith("claude-code", ["SessionStart"]);
+  });
+
+  it("already-configured hooks: auto-approves with --yes (idempotent re-run)", async () => {
+    const hookWriter = makeHookWriter({
+      "claude-code": {
+        status: "ready",
+        hooks: [
+          makeExistingHook("SessionStart", "npx @membank/cli inject --harness claude-code"),
+          makeExistingHook(
+            "UserPromptSubmit",
+            "npx @membank/cli inject --event user-prompt --harness claude-code"
+          ),
+          makeExistingHook(
+            "PostToolUseFailure",
+            "npx @membank/cli inject --event tool-failure --harness claude-code"
+          ),
+        ],
+      },
     });
     const prompter = vi.fn();
     const { orchestrator, lines } = makeOrchestratorWithHooks({
@@ -503,12 +581,21 @@ describe("injection hook writer integration", () => {
     });
     await orchestrator.run({ yes: true });
     expect(prompter).not.toHaveBeenCalled();
-    expect(hookWriter.write).toHaveBeenCalledWith("claude-code", true);
-    expect(lines.some((l) => l.includes("✓") && l.includes("replaced"))).toBe(true);
+    expect(hookWriter.write).toHaveBeenCalledWith("claude-code", [
+      "SessionStart",
+      "UserPromptSubmit",
+      "PostToolUseFailure",
+    ]);
+    expect(lines.some((l) => l.includes("✓") && l.includes("injection hook"))).toBe(true);
   });
 
   it("skips hook writing in --dry-run mode", async () => {
-    const hookWriter = makeHookWriter();
+    const hookWriter = makeHookWriter({
+      "claude-code": {
+        status: "ready",
+        hooks: [makeNewHook("SessionStart", "npx @membank/cli inject --harness claude-code")],
+      },
+    });
     const { orchestrator, lines } = makeOrchestratorWithHooks({
       detected: [makeHarness("claude-code")],
       hookWriter,
@@ -518,8 +605,66 @@ describe("injection hook writer integration", () => {
     expect(lines.some((l) => l.includes("would write injection hook"))).toBe(true);
   });
 
+  it("writes only hooks the user approves", async () => {
+    const hookWriter = makeHookWriter({
+      "claude-code": {
+        status: "ready",
+        hooks: [
+          makeNewHook("SessionStart", "npx @membank/cli inject --harness claude-code"),
+          makeNewHook(
+            "UserPromptSubmit",
+            "npx @membank/cli inject --event user-prompt --harness claude-code"
+          ),
+          makeNewHook(
+            "PostToolUseFailure",
+            "npx @membank/cli inject --event tool-failure --harness claude-code"
+          ),
+        ],
+      },
+    });
+    // Proceed=yes, SessionStart=yes, UserPromptSubmit=no, PostToolUseFailure=yes
+    const prompter = vi
+      .fn()
+      .mockResolvedValueOnce(true) // Proceed?
+      .mockResolvedValueOnce(true) // SessionStart?
+      .mockResolvedValueOnce(false) // UserPromptSubmit?
+      .mockResolvedValueOnce(true); // PostToolUseFailure?
+    const { orchestrator } = makeOrchestratorWithHooks({
+      detected: [makeHarness("claude-code")],
+      hookWriter,
+      prompter,
+    });
+    await orchestrator.run({ yes: false });
+    expect(hookWriter.write).toHaveBeenCalledWith("claude-code", [
+      "SessionStart",
+      "PostToolUseFailure",
+    ]);
+  });
+
+  it("does not call write when user declines all hooks", async () => {
+    const hookWriter = makeHookWriter({
+      "claude-code": {
+        status: "ready",
+        hooks: [makeNewHook("SessionStart", "npx @membank/cli inject --harness claude-code")],
+      },
+    });
+    const prompter = vi.fn().mockResolvedValue(false); // decline everything
+    const { orchestrator } = makeOrchestratorWithHooks({
+      detected: [makeHarness("claude-code")],
+      hookWriter,
+      prompter,
+    });
+    await orchestrator.run({ yes: false });
+    expect(hookWriter.write).not.toHaveBeenCalled();
+  });
+
   it("includes injectionHooksConfigured in JSON output", async () => {
-    const hookWriter = makeHookWriter({ "claude-code": { status: "written" } });
+    const hookWriter = makeHookWriter({
+      "claude-code": {
+        status: "ready",
+        hooks: [makeNewHook("SessionStart", "npx @membank/cli inject --harness claude-code")],
+      },
+    });
     const lines: string[] = [];
     const orchestrator = new SetupOrchestrator({
       detector: () => [makeHarness("claude-code")],

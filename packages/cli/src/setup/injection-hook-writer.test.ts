@@ -22,6 +22,8 @@ function writeJson(path: string, data: Record<string, unknown>): void {
   writeFileSync(path, JSON.stringify(data, null, 2));
 }
 
+const ALL_CLAUDE_EVENTS = ["SessionStart", "UserPromptSubmit", "PostToolUseFailure"] as const;
+
 describe("INJECTION_HARNESSES", () => {
   it("contains all 4 harnesses", () => {
     expect(INJECTION_HARNESSES).toContain("claude-code");
@@ -33,10 +35,16 @@ describe("INJECTION_HARNESSES", () => {
 });
 
 describe("InjectionHookWriter — unknown harness", () => {
-  it("returns not-supported", () => {
+  it("write returns not-supported", () => {
     const { resolver } = makeTmpResolver();
     const writer = new InjectionHookWriter(resolver);
-    expect(writer.write("nonexistent")).toEqual({ status: "not-supported" });
+    expect(writer.write("nonexistent", [])).toEqual({ status: "not-supported" });
+  });
+
+  it("inspect returns not-supported", () => {
+    const { resolver } = makeTmpResolver();
+    const writer = new InjectionHookWriter(resolver);
+    expect(writer.inspect("nonexistent")).toEqual({ status: "not-supported" });
   });
 });
 
@@ -53,7 +61,7 @@ describe("claude-code", () => {
   });
 
   it("writes SessionStart, UserPromptSubmit, and PostToolUseFailure hooks", () => {
-    const result = writer.write("claude-code");
+    const result = writer.write("claude-code", [...ALL_CLAUDE_EVENTS]);
     expect(result.status).toBe("written");
 
     const cfg = readJson(join(dir, ".claude", "settings.json"));
@@ -65,7 +73,7 @@ describe("claude-code", () => {
   });
 
   it("SessionStart hook uses correct command", () => {
-    writer.write("claude-code");
+    writer.write("claude-code", [...ALL_CLAUDE_EVENTS]);
     const cfg = readJson(join(dir, ".claude", "settings.json"));
     type GroupHooks = { hooks: { command: string }[] }[];
     const hooks = cfg.hooks as {
@@ -79,7 +87,7 @@ describe("claude-code", () => {
   });
 
   it("UserPromptSubmit hook uses --event user-prompt", () => {
-    writer.write("claude-code");
+    writer.write("claude-code", [...ALL_CLAUDE_EVENTS]);
     const cfg = readJson(join(dir, ".claude", "settings.json"));
     type GroupHooks = { hooks: { command: string }[] }[];
     const hooks = cfg.hooks as {
@@ -93,7 +101,7 @@ describe("claude-code", () => {
   });
 
   it("PostToolUseFailure hook uses --event tool-failure", () => {
-    writer.write("claude-code");
+    writer.write("claude-code", [...ALL_CLAUDE_EVENTS]);
     const cfg = readJson(join(dir, ".claude", "settings.json"));
     type GroupHooks = { hooks: { command: string }[] }[];
     const hooks = cfg.hooks as {
@@ -106,23 +114,16 @@ describe("claude-code", () => {
     expect(cmd).toContain("--harness claude-code");
   });
 
-  it("returns already-configured when session-start hook present", () => {
-    const cfgPath = join(dir, ".claude", "settings.json");
-    writeJson(cfgPath, {
-      hooks: {
-        SessionStart: [
-          {
-            matcher: "",
-            hooks: [{ type: "command", command: "npx @membank/cli inject --harness claude-code" }],
-          },
-        ],
-      },
-    });
-    const result = writer.write("claude-code");
-    expect(result.status).toBe("already-configured");
+  it("only writes the requested events", () => {
+    writer.write("claude-code", ["SessionStart"]);
+    const cfg = readJson(join(dir, ".claude", "settings.json"));
+    const hooks = cfg.hooks as Record<string, unknown>;
+    expect(Array.isArray(hooks.SessionStart)).toBe(true);
+    expect(hooks.UserPromptSubmit).toBeUndefined();
+    expect(hooks.PostToolUseFailure).toBeUndefined();
   });
 
-  it("overwrites all three hooks when overwrite=true", () => {
+  it("overwrites only the requested events while preserving others", () => {
     const cfgPath = join(dir, ".claude", "settings.json");
     writeJson(cfgPath, {
       hooks: {
@@ -134,13 +135,10 @@ describe("claude-code", () => {
         ],
       },
     });
-    const result = writer.write("claude-code", true);
-    expect(result.status).toBe("written");
-
+    writer.write("claude-code", ["UserPromptSubmit", "PostToolUseFailure"]);
     const cfg = readJson(cfgPath);
     const hooks = cfg.hooks as Record<string, unknown[]>;
-    // Should have exactly 1 entry per event (old removed, new added)
-    expect(hooks.SessionStart).toHaveLength(1);
+    expect(hooks.SessionStart).toHaveLength(1); // preserved unchanged
     expect(hooks.UserPromptSubmit).toHaveLength(1);
     expect(hooks.PostToolUseFailure).toHaveLength(1);
   });
@@ -158,10 +156,78 @@ describe("claude-code", () => {
         ],
       },
     });
-    writer.write("claude-code", true);
+    writer.write("claude-code", ["SessionStart"]);
     const cfg = readJson(cfgPath);
     const hooks = cfg.hooks as Record<string, unknown[]>;
     expect(hooks.SessionStart).toHaveLength(2); // echo hello preserved + new membank
+  });
+
+  it("inspect returns not-configured when no hooks exist", () => {
+    const result = writer.inspect("claude-code");
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+    expect(result.hooks).toHaveLength(3);
+    for (const hook of result.hooks) {
+      expect(hook.existingCommand).toBeNull();
+    }
+  });
+
+  it("inspect returns existing commands when hooks are configured", () => {
+    const cfgPath = join(dir, ".claude", "settings.json");
+    writeJson(cfgPath, {
+      hooks: {
+        SessionStart: [
+          {
+            matcher: "",
+            hooks: [{ type: "command", command: "npx @membank/cli inject --harness claude-code" }],
+          },
+        ],
+        UserPromptSubmit: [
+          {
+            matcher: "",
+            hooks: [
+              {
+                type: "command",
+                command: "npx @membank/cli inject --event user-prompt --harness claude-code",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const result = writer.inspect("claude-code");
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+
+    const sessionStart = result.hooks.find((h) => h.event === "SessionStart");
+    const userPrompt = result.hooks.find((h) => h.event === "UserPromptSubmit");
+    const toolFailure = result.hooks.find((h) => h.event === "PostToolUseFailure");
+
+    expect(sessionStart?.existingCommand).toBe("npx @membank/cli inject --harness claude-code");
+    expect(userPrompt?.existingCommand).toBe(
+      "npx @membank/cli inject --event user-prompt --harness claude-code"
+    );
+    expect(toolFailure?.existingCommand).toBeNull();
+  });
+
+  it("inspect returns all three events with correct replacement commands", () => {
+    const result = writer.inspect("claude-code");
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+
+    const events = result.hooks.map((h) => h.event);
+    expect(events).toContain("SessionStart");
+    expect(events).toContain("UserPromptSubmit");
+    expect(events).toContain("PostToolUseFailure");
+
+    const sessionStart = result.hooks.find((h) => h.event === "SessionStart");
+    expect(sessionStart?.command).toBe("npx @membank/cli inject --harness claude-code");
+
+    const userPrompt = result.hooks.find((h) => h.event === "UserPromptSubmit");
+    expect(userPrompt?.command).toContain("--event user-prompt");
+
+    const toolFailure = result.hooks.find((h) => h.event === "PostToolUseFailure");
+    expect(toolFailure?.command).toContain("--event tool-failure");
   });
 });
 
@@ -178,7 +244,11 @@ describe("copilot-cli", () => {
   });
 
   it("writes sessionStart, userPromptSubmitted, and postToolUseFailure hooks", () => {
-    const result = writer.write("copilot-cli");
+    const result = writer.write("copilot-cli", [
+      "sessionStart",
+      "userPromptSubmitted",
+      "postToolUseFailure",
+    ]);
     expect(result.status).toBe("written");
 
     const cfg = readJson(join(dir, ".copilot", "settings.json"));
@@ -190,7 +260,7 @@ describe("copilot-cli", () => {
   });
 
   it("userPromptSubmitted uses --event user-prompt", () => {
-    writer.write("copilot-cli");
+    writer.write("copilot-cli", ["sessionStart", "userPromptSubmitted", "postToolUseFailure"]);
     const cfg = readJson(join(dir, ".copilot", "settings.json"));
     type FlatHooks = { bash: string }[];
     const hooks = cfg.hooks as { userPromptSubmitted: FlatHooks; postToolUseFailure: FlatHooks };
@@ -200,7 +270,7 @@ describe("copilot-cli", () => {
   });
 
   it("postToolUseFailure uses --event tool-failure", () => {
-    writer.write("copilot-cli");
+    writer.write("copilot-cli", ["sessionStart", "userPromptSubmitted", "postToolUseFailure"]);
     const cfg = readJson(join(dir, ".copilot", "settings.json"));
     type FlatHooks = { bash: string }[];
     const hooks = cfg.hooks as { userPromptSubmitted: FlatHooks; postToolUseFailure: FlatHooks };
@@ -209,7 +279,7 @@ describe("copilot-cli", () => {
     expect(bash).toContain("--harness copilot-cli");
   });
 
-  it("returns already-configured when sessionStart hook present", () => {
+  it("inspect returns existing command when sessionStart hook present", () => {
     const cfgPath = join(dir, ".copilot", "settings.json");
     writeJson(cfgPath, {
       version: 1,
@@ -223,7 +293,20 @@ describe("copilot-cli", () => {
         ],
       },
     });
-    expect(writer.write("copilot-cli").status).toBe("already-configured");
+    const result = writer.inspect("copilot-cli");
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+    const sessionStart = result.hooks.find((h) => h.event === "sessionStart");
+    expect(sessionStart?.existingCommand).toBe("npx @membank/cli inject --harness copilot-cli");
+  });
+
+  it("inspect returns null existingCommand when not configured", () => {
+    const result = writer.inspect("copilot-cli");
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+    for (const hook of result.hooks) {
+      expect(hook.existingCommand).toBeNull();
+    }
   });
 });
 
@@ -240,7 +323,7 @@ describe("codex", () => {
   });
 
   it("writes SessionStart, UserPromptSubmit, and PostToolUse hooks", () => {
-    const result = writer.write("codex");
+    const result = writer.write("codex", ["SessionStart", "UserPromptSubmit", "PostToolUse"]);
     expect(result.status).toBe("written");
 
     const cfg = readJson(join(dir, ".codex", "hooks.json"));
@@ -252,7 +335,7 @@ describe("codex", () => {
   });
 
   it("UserPromptSubmit uses --event user-prompt", () => {
-    writer.write("codex");
+    writer.write("codex", ["SessionStart", "UserPromptSubmit", "PostToolUse"]);
     const cfg = readJson(join(dir, ".codex", "hooks.json"));
     type GroupHooks = { hooks: { command: string }[] }[];
     const hooks = cfg.hooks as { UserPromptSubmit: GroupHooks; PostToolUse: GroupHooks };
@@ -262,7 +345,7 @@ describe("codex", () => {
   });
 
   it("PostToolUse uses --event tool-failure", () => {
-    writer.write("codex");
+    writer.write("codex", ["SessionStart", "UserPromptSubmit", "PostToolUse"]);
     const cfg = readJson(join(dir, ".codex", "hooks.json"));
     type GroupHooks = { hooks: { command: string }[] }[];
     const hooks = cfg.hooks as { UserPromptSubmit: GroupHooks; PostToolUse: GroupHooks };
@@ -271,7 +354,7 @@ describe("codex", () => {
     expect(cmd).toContain("--harness codex");
   });
 
-  it("returns already-configured when SessionStart hook present", () => {
+  it("inspect returns existing command when SessionStart hook present", () => {
     const cfgPath = join(dir, ".codex", "hooks.json");
     writeJson(cfgPath, {
       hooks: {
@@ -285,7 +368,11 @@ describe("codex", () => {
         ],
       },
     });
-    expect(writer.write("codex").status).toBe("already-configured");
+    const result = writer.inspect("codex");
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+    const sessionStart = result.hooks.find((h) => h.event === "SessionStart");
+    expect(sessionStart?.existingCommand).toBe("npx @membank/cli inject --harness codex");
   });
 });
 
@@ -302,7 +389,7 @@ describe("opencode", () => {
   });
 
   it("writes membank.js plugin with all three hooks", () => {
-    const result = writer.write("opencode");
+    const result = writer.write("opencode", ["plugin"]);
     expect(result.status).toBe("written");
 
     const pluginPath = join(dir, ".config", "opencode", "plugins", "membank.js");
@@ -316,21 +403,32 @@ describe("opencode", () => {
     expect(content).toContain("--event tool-failure");
   });
 
-  it("returns already-configured when plugin exists with inject command", () => {
+  it("inspect returns null existingCommand when plugin does not exist", () => {
+    const result = writer.inspect("opencode");
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+    expect(result.hooks).toHaveLength(1);
+    expect(result.hooks[0]?.existingCommand).toBeNull();
+  });
+
+  it("inspect returns existing path when plugin exists with inject command", () => {
     const pluginPath = join(dir, ".config", "opencode", "plugins", "membank.js");
     mkdirSync(join(pluginPath, ".."), { recursive: true });
     writeFileSync(
       pluginPath,
       "export default { hooks: { 'session.start': async ({ $ }) => $`npx @membank/cli inject`.text() } }"
     );
-    expect(writer.write("opencode").status).toBe("already-configured");
+    const result = writer.inspect("opencode");
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+    expect(result.hooks[0]?.existingCommand).toBe(pluginPath);
   });
 
-  it("overwrites plugin when overwrite=true", () => {
+  it("overwrites plugin when called with plugin event", () => {
     const pluginPath = join(dir, ".config", "opencode", "plugins", "membank.js");
     mkdirSync(join(pluginPath, ".."), { recursive: true });
     writeFileSync(pluginPath, "old content");
-    const result = writer.write("opencode", true);
+    const result = writer.write("opencode", ["plugin"]);
     expect(result.status).toBe("written");
     const content = readFileSync(pluginPath, "utf8");
     expect(content).toContain("session.start");

@@ -3,7 +3,7 @@ import type { HarnessConfigWriter } from "./harness-config-writer.js";
 import { SUPPORTED_HARNESSES } from "./harness-config-writer.js";
 import type { DetectedHarness } from "./harness-detector.js";
 import { detectHarnesses } from "./harness-detector.js";
-import type { InjectionHookWriter, InjectionWriteResult } from "./injection-hook-writer.js";
+import type { InjectionHookWriter } from "./injection-hook-writer.js";
 
 export type Prompter = (question: string) => Promise<boolean>;
 
@@ -183,16 +183,7 @@ export class SetupOrchestrator {
 
     const injectionHooksConfigured: string[] = [];
     if (this.#hookWriter) {
-      const w = this.#hookWriter;
-      injectionHooksConfigured.push(
-        ...(await this.#runHookLoop(
-          detected,
-          "injection hook",
-          (h, ow) => w.write(h, ow),
-          yes,
-          out
-        ))
-      );
+      injectionHooksConfigured.push(...(await this.#runHookSetup(detected, yes, out)));
       out("");
     }
 
@@ -228,39 +219,58 @@ export class SetupOrchestrator {
     return results;
   }
 
-  async #runHookLoop(
+  async #runHookSetup(
     detected: DetectedHarness[],
-    label: string,
-    write: (harness: string, overwrite?: boolean) => InjectionWriteResult,
     yes: boolean,
     out: (msg: string) => void
   ): Promise<string[]> {
     const configured: string[] = [];
+    const w = this.#hookWriter!;
+
     for (const h of detected) {
       try {
-        const result = write(h.name);
-        if (result.status === "not-supported") continue;
-        if (result.status === "written") {
-          out(`  ✓ ${h.name}: ${label} written`);
-          configured.push(h.name);
-        } else {
-          out(`  ⚠ ${h.name}: ${label} already configured`);
-          out(`    Current: ${result.existing}`);
-          out(`    New:     ${result.replacement}`);
-          const replace = yes || (await this.#prompter(`  Replace ${label} for ${h.name}?`));
-          if (replace) {
-            const overwriteResult = write(h.name, true);
-            if (overwriteResult.status === "written") {
-              out(`  ✓ ${h.name}: ${label} replaced`);
-              configured.push(h.name);
+        const inspected = w.inspect(h.name);
+        if (inspected.status === "not-supported") continue;
+
+        const toWrite: string[] = [];
+
+        for (const hook of inspected.hooks) {
+          if (hook.existingCommand === null) {
+            out(`  ${h.name}: ${hook.event} injection hook`);
+            out(`    Command: ${hook.command}`);
+            const configure =
+              yes ||
+              (await this.#prompter(`  Configure ${hook.event} injection hook for ${h.name}?`));
+            if (configure) toWrite.push(hook.event);
+          } else {
+            out(`  ⚠ ${h.name}: ${hook.event} injection hook already configured`);
+            out(`    Current: ${hook.existingCommand}`);
+            if (hook.existingCommand !== hook.command) {
+              out(`    New:     ${hook.command}`);
             }
+            const replace =
+              yes ||
+              (await this.#prompter(`  Replace ${hook.event} injection hook for ${h.name}?`));
+            if (replace) toWrite.push(hook.event);
           }
+        }
+
+        if (toWrite.length > 0) {
+          w.write(h.name, toWrite);
+          const skippedCount = inspected.hooks.length - toWrite.length;
+          const label =
+            skippedCount > 0
+              ? `${toWrite.length} injection hook(s) written, ${skippedCount} skipped`
+              : `${toWrite.length} injection hook(s) written`;
+          out(`  ✓ ${h.name}: ${label}`);
+          configured.push(h.name);
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        out(`  ✗ ${h.name} ${label}: ${msg}`);
+        out(`  ✗ ${h.name} injection hooks: ${msg}`);
       }
     }
+
     return configured;
   }
 
