@@ -1,72 +1,71 @@
 import { X } from "@phosphor-icons/react";
+import { eq, useLiveQuery } from "@tanstack/react-db";
+import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { getMemory, patchMemory } from "@/lib/api";
-import type { Memory, MemoryType } from "@/lib/types";
+import { memoriesCollection } from "@/lib/collections";
+import type { MemoryType } from "@/lib/types";
 
 const TYPES: MemoryType[] = ["correction", "preference", "decision", "learning", "fact"];
 
 interface MemoryDetailProps {
   id: string;
-  onClose: () => void;
-  onSaved: (memory: Memory) => void;
 }
 
-export function MemoryDetail({ id, onClose, onSaved }: MemoryDetailProps) {
-  const [memory, setMemory] = useState<Memory | null>(null);
+export function MemoryDetail({ id }: MemoryDetailProps) {
+  const navigate = useNavigate();
+
+  const { data: results = [], isLoading } = useLiveQuery(
+    (q) => q.from({ m: memoriesCollection }).where(({ m }) => eq(m.id, id)),
+    [id]
+  );
+  const memory = results[0] ?? null;
+
   const [content, setContent] = useState("");
   const [type, setType] = useState<MemoryType>("fact");
   const [tagsInput, setTagsInput] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    setMemory(null);
-    setDirty(false);
-    void getMemory(id).then((m: Memory) => {
-      setMemory(m);
-      setContent(m.content);
-      setType(m.type);
-      setTagsInput(m.tags.join(", "));
-    });
-  }, [id]);
-
-  const handleSave = async () => {
-    if (!memory) return;
-    setSaving(true);
-    try {
-      const tags = tagsInput
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-      const updated = await patchMemory(memory.id, {
-        content: content !== memory.content ? content : undefined,
-        type: type !== memory.type ? type : undefined,
-        tags: JSON.stringify(tags) !== JSON.stringify(memory.tags) ? tags : undefined,
-      });
-      setMemory(updated);
-      setDirty(false);
-      onSaved(updated);
-    } finally {
-      setSaving(false);
+    if (memory && !initialized) {
+      setContent(memory.content);
+      setType(memory.type);
+      setTagsInput(memory.tags.join(", "));
+      setInitialized(true);
     }
+  }, [memory, initialized]);
+
+  const dirty =
+    memory !== null &&
+    (content !== memory.content || type !== memory.type || tagsInput !== memory.tags.join(", "));
+
+  const handleSave = () => {
+    if (!memory || !dirty) return;
+    const tags = tagsInput
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    memoriesCollection.update(id, (draft) => {
+      if (content !== memory.content) draft.content = content;
+      if (type !== memory.type) draft.type = type;
+      if (JSON.stringify(tags) !== JSON.stringify(memory.tags)) draft.tags = tags;
+    });
   };
 
-  const handleApprove = async () => {
-    if (!memory) return;
-    const updated = await patchMemory(memory.id, { needsReview: false });
-    setMemory(updated);
-    onSaved(updated);
+  const handleApprove = () => {
+    memoriesCollection.update(id, (draft) => {
+      draft.needsReview = false;
+    });
   };
 
-  if (!memory) {
+  if (isLoading || !memory) {
     return (
       <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-        Loading…
+        {isLoading ? "Loading…" : "Memory not found"}
       </div>
     );
   }
@@ -80,7 +79,12 @@ export function MemoryDetail({ id, onClose, onSaved }: MemoryDetailProps) {
           {memory.needsReview && <Badge variant="destructive">needs review</Badge>}
           {memory.pinned && <Badge variant="default">pinned</Badge>}
         </div>
-        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => void navigate({ to: "/memories" })}
+          aria-label="Close"
+        >
           <X weight="regular" />
         </Button>
       </div>
@@ -97,10 +101,7 @@ export function MemoryDetail({ id, onClose, onSaved }: MemoryDetailProps) {
           <Textarea
             id="memory-content"
             value={content}
-            onChange={(e) => {
-              setContent(e.target.value);
-              setDirty(true);
-            }}
+            onChange={(e) => setContent(e.target.value)}
             rows={8}
             className="min-h-32"
           />
@@ -117,10 +118,7 @@ export function MemoryDetail({ id, onClose, onSaved }: MemoryDetailProps) {
             <Select
               id="memory-type"
               value={type}
-              onChange={(e) => {
-                setType(e.target.value as MemoryType);
-                setDirty(true);
-              }}
+              onChange={(e) => setType(e.target.value as MemoryType)}
               className="w-full"
             >
               {TYPES.map((t) => (
@@ -142,10 +140,7 @@ export function MemoryDetail({ id, onClose, onSaved }: MemoryDetailProps) {
             <Input
               id="memory-tags"
               value={tagsInput}
-              onChange={(e) => {
-                setTagsInput(e.target.value);
-                setDirty(true);
-              }}
+              onChange={(e) => setTagsInput(e.target.value)}
               placeholder="tag1, tag2"
             />
           </div>
@@ -181,18 +176,13 @@ export function MemoryDetail({ id, onClose, onSaved }: MemoryDetailProps) {
       {/* Actions */}
       <div className="flex items-center gap-2 px-4 py-3 border-t border-border shrink-0">
         {memory.needsReview && (
-          <Button variant="outline" size="sm" onClick={() => void handleApprove()}>
+          <Button variant="outline" size="sm" onClick={handleApprove}>
             Approve
           </Button>
         )}
         <div className="flex-1" />
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => void handleSave()}
-          disabled={!dirty || saving}
-        >
-          {saving ? "Saving…" : "Save"}
+        <Button variant="default" size="sm" onClick={handleSave} disabled={!dirty}>
+          Save
         </Button>
       </div>
     </div>

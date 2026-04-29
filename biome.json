@@ -33,6 +33,6 @@
     }
   },
   "files": {
-    "includes": ["**", "!**/dist", "!**/node_modules", "!**/.turbo"]
+    "includes": ["**", "!**/dist", "!**/node_modules", "!**/.turbo", "!**/routeTree.gen.ts"]
   }
 }

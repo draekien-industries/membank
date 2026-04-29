@@ -1,66 +1,72 @@
 import { MagnifyingGlass, PushPin, Warning } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useLiveQuery } from "@tanstack/react-db";
+import { useNavigate } from "@tanstack/react-router";
+import { useMemo, useRef, useState } from "react";
 import { MemoryRow } from "@/components/MemoryRow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { deleteMemory, listMemories, patchMemory } from "@/lib/api";
-import type { Filters, Memory, MemoryType } from "@/lib/types";
+import { memoriesCollection } from "@/lib/collections";
+import type { MemoryType } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Route as MemoriesRoute } from "@/routes/memories";
 
 const TYPES: MemoryType[] = ["correction", "preference", "decision", "learning", "fact"];
 
 interface MemoryListProps {
   selectedId: string | null;
-  onSelect: (id: string | null) => void;
-  onRefreshStats: () => void;
 }
 
-export function MemoryList({ selectedId, onSelect, onRefreshStats }: MemoryListProps) {
-  const [memories, setMemories] = useState<Memory[]>([]);
-  const [filters, setFilters] = useState<Filters>({
-    search: "",
-    type: "",
-    pinned: false,
-    needsReview: false,
-  });
-  const [loading, setLoading] = useState(true);
-  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [searchInput, setSearchInput] = useState("");
+export function MemoryList({ selectedId }: MemoryListProps) {
+  const search = MemoriesRoute.useSearch();
+  const navigate = useNavigate();
+  const [searchInput, setSearchInput] = useState(search.search);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetch = useCallback(async (f: Filters) => {
-    setLoading(true);
-    try {
-      const data = await listMemories(f);
-      setMemories(data);
-    } finally {
-      setLoading(false);
+  const { data: allMemories = [], isLoading } = useLiveQuery(
+    (q) => q.from({ m: memoriesCollection }).orderBy(({ m }) => m.createdAt, "desc"),
+    []
+  );
+
+  const memories = useMemo(() => {
+    let ms = allMemories;
+    if (search.type) ms = ms.filter((m) => m.type === search.type);
+    if (search.pinned) ms = ms.filter((m) => m.pinned);
+    if (search.needsReview) ms = ms.filter((m) => m.needsReview);
+    if (search.search) {
+      const q = search.search.toLowerCase();
+      ms = ms.filter((m) => m.content.toLowerCase().includes(q));
     }
-  }, []);
-
-  useEffect(() => {
-    void fetch(filters);
-  }, [filters, fetch]);
+    return ms;
+  }, [allMemories, search]);
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
-    if (searchTimeout.current) clearTimeout(searchTimeout.current);
-    searchTimeout.current = setTimeout(() => {
-      setFilters((f: Filters) => ({ ...f, search: value }));
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      void navigate({ to: "/memories", search: (prev) => ({ ...prev, search: value }) });
     }, 300);
   };
 
-  const handlePin = async (memory: Memory) => {
-    const updated = await patchMemory(memory.id, { pinned: !memory.pinned });
-    setMemories((ms) => ms.map((m) => (m.id === updated.id ? updated : m)));
-    onRefreshStats();
+  const handlePin = (id: string, pinned: boolean) => {
+    memoriesCollection.update(id, (draft) => {
+      draft.pinned = !pinned;
+    });
   };
 
-  const handleDelete = async (id: string) => {
-    await deleteMemory(id);
-    setMemories((ms) => ms.filter((m) => m.id !== id));
-    if (selectedId === id) onSelect(null);
-    onRefreshStats();
+  const handleDelete = (id: string) => {
+    memoriesCollection.delete(id);
+    if (selectedId === id) {
+      void navigate({ to: "/memories" });
+    }
+  };
+
+  const handleSelect = (id: string) => {
+    if (selectedId === id) {
+      void navigate({ to: "/memories" });
+    } else {
+      void navigate({ to: "/memories/$id", params: { id } });
+    }
   };
 
   return (
@@ -80,8 +86,16 @@ export function MemoryList({ selectedId, onSelect, onRefreshStats }: MemoryListP
           />
         </div>
         <Select
-          value={filters.type}
-          onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value as MemoryType | "" }))}
+          value={search.type ?? ""}
+          onChange={(e) =>
+            void navigate({
+              to: "/memories",
+              search: (prev) => ({
+                ...prev,
+                type: e.target.value ? (e.target.value as MemoryType) : undefined,
+              }),
+            })
+          }
           className="w-28"
         >
           <option value="">All types</option>
@@ -93,33 +107,43 @@ export function MemoryList({ selectedId, onSelect, onRefreshStats }: MemoryListP
           ))}
         </Select>
         <Button
-          variant={filters.pinned ? "default" : "ghost"}
+          variant={search.pinned ? "default" : "ghost"}
           size="icon-sm"
-          onClick={() => setFilters((f) => ({ ...f, pinned: !f.pinned }))}
+          onClick={() =>
+            void navigate({
+              to: "/memories",
+              search: (prev) => ({ ...prev, pinned: !prev.pinned }),
+            })
+          }
           aria-label="Pinned only"
-          aria-pressed={filters.pinned}
+          aria-pressed={search.pinned}
         >
-          <PushPin weight={filters.pinned ? "fill" : "regular"} />
+          <PushPin weight={search.pinned ? "fill" : "regular"} />
         </Button>
         <Button
-          variant={filters.needsReview ? "destructive" : "ghost"}
+          variant={search.needsReview ? "destructive" : "ghost"}
           size="icon-sm"
-          onClick={() => setFilters((f) => ({ ...f, needsReview: !f.needsReview }))}
+          onClick={() =>
+            void navigate({
+              to: "/memories",
+              search: (prev) => ({ ...prev, needsReview: !prev.needsReview }),
+            })
+          }
           aria-label="Needs review only"
-          aria-pressed={filters.needsReview}
+          aria-pressed={search.needsReview}
         >
-          <Warning weight={filters.needsReview ? "fill" : "regular"} />
+          <Warning weight={search.needsReview ? "fill" : "regular"} />
         </Button>
       </div>
 
       {/* Memory rows */}
       <div className="flex-1 overflow-y-auto">
-        {loading && memories.length === 0 && (
+        {isLoading && allMemories.length === 0 && (
           <div className="flex items-center justify-center h-24 text-xs text-muted-foreground">
             Loading…
           </div>
         )}
-        {!loading && memories.length === 0 && (
+        {!isLoading && memories.length === 0 && (
           <div className="flex items-center justify-center h-24 text-xs text-muted-foreground">
             No memories found
           </div>
@@ -129,9 +153,9 @@ export function MemoryList({ selectedId, onSelect, onRefreshStats }: MemoryListP
             key={memory.id}
             memory={memory}
             selected={selectedId === memory.id}
-            onSelect={() => onSelect(selectedId === memory.id ? null : memory.id)}
-            onPin={() => void handlePin(memory)}
-            onDelete={() => void handleDelete(memory.id)}
+            onSelect={() => handleSelect(memory.id)}
+            onPin={() => handlePin(memory.id, memory.pinned)}
+            onDelete={() => handleDelete(memory.id)}
           />
         ))}
       </div>
