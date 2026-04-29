@@ -42,25 +42,40 @@ membank import < memories.json
 membank setup                              # configure MCP server + injection hooks
 membank inject                             # output session context (called by hooks)
 membank inject --harness claude-code       # format output for a specific harness
-membank inject --scope <scope>            # override project scope (default: auto from git)
-membank stop-hook --harness copilot-cli   # output session-end prompt (called by stop hooks)
+membank inject --scope <scope>             # override project scope (default: auto from git)
 ```
 
 ### Injection hooks
 
-`setup` writes two hooks into your harness config:
-
-- **Session-start hook** — injects pinned memories into every new session context. Calls `membank inject --harness <name>`.
-- **Stop hook** — prompts the LLM at session end to review the conversation and save any new preferences, corrections, or decisions. Calls `membank stop-hook --harness <name>` (or uses a native prompt hook for `claude-code`).
+`setup` writes session-start hooks into your harness config to inject pinned memories at the beginning of each session. Calls `membank inject --harness <name>`.
 
 Supported harnesses and their hook mechanisms:
 
-| Harness | Config file | Session-start | Stop |
-|---------|-------------|---------------|------|
-| `claude-code` | `~/.claude/settings.json` | `SessionStart` command hook | `Stop` prompt hook (native) |
-| `copilot-cli` | `~/.copilot/settings.json` | `sessionStart` command hook | `stop` command hook |
-| `codex` | `~/.codex/hooks.json` | `SessionStart` command hook | `Stop` command hook |
-| `opencode` | `~/.config/opencode/plugins/membank.js` | `session.start` plugin event | `session.idle` plugin event |
+| Harness | Config file | Session-start hook |
+|---------|-------------|-------------------|
+| `claude-code` | `~/.claude/settings.json` | `SessionStart` command hook |
+| `copilot-cli` | `~/.copilot/settings.json` | `sessionStart` command hook |
+| `codex` | `~/.codex/hooks.json` | `SessionStart` command hook |
+| `opencode` | `~/.config/opencode/plugins/membank.js` | `session.start` plugin event |
+
+## Web dashboard
+
+Access memories via a local web UI with browsing, searching, filtering, and editing:
+
+```bash
+pnpm dev
+# Opens http://localhost:3847
+```
+
+Features:
+- Browse all memories with filtering by type, scope, and pin status
+- Full-text search across memory content
+- Edit memory type, tags, and metadata
+- Review memories flagged for deduplication
+- View memory statistics and storage overview
+- Dark mode support
+
+See [`packages/dashboard/README.md`](packages/dashboard/README.md) for API docs and architecture details.
 
 ## MCP tools
 
@@ -91,17 +106,18 @@ All data lives at `~/.membank/`:
 | `@membank/core` | DB, embeddings, query engine, dedup logic |
 | `@membank/mcp` | stdio MCP server |
 | `@membank/cli` | CLI and npx entrypoint |
+| `@membank/dashboard` | Web UI — browse, search, and manage memories |
 
 ## Development
 
 ```bash
-pnpm install
-pnpm build          # build all packages in dependency order
-pnpm dev            # watch mode
-pnpm test           # run tests
-pnpm typecheck      # tsc --noEmit across all packages
-pnpm lint           # biome check
-pnpm lint:fix       # biome check --write
+pnpm install                # install workspace deps
+pnpm build                  # build all packages in dependency order
+pnpm dev                    # watch mode across all packages (including dashboard dev server)
+pnpm typecheck              # tsc --noEmit across all packages
+pnpm lint                   # biome check
+pnpm lint:fix               # biome check --write
+pnpm clean                  # remove all dist/ and *.tsbuildinfo
 ```
 
 Scoped to one package:
@@ -109,6 +125,7 @@ Scoped to one package:
 ```bash
 pnpm --filter @membank/core build
 pnpm --filter @membank/cli dev
+pnpm --filter @membank/dashboard dev    # dashboard only on http://localhost:3847
 ```
 
 ## License
