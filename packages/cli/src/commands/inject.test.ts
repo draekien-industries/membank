@@ -68,4 +68,32 @@ describe("isToolFailure", () => {
   it("returns false for empty error_message", () => {
     expect(isToolFailure({ error_message: "" })).toBe(false);
   });
+
+  it("detects error field (Claude Code / copilot-cli)", () => {
+    expect(isToolFailure({ error: "exit 1", tool_name: "Bash" })).toBe(true);
+  });
+
+  it("ignores empty error field", () => {
+    expect(isToolFailure({ error: "" })).toBe(false);
+  });
+
+  it("detects Codex PostToolUse failure via exit_code", () => {
+    expect(isToolFailure({ hook_event_name: "PostToolUse", tool_response: { exit_code: 1 } })).toBe(
+      true
+    );
+  });
+
+  it("ignores Codex PostToolUse success (exit_code 0)", () => {
+    expect(isToolFailure({ hook_event_name: "PostToolUse", tool_response: { exit_code: 0 } })).toBe(
+      false
+    );
+  });
+
+  it("detects copilot-cli toolResult.resultType failure", () => {
+    expect(isToolFailure({ toolResult: { resultType: "failure" } })).toBe(true);
+  });
+
+  it("ignores copilot-cli toolResult.resultType success", () => {
+    expect(isToolFailure({ toolResult: { resultType: "success" } })).toBe(false);
+  });
 });

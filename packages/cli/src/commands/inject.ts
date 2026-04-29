@@ -102,11 +102,22 @@ export function looksLikeFeedback(prompt: string): boolean {
 }
 
 export function isToolFailure(data: Record<string, unknown>): boolean {
+  // Claude Code PostToolUseFailure, copilot-cli snake_case
   if (data.hook_event_name === "PostToolUseFailure") return true;
+  // Claude Code sends "error"; opencode plugin crafts "error_message"
+  if (typeof data.error === "string" && data.error.length > 0) return true;
   if (typeof data.error_message === "string" && data.error_message.length > 0) return true;
   const response = data.tool_result ?? data.tool_response;
   if (typeof response === "object" && response !== null) {
-    if ((response as Record<string, unknown>).is_error === true) return true;
+    const r = response as Record<string, unknown>;
+    if (r.is_error === true) return true;
+    // Codex PostToolUse: non-zero exit_code indicates bash failure
+    if (typeof r.exit_code === "number" && r.exit_code !== 0) return true;
+  }
+  // copilot-cli camelCase postToolUse: toolResult.resultType
+  const toolResult = data.toolResult;
+  if (typeof toolResult === "object" && toolResult !== null) {
+    if ((toolResult as Record<string, unknown>).resultType === "failure") return true;
   }
   return false;
 }
