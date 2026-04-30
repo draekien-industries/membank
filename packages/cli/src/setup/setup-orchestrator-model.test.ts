@@ -6,6 +6,10 @@ import { SetupOrchestrator } from "./setup-orchestrator.js";
 
 function makeWriter(): HarnessConfigWriter {
   return {
+    preview: vi.fn((harness: string) => ({
+      configPath: `/fake/${harness}/config.json`,
+      cliCommand: null,
+    })),
     write: vi.fn(() => ({ status: "written" as const })),
   } as unknown as HarnessConfigWriter;
 }
@@ -24,6 +28,8 @@ function makeMockDownloader(downloadResult: { skipped: boolean } | (() => never)
   let progressListener: ((p: DownloadProgressLike) => void) | undefined;
 
   const mock: MockDownloader = {
+    isAlreadyCached: vi.fn(() => false),
+    cachePath: "/fake/.membank/models",
     download: vi.fn(async () => {
       if (typeof downloadResult === "function") {
         return downloadResult();
@@ -195,10 +201,8 @@ describe("model download — dry-run", () => {
 
     await orchestrator.run({ dryRun: true });
 
-    const dryRunLine = lines.find(
-      (l) => l.toLowerCase().includes("dry-run") && l.toLowerCase().includes("model")
-    );
-    expect(dryRunLine).toBeDefined();
+    const modelLine = lines.find((l) => l.toLowerCase().includes("model"));
+    expect(modelLine).toBeDefined();
   });
 });
 

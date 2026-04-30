@@ -4,6 +4,7 @@ import { CommandError, SUPPORTED_HARNESSES } from "./harness-config-writer.js";
 import type { DetectedHarness } from "./harness-detector.js";
 import { detectHarnesses } from "./harness-detector.js";
 import type { InjectionHookWriter } from "./injection-hook-writer.js";
+import { MODEL_NAME } from "./model-downloader.js";
 
 export type Prompter = (question: string) => Promise<boolean>;
 export type HarnessSelector = (detected: DetectedHarness[]) => Promise<DetectedHarness[]>;
@@ -16,6 +17,8 @@ export interface DownloadProgressLike {
 }
 
 export interface ModelDownloaderLike {
+  isAlreadyCached(): boolean;
+  readonly cachePath: string;
   download(): Promise<{ skipped: boolean }>;
   on?(event: "progress", listener: (p: DownloadProgressLike) => void): void;
 }
@@ -131,13 +134,34 @@ export class SetupOrchestrator {
     if (dryRun) {
       out("Planned changes (dry-run — no files written):");
       for (const h of detected) {
-        out(`  ⚠ ${h.name}: would write MCP config`);
+        const mcpPreview = this.#writer.preview(h.name);
+        const mcpTarget = mcpPreview.configPath ?? (mcpPreview.cliCommand ? "(via CLI)" : "");
+        out(`  ⚠ ${h.name}  MCP config → ${mcpTarget}`);
+        if (mcpPreview.cliCommand) {
+          out(`      via: ${mcpPreview.cliCommand}`);
+        }
+
         if (this.#hookWriter) {
-          out(`  ⚠ ${h.name}: would write injection hook config`);
+          const inspected = this.#hookWriter.inspect(h.name);
+          if (inspected.status === "ready") {
+            out(`  ⚠ ${h.name}  injection hook → ${inspected.configPath}`);
+            for (const hook of inspected.hooks) {
+              out(`      event:   ${hook.event}`);
+              out(`      command: ${hook.command}`);
+            }
+          }
         }
       }
       out("");
-      out("  ⚠ Model download: skipped (dry-run)");
+      if (this.#modelDownloader) {
+        const cached = this.#modelDownloader.isAlreadyCached();
+        out(`  ⚠ Model: ${MODEL_NAME} → ${this.#modelDownloader.cachePath}`);
+        out(
+          `      status: ${cached ? "already cached — would skip" : "not cached — would download"}`
+        );
+      } else {
+        out("  ⚠ Model download: skipped (dry-run)");
+      }
       return detected.map((h) => ({ harness: h.name, status: "skipped" as const }));
     }
 

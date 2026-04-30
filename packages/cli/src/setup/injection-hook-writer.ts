@@ -15,7 +15,9 @@ export type HookPlan = {
   existingCommand: string | null;
 };
 
-export type InspectResult = { status: "not-supported" } | { status: "ready"; hooks: HookPlan[] };
+export type InspectResult =
+  | { status: "not-supported" }
+  | { status: "ready"; configPath: string; hooks: HookPlan[] };
 
 export type InjectionWriteResult = { status: "written" } | { status: "not-supported" };
 
@@ -127,6 +129,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
 
       return {
         status: "ready",
+        configPath: cfgPath,
         hooks: [
           {
             event: "SessionStart",
@@ -178,6 +181,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
 
       return {
         status: "ready",
+        configPath: cfgPath,
         hooks: [
           {
             event: "sessionStart",
@@ -231,6 +235,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
 
       return {
         status: "ready",
+        configPath: cfgPath,
         hooks: [
           {
             event: "SessionStart",
@@ -285,6 +290,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
       }
       return {
         status: "ready",
+        configPath: pluginPath,
         hooks: [
           {
             event: "plugin",

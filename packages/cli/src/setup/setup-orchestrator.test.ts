@@ -9,6 +9,10 @@ function makeWriter(
   responses: Record<string, { status: "written" | "already-configured" } | (() => never)> = {}
 ): HarnessConfigWriter {
   return {
+    preview: vi.fn((_harness: string) => ({
+      configPath: `/fake/${_harness}/config.json`,
+      cliCommand: null,
+    })),
     write: vi.fn((harness: string, opts?: { overwrite?: boolean }) => {
       const key = opts?.overwrite ? `${harness}:overwrite` : harness;
       const res = responses[key] ?? responses[harness] ?? { status: "written" };
@@ -27,7 +31,11 @@ function makeOrchestrator(opts: {
   detected?: DetectedHarness[];
   writer?: HarnessConfigWriter;
   prompter?: (q: string) => Promise<boolean>;
-  modelDownloader?: { download: () => Promise<{ skipped: boolean }> };
+  modelDownloader?: {
+    isAlreadyCached: () => boolean;
+    cachePath: string;
+    download: () => Promise<{ skipped: boolean }>;
+  };
 }): { orchestrator: SetupOrchestrator; lines: string[] } {
   const lines: string[] = [];
   const detected = opts.detected;
@@ -282,7 +290,11 @@ describe("model downloader injection", () => {
     const download = vi.fn().mockResolvedValue({ skipped: false });
     const { orchestrator } = makeOrchestrator({
       detected: [makeHarness("claude-code")],
-      modelDownloader: { download },
+      modelDownloader: {
+        isAlreadyCached: () => false,
+        cachePath: "/fake/.membank/models",
+        download,
+      },
     });
 
     await orchestrator.run({ yes: true });
@@ -402,7 +414,11 @@ describe("--json output", () => {
     const download = vi.fn().mockResolvedValue({ skipped: false });
     const { orchestrator, lines } = makeOrchestrator({
       detected: [makeHarness("claude-code")],
-      modelDownloader: { download },
+      modelDownloader: {
+        isAlreadyCached: () => false,
+        cachePath: "/fake/.membank/models",
+        download,
+      },
     });
 
     await orchestrator.run({ yes: true, json: true });
@@ -420,7 +436,9 @@ function makeHookWriter(
 ): InjectionHookWriter {
   return {
     inspect: vi.fn((harness: string) => {
-      return inspectResults[harness] ?? { status: "ready", hooks: [] };
+      return (
+        inspectResults[harness] ?? { status: "ready", configPath: "/fake/hook/config", hooks: [] }
+      );
     }),
     write: vi.fn((harness: string, events: string[]) => {
       writeFn?.(harness, events);
@@ -469,6 +487,7 @@ describe("injection hook writer integration", () => {
     const hookWriter = makeHookWriter({
       "claude-code": {
         status: "ready",
+        configPath: "/fake/hook/config",
         hooks: [makeNewHook("SessionStart", "npx @membank/cli inject --harness claude-code")],
       },
     });
@@ -484,6 +503,7 @@ describe("injection hook writer integration", () => {
     const hookWriter = makeHookWriter({
       "claude-code": {
         status: "ready",
+        configPath: "/fake/hook/config",
         hooks: [makeNewHook("SessionStart", "npx @membank/cli inject --harness claude-code")],
       },
     });
@@ -503,6 +523,7 @@ describe("injection hook writer integration", () => {
     const hookWriter = makeHookWriter({
       "claude-code": {
         status: "ready",
+        configPath: "/fake/hook/config",
         hooks: [makeNewHook("SessionStart", "npx @membank/cli inject --harness claude-code")],
       },
     });
@@ -521,6 +542,7 @@ describe("injection hook writer integration", () => {
     const hookWriter = makeHookWriter({
       "claude-code": {
         status: "ready",
+        configPath: "/fake/hook/config",
         hooks: [makeExistingHook("SessionStart", "npx @membank/cli inject --harness claude-code")],
       },
     });
@@ -540,6 +562,7 @@ describe("injection hook writer integration", () => {
     const hookWriter = makeHookWriter({
       "claude-code": {
         status: "ready",
+        configPath: "/fake/hook/config",
         hooks: [makeExistingHook("SessionStart", "npx @membank/cli inject --harness claude-code")],
       },
     });
@@ -559,6 +582,7 @@ describe("injection hook writer integration", () => {
     const hookWriter = makeHookWriter({
       "claude-code": {
         status: "ready",
+        configPath: "/fake/hook/config",
         hooks: [makeNewHook("SessionStart", "npx @membank/cli inject --harness claude-code")],
       },
     });
@@ -568,13 +592,14 @@ describe("injection hook writer integration", () => {
     });
     await orchestrator.run({ dryRun: true });
     expect(hookWriter.write).not.toHaveBeenCalled();
-    expect(lines.some((l) => l.includes("would write injection hook"))).toBe(true);
+    expect(lines.some((l) => l.includes("injection hook"))).toBe(true);
   });
 
   it("does not call write when user declines all hooks", async () => {
     const hookWriter = makeHookWriter({
       "claude-code": {
         status: "ready",
+        configPath: "/fake/hook/config",
         hooks: [makeNewHook("SessionStart", "npx @membank/cli inject --harness claude-code")],
       },
     });
@@ -592,6 +617,7 @@ describe("injection hook writer integration", () => {
     const hookWriter = makeHookWriter({
       "claude-code": {
         status: "ready",
+        configPath: "/fake/hook/config",
         hooks: [makeNewHook("SessionStart", "npx @membank/cli inject --harness claude-code")],
       },
     });

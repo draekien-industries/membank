@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { type CommandRunner, execFileNoThrow } from "../utils/execFileNoThrow.js";
 
 export type WriteResult = { status: "written" | "already-configured" };
+export type HarnessPreview = { configPath: string | null; cliCommand: string | null };
 
 export class CommandError extends Error {
   readonly command: string;
@@ -64,6 +65,7 @@ function assertCliFound(
 const MEMBANK_NPX_ARGS = ["npx", "-y", "@membank/cli", "--mcp"] as const;
 
 interface HarnessWriter {
+  preview(resolver: PathResolver): HarnessPreview;
   write(
     resolver: PathResolver,
     run: CommandRunner,
@@ -73,6 +75,12 @@ interface HarnessWriter {
 
 const writers: Record<string, HarnessWriter> = {
   "claude-code": {
+    preview(resolver) {
+      return {
+        configPath: join(resolver.home(), ".claude.json"),
+        cliCommand: "claude mcp add --scope user membank -- npx -y @membank/cli --mcp",
+      };
+    },
     async write(resolver, run, { overwrite = false } = {}) {
       const cfgPath = join(resolver.home(), ".claude.json");
       const cfg = readJson(cfgPath);
@@ -110,6 +118,12 @@ const writers: Record<string, HarnessWriter> = {
   },
 
   copilot: {
+    preview(resolver) {
+      return {
+        configPath: join(resolver.home(), ".copilot", "mcp-config.json"),
+        cliCommand: null,
+      };
+    },
     async write(resolver, _run, { overwrite = false } = {}) {
       const cfgPath = join(resolver.home(), ".copilot", "mcp-config.json");
       const cfg = readJson(cfgPath);
@@ -129,6 +143,12 @@ const writers: Record<string, HarnessWriter> = {
   },
 
   codex: {
+    preview(_resolver) {
+      return {
+        configPath: null,
+        cliCommand: "codex mcp add membank -- npx -y @membank/cli --mcp",
+      };
+    },
     async write(_resolver, run, { overwrite = false } = {}) {
       const listCmd = "codex mcp list";
       const list = await run("codex", ["mcp", "list"]);
@@ -159,6 +179,12 @@ const writers: Record<string, HarnessWriter> = {
   },
 
   opencode: {
+    preview(resolver) {
+      return {
+        configPath: join(resolver.home(), ".config", "opencode", "opencode.json"),
+        cliCommand: null,
+      };
+    },
     async write(resolver, _run, { overwrite = false } = {}) {
       const cfgPath = join(resolver.home(), ".config", "opencode", "opencode.json");
       const cfg = readJson(cfgPath);
@@ -188,6 +214,12 @@ export class HarnessConfigWriter {
   constructor(resolver: PathResolver = defaultPathResolver, run: CommandRunner = execFileNoThrow) {
     this.#resolver = resolver;
     this.#run = run;
+  }
+
+  preview(harness: string): HarnessPreview {
+    const writer = writers[harness];
+    if (!writer) throw new Error(`Unknown harness: ${harness}`);
+    return writer.preview(this.#resolver);
   }
 
   async write(

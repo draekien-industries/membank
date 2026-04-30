@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "@huggingface/transformers";
 
-const MODEL_NAME = "Xenova/bge-small-en-v1.5";
+export const MODEL_NAME = "Xenova/bge-small-en-v1.5";
 
 export interface DownloadProgress {
   totalBytes: number;
@@ -43,6 +43,14 @@ export class ModelDownloader extends EventEmitter {
   constructor(modelPath?: string) {
     super();
     this.modelPath = modelPath ?? defaultModelPath();
+  }
+
+  isAlreadyCached(): boolean {
+    return isCached(this.modelPath);
+  }
+
+  get cachePath(): string {
+    return this.modelPath;
   }
 
   async download(): Promise<DownloadResult> {
