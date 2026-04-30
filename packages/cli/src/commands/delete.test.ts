@@ -65,7 +65,7 @@ describe("delete command — real in-memory SQLite", () => {
       await deleteCommand("mem-1", db, humanFormatter, autoConfirmPrompt);
     });
 
-    expect(output).toBe("Deleted memory: mem-1\n");
+    expect(output).toContain("Deleted memory: mem-1");
 
     const row = db.db
       .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
@@ -121,6 +121,6 @@ describe("delete command — real in-memory SQLite", () => {
       await deleteCommand("mem-3", db, humanFormatter, new PromptHelper(true));
     });
 
-    expect(output).toBe("Deleted memory: mem-3\n");
+    expect(output).toContain("Deleted memory: mem-3");
   });
 });

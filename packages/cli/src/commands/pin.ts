@@ -1,4 +1,5 @@
 import { DatabaseManager } from "@membank/core";
+import chalk from "chalk";
 import type { Formatter } from "../formatter.js";
 
 export function pinCommand(id: string, formatter: Formatter, db?: DatabaseManager): void {
@@ -14,7 +15,7 @@ export function pinCommand(id: string, formatter: Formatter, db?: DatabaseManage
       process.exit(2);
     } else {
       resolvedDb.db.prepare("UPDATE memories SET pinned = 1 WHERE id = ?").run(id);
-      process.stdout.write(`Pinned: ${id}\n`);
+      process.stdout.write(`${chalk.green("✓")} Pinned: ${chalk.dim(id)}\n`);
     }
   } finally {
     if (ownDb) resolvedDb.close();

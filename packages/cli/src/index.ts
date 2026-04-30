@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
+import { cancel, intro, isCancel, multiselect, note, outro } from "@clack/prompts";
 import { DatabaseManager } from "@membank/core";
 import { startServer } from "@membank/mcp";
+import chalk from "chalk";
 import { Command } from "commander";
 import { addCommand } from "./commands/add.js";
 import { dashboardCommand } from "./commands/dashboard.js";
@@ -17,6 +19,7 @@ import { unpinCommand } from "./commands/unpin.js";
 import { Formatter } from "./formatter.js";
 import { PromptHelper } from "./prompt-helper.js";
 import { HarnessConfigWriter, SUPPORTED_HARNESSES } from "./setup/harness-config-writer.js";
+import type { DetectedHarness } from "./setup/harness-detector.js";
 import { InjectionHookWriter } from "./setup/injection-hook-writer.js";
 import { ModelDownloader } from "./setup/model-downloader.js";
 import { SetupOrchestrator } from "./setup/setup-orchestrator.js";
@@ -213,6 +216,7 @@ program
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
     const autoYes = cmdOptions.yes === true || globalOpts.yes === true;
     const formatter = Formatter.create(globalOpts.json === true);
+    const interactive = !formatter.isJson && !autoYes && cmdOptions.harness === undefined;
 
     if (cmdOptions.harness !== undefined) {
       if (!SUPPORTED_HARNESSES.some((h) => h === cmdOptions.harness)) {
@@ -223,14 +227,57 @@ program
       }
     }
 
+    if (!formatter.isJson) {
+      intro(chalk.bold("  membank  setup  "));
+    }
+
+    function decoratedOut(msg: string): void {
+      const decorated = msg
+        .replace(/✓/g, chalk.green("✓"))
+        .replace(/✗/g, chalk.red("✗"))
+        .replace(/⚠/g, chalk.yellow("⚠"));
+      const styled = /^Step \d/.test(msg) ? `\n${chalk.bold(decorated)}` : decorated;
+      process.stdout.write(`${styled}\n`);
+    }
+
     const writer = new HarnessConfigWriter();
     const hookWriter = new InjectionHookWriter();
     const promptHelper = new PromptHelper(autoYes);
+
+    let harnessSelector: ((detected: DetectedHarness[]) => Promise<DetectedHarness[]>) | undefined;
+    if (interactive) {
+      harnessSelector = async (detected: DetectedHarness[]) => {
+        const options = SUPPORTED_HARNESSES.map((name) => {
+          const found = detected.find((d) => d.name === name);
+          return {
+            value: (found ?? {
+              name: name as DetectedHarness["name"],
+              configPath: "",
+            }) satisfies DetectedHarness,
+            label: name,
+            hint: found !== undefined ? found.configPath : "(not detected)",
+          };
+        });
+        const selected = await multiselect<DetectedHarness>({
+          message: "Which harnesses to configure?",
+          options,
+          initialValues: detected,
+        });
+        if (isCancel(selected)) {
+          cancel("Setup cancelled.");
+          process.exit(0);
+        }
+        return selected;
+      };
+    }
+
     const orchestrator = new SetupOrchestrator({
       writer,
       hookWriter,
       prompter: (question) => promptHelper.confirm(question),
+      harnessSelector,
       modelDownloader: new ModelDownloader(),
+      out: formatter.isJson ? undefined : decoratedOut,
     });
     try {
       const results = await orchestrator.run({
@@ -239,6 +286,13 @@ program
         harness: cmdOptions.harness,
         json: formatter.isJson,
       });
+      if (!formatter.isJson && !cmdOptions.dryRun && results.length > 0) {
+        note(
+          'Start a new session to activate injection\nRun  membank query "test"  to verify',
+          "Next steps"
+        );
+        outro(`${chalk.green("✓")} Setup complete`);
+      }
       if (results.some((r) => r.status === "error")) {
         process.exit(1);
       }

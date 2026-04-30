@@ -1,23 +1,18 @@
-import * as readline from "node:readline";
+import { confirm } from "@clack/prompts";
 
 export class PromptHelper {
   constructor(private readonly autoConfirm: boolean) {}
 
-  confirm(message: string): Promise<boolean> {
+  async confirm(message: string): Promise<boolean> {
     if (this.autoConfirm) {
-      return Promise.resolve(true);
+      return true;
     }
 
-    return new Promise((resolve) => {
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
-
-      rl.question(`${message} [y/N] `, (answer) => {
-        rl.close();
-        resolve(answer.trim().toLowerCase() === "y");
-      });
-    });
+    const result = await confirm({ message });
+    // clack returns Symbol if the user cancels (Ctrl+C)
+    if (typeof result === "symbol") {
+      return false;
+    }
+    return result;
   }
 }

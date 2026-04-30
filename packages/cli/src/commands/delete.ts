@@ -1,4 +1,5 @@
 import { type DatabaseManager, EmbeddingService, MemoryRepository } from "@membank/core";
+import chalk from "chalk";
 import type { Formatter } from "../formatter.js";
 import type { PromptHelper } from "../prompt-helper.js";
 
@@ -26,5 +27,5 @@ export async function deleteCommand(
   const repo = new MemoryRepository(db, embedding);
   await repo.delete(id);
 
-  process.stdout.write(`Deleted memory: ${id}\n`);
+  process.stdout.write(`${chalk.green("✓")} Deleted memory: ${chalk.dim(id)}\n`);
 }

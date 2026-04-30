@@ -6,6 +6,7 @@ import { detectHarnesses } from "./harness-detector.js";
 import type { InjectionHookWriter } from "./injection-hook-writer.js";
 
 export type Prompter = (question: string) => Promise<boolean>;
+export type HarnessSelector = (detected: DetectedHarness[]) => Promise<DetectedHarness[]>;
 
 export interface DownloadProgressLike {
   totalBytes: number;
@@ -37,6 +38,7 @@ export interface OrchestratorDeps {
   writer: HarnessConfigWriter;
   hookWriter?: InjectionHookWriter;
   prompter?: Prompter;
+  harnessSelector?: HarnessSelector;
   modelDownloader?: ModelDownloaderLike;
   out?: (msg: string) => void;
   progressWrite?: (text: string) => void;
@@ -63,6 +65,7 @@ export class SetupOrchestrator {
   readonly #writer: HarnessConfigWriter;
   readonly #hookWriter: InjectionHookWriter | undefined;
   readonly #prompter: Prompter;
+  readonly #harnessSelector: HarnessSelector | undefined;
   readonly #modelDownloader: ModelDownloaderLike | undefined;
   readonly #out: (msg: string) => void;
   readonly #progressWrite: (text: string) => void;
@@ -72,6 +75,7 @@ export class SetupOrchestrator {
     this.#writer = deps.writer;
     this.#hookWriter = deps.hookWriter;
     this.#prompter = deps.prompter ?? defaultPrompter;
+    this.#harnessSelector = deps.harnessSelector;
     this.#modelDownloader = deps.modelDownloader;
     this.#out = deps.out ?? ((msg) => process.stdout.write(`${msg}\n`));
     this.#progressWrite = deps.progressWrite ?? ((text) => process.stdout.write(text));
@@ -108,6 +112,14 @@ export class SetupOrchestrator {
       return [];
     }
 
+    if (this.#harnessSelector !== undefined && !json) {
+      detected = await this.#harnessSelector(detected);
+      if (detected.length === 0) {
+        out("No harnesses selected.");
+        return [];
+      }
+    }
+
     if (!json) {
       out("Detected harnesses:");
       for (const h of detected) {
@@ -138,6 +150,10 @@ export class SetupOrchestrator {
     }
 
     const results: SetupResult[] = [];
+
+    const totalSteps =
+      this.#hookWriter !== undefined ? 3 : this.#modelDownloader !== undefined ? 2 : 1;
+    out(`Step 1/${totalSteps}  Writing MCP configs`);
 
     for (const h of detected) {
       let writeResult: { status: "written" | "already-configured" } | undefined;
@@ -185,12 +201,16 @@ export class SetupOrchestrator {
 
     const injectionHooksConfigured: string[] = [];
     if (this.#hookWriter) {
+      const step = 2;
+      out(`Step ${step}/${totalSteps}  Installing injection hooks`);
       injectionHooksConfigured.push(...(await this.#runHookSetup(detected, yes, out)));
       out("");
     }
 
     let modelDownloaded = false;
     if (this.#modelDownloader) {
+      const modelStep = this.#hookWriter !== undefined ? 3 : 2;
+      out(`Step ${modelStep}/${totalSteps}  Embedding model`);
       const dlResult = await this.#runModelDownload(this.#modelDownloader, out);
       modelDownloaded = !dlResult.skipped;
     } else {
@@ -227,7 +247,8 @@ export class SetupOrchestrator {
     out: (msg: string) => void
   ): Promise<string[]> {
     const configured: string[] = [];
-    const w = this.#hookWriter!;
+    const w = this.#hookWriter;
+    if (w === undefined) return configured;
 
     for (const h of detected) {
       try {
