@@ -5,6 +5,15 @@ import { type CommandRunner, execFileNoThrow } from "../utils/execFileNoThrow.js
 
 export type WriteResult = { status: "written" | "already-configured" };
 
+export class CommandError extends Error {
+  readonly command: string;
+  constructor(message: string, command: string) {
+    super(message);
+    this.name = "CommandError";
+    this.command = command;
+  }
+}
+
 export interface PathResolver {
   home: () => string;
   cwd: () => string;
@@ -42,10 +51,13 @@ function hasKey(container: unknown, key: string): boolean {
   );
 }
 
-// Throws a user-friendly error if the CLI was not found in PATH.
-function assertCliFound(result: { exitCode: number; stderr: string }, cli: string): void {
+function assertCliFound(
+  result: { exitCode: number; stderr: string },
+  cli: string,
+  command: string
+): void {
   if (result.exitCode === 127) {
-    throw new Error(`${cli} CLI not found — install ${cli} first`);
+    throw new CommandError(`${cli} CLI not found — install ${cli} first`, command);
   }
 }
 
@@ -69,14 +81,16 @@ const writers: Record<string, HarnessWriter> = {
       if (configured && !overwrite) return { status: "already-configured" };
 
       if (configured) {
-        const remove = await run("claude", ["mcp", "remove", "--scope", "user", "membank"]);
-        assertCliFound(remove, "claude");
+        const removeArgs = ["mcp", "remove", "--scope", "user", "membank"] as const;
+        const removeCmd = `claude ${removeArgs.join(" ")}`;
+        const remove = await run("claude", [...removeArgs]);
+        assertCliFound(remove, "claude", removeCmd);
         if (remove.exitCode !== 0) {
-          throw new Error(`claude mcp remove failed: ${remove.stderr}`);
+          throw new CommandError(`claude mcp remove failed: ${remove.stderr}`, removeCmd);
         }
       }
 
-      const add = await run("claude", [
+      const addArgs = [
         "mcp",
         "add",
         "--scope",
@@ -84,10 +98,12 @@ const writers: Record<string, HarnessWriter> = {
         "membank",
         "--",
         ...MEMBANK_NPX_ARGS,
-      ]);
-      assertCliFound(add, "claude");
+      ] as const;
+      const addCmd = `claude ${addArgs.join(" ")}`;
+      const add = await run("claude", [...addArgs]);
+      assertCliFound(add, "claude", addCmd);
       if (add.exitCode !== 0) {
-        throw new Error(`claude mcp add failed: ${add.stderr || add.stdout}`);
+        throw new CommandError(`claude mcp add failed: ${add.stderr || add.stdout}`, addCmd);
       }
       return { status: "written" };
     },
@@ -114,24 +130,29 @@ const writers: Record<string, HarnessWriter> = {
 
   codex: {
     async write(_resolver, run, { overwrite = false } = {}) {
+      const listCmd = "codex mcp list";
       const list = await run("codex", ["mcp", "list"]);
-      assertCliFound(list, "codex");
+      assertCliFound(list, "codex", listCmd);
       const configured = list.exitCode === 0 && list.stdout.includes("membank");
 
       if (configured && !overwrite) return { status: "already-configured" };
 
       if (configured) {
-        const remove = await run("codex", ["mcp", "remove", "membank"]);
-        assertCliFound(remove, "codex");
+        const removeArgs = ["mcp", "remove", "membank"] as const;
+        const removeCmd = `codex ${removeArgs.join(" ")}`;
+        const remove = await run("codex", [...removeArgs]);
+        assertCliFound(remove, "codex", removeCmd);
         if (remove.exitCode !== 0) {
-          throw new Error(`codex mcp remove failed: ${remove.stderr}`);
+          throw new CommandError(`codex mcp remove failed: ${remove.stderr}`, removeCmd);
         }
       }
 
-      const add = await run("codex", ["mcp", "add", "membank", "--", ...MEMBANK_NPX_ARGS]);
-      assertCliFound(add, "codex");
+      const addArgs = ["mcp", "add", "membank", "--", ...MEMBANK_NPX_ARGS] as const;
+      const addCmd = `codex ${addArgs.join(" ")}`;
+      const add = await run("codex", [...addArgs]);
+      assertCliFound(add, "codex", addCmd);
       if (add.exitCode !== 0) {
-        throw new Error(`codex mcp add failed: ${add.stderr || add.stdout}`);
+        throw new CommandError(`codex mcp add failed: ${add.stderr || add.stdout}`, addCmd);
       }
       return { status: "written" };
     },

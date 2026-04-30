@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline";
 import type { HarnessConfigWriter } from "./harness-config-writer.js";
-import { SUPPORTED_HARNESSES } from "./harness-config-writer.js";
+import { CommandError, SUPPORTED_HARNESSES } from "./harness-config-writer.js";
 import type { DetectedHarness } from "./harness-detector.js";
 import { detectHarnesses } from "./harness-detector.js";
 import type { InjectionHookWriter } from "./injection-hook-writer.js";
@@ -147,6 +147,7 @@ export class SetupOrchestrator {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         out(`  ✗ ${h.name}: ${msg}`);
+        if (err instanceof CommandError) out(`    Command: ${err.command}`);
         results.push({ harness: h.name, status: "error", error: msg });
         continue;
       }
@@ -170,6 +171,7 @@ export class SetupOrchestrator {
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           out(`  ✗ ${h.name}: ${msg}`);
+          if (err instanceof CommandError) out(`    Command: ${err.command}`);
           results.push({ harness: h.name, status: "error", error: msg });
         }
         continue;
@@ -268,6 +270,7 @@ export class SetupOrchestrator {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         out(`  ✗ ${h.name} injection hooks: ${msg}`);
+        if (err instanceof CommandError) out(`    Command: ${err.command}`);
       }
     }
 
