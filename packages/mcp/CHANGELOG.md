@@ -1,5 +1,16 @@
 # @membank/mcp
 
+## 0.6.0
+
+### Minor Changes
+
+- 5f48cae: Added `pin_memory` and `unpin_memory` MCP tools, and a `setPin` method on `MemoryRepository`, so LLMs and users can pin memories for guaranteed session injection or remove that flag.
+
+### Patch Changes
+
+- Updated dependencies [5f48cae]
+  - @membank/core@0.5.1
+
 ## 0.5.0
 
 ### Patch Changes
