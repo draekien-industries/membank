@@ -3,8 +3,8 @@ import { defineConfig } from "tsdown";
 export default defineConfig({
   entry: ["src/server/index.ts"],
   outDir: "dist",
-  format: ["esm"],
-  dts: false,
+  format: ["esm", "cjs"],
+  dts: true,
   clean: false,
   external: [
     "@membank/core",
