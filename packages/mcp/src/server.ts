@@ -124,6 +124,29 @@ export function createServer(core: CoreServices): Server {
           required: ["query"],
         },
       },
+      {
+        name: "pin_memory",
+        description:
+          "Pin a memory by id. Pinned memories are always injected into the session context.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Memory id to pin" },
+          },
+          required: ["id"],
+        },
+      },
+      {
+        name: "unpin_memory",
+        description: "Unpin a memory by id. Removes the memory from guaranteed session injection.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Memory id to unpin" },
+          },
+          required: ["id"],
+        },
+      },
     ],
   }));
 
@@ -271,6 +294,28 @@ export function createServer(core: CoreServices): Server {
         return {
           content: [{ type: "text", text: JSON.stringify(serialised) }],
         };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true };
+      }
+    }
+
+    if (request.params.name === "pin_memory" || request.params.name === "unpin_memory") {
+      const args = request.params.arguments as Record<string, unknown> | undefined;
+      const id = args?.id;
+
+      if (typeof id !== "string" || id.trim() === "") {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "id is required and must be a non-empty string"
+        );
+      }
+
+      const pinned = request.params.name === "pin_memory";
+
+      try {
+        const memory = core.repo.setPin(id, pinned);
+        return { content: [{ type: "text", text: JSON.stringify(memory) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: message }], isError: true };

@@ -192,6 +192,27 @@ export class MemoryRepository {
     };
   }
 
+  setPin(id: string, pinned: boolean): Memory {
+    const existing = this.#db.db
+      .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
+      .get(id);
+
+    if (existing === undefined) {
+      throw new Error(`Memory not found: ${id}`);
+    }
+
+    const now = new Date().toISOString();
+    this.#db.db
+      .prepare(`UPDATE memories SET pinned = ?, updated_at = ? WHERE id = ?`)
+      .run(pinned ? 1 : 0, now, id);
+
+    const updated = this.#db.db
+      .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
+      .get(id) as MemoryRow;
+
+    return rowToMemory(updated);
+  }
+
   incrementAccessCount(id: string): void {
     this.#db.db.prepare(`UPDATE memories SET access_count = access_count + 1 WHERE id = ?`).run(id);
   }
