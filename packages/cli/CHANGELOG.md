@@ -1,5 +1,23 @@
 # @membank/cli
 
+## 0.5.0
+
+### Minor Changes
+
+- f4d498b: Added semantic colors, spinners, table output, and a guided setup wizard with harness multi-select, step indicators, and clack-powered prompts.
+
+### Patch Changes
+
+- d756d76: `setup --dry-run` now shows the config file path and CLI command for each MCP entry, the hook event and command for each injection hook, and the model name, cache path, and cache status instead of generic placeholder messages.
+- c7a2ee1: Updated MEMORY_GUIDANCE prompt to winning V2 variant from eval harness, improving save and query trigger clarity.
+- 0db5269: Setup command now surfaces the exact CLI command that failed alongside the error message, so users can copy-paste it to debug or report issues.
+- aded6f1: remove `@latest` tag from npx command
+- Updated dependencies [56ff68f]
+- Updated dependencies [aded6f1]
+  - @membank/dashboard@0.2.2
+  - @membank/mcp@0.5.0
+  - @membank/core@0.5.0
+
 ## 0.4.1
 
 ### Patch Changes

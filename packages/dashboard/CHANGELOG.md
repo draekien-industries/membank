@@ -1,5 +1,12 @@
 # @membank/dashboard
 
+## 0.2.2
+
+### Patch Changes
+
+- 56ff68f: Added CJS output and type declarations to the dashboard package build.
+  - @membank/core@0.5.0
+
 ## 0.2.1
 
 ### Patch Changes

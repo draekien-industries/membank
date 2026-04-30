@@ -1,5 +1,12 @@
 # @membank/mcp
 
+## 0.5.0
+
+### Patch Changes
+
+- aded6f1: remove `@latest` tag from npx command
+  - @membank/core@0.5.0
+
 ## 0.4.1
 
 ### Patch Changes
