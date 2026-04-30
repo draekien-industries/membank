@@ -49,7 +49,7 @@ function assertCliFound(result: { exitCode: number; stderr: string }, cli: strin
   }
 }
 
-const MEMBANK_NPX_ARGS = ["npx", "-y", "@membank/cli@latest", "--mcp"] as const;
+const MEMBANK_NPX_ARGS = ["npx", "-y", "@membank/cli", "--mcp"] as const;
 
 interface HarnessWriter {
   write(
@@ -105,7 +105,7 @@ const writers: Record<string, HarnessWriter> = {
         ...cfg,
         mcpServers: {
           ...(cfg.mcpServers as Record<string, unknown> | undefined),
-          membank: { command: "npx", args: ["-y", "@membank/cli@latest", "--mcp"] },
+          membank: { command: "npx", args: ["-y", "@membank/cli", "--mcp"] },
         },
       });
       return { status: "written" };
@@ -150,7 +150,7 @@ const writers: Record<string, HarnessWriter> = {
         mcp: {
           ...(cfg.mcp as Record<string, unknown> | undefined),
           // OpenCode requires type:"local" and command as an array.
-          membank: { type: "local", command: ["npx", "-y", "@membank/cli@latest", "--mcp"] },
+          membank: { type: "local", command: ["npx", "-y", "@membank/cli", "--mcp"] },
         },
       });
       return { status: "written" };

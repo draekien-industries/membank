@@ -68,7 +68,7 @@ describe("claude-code", () => {
     expect(Array.isArray(hooks.SessionStart)).toBe(true);
     type GroupHooks = { hooks: { command: string }[] }[];
     const cmd = (hooks.SessionStart as GroupHooks)[0]?.hooks[0]?.command ?? "";
-    expect(cmd).toBe("npx -y @membank/cli@latest inject --harness claude-code");
+    expect(cmd).toBe("npx -y @membank/cli inject --harness claude-code");
   });
 
   it("only writes SessionStart when only SessionStart is requested", () => {
@@ -88,9 +88,7 @@ describe("claude-code", () => {
           { matcher: "", hooks: [{ type: "command", command: "echo hello" }] },
           {
             matcher: "",
-            hooks: [
-              { type: "command", command: "npx @membank/cli@latest inject --harness claude-code" },
-            ],
+            hooks: [{ type: "command", command: "npx @membank/cli inject --harness claude-code" }],
           },
         ],
       },
@@ -111,7 +109,7 @@ describe("claude-code", () => {
             hooks: [
               {
                 type: "command",
-                command: "npx @membank/cli@latest inject --event user-prompt --harness claude-code",
+                command: "npx @membank/cli inject --event user-prompt --harness claude-code",
               },
             ],
           },
@@ -122,8 +120,7 @@ describe("claude-code", () => {
             hooks: [
               {
                 type: "command",
-                command:
-                  "npx @membank/cli@latest inject --event tool-failure --harness claude-code",
+                command: "npx @membank/cli inject --event tool-failure --harness claude-code",
               },
             ],
           },
@@ -149,7 +146,7 @@ describe("claude-code", () => {
             hooks: [
               {
                 type: "command",
-                command: "npx @membank/cli@latest inject --event user-prompt --harness claude-code",
+                command: "npx @membank/cli inject --event user-prompt --harness claude-code",
               },
             ],
           },
@@ -178,9 +175,7 @@ describe("claude-code", () => {
         SessionStart: [
           {
             matcher: "",
-            hooks: [
-              { type: "command", command: "npx @membank/cli@latest inject --harness claude-code" },
-            ],
+            hooks: [{ type: "command", command: "npx @membank/cli inject --harness claude-code" }],
           },
         ],
       },
@@ -188,9 +183,7 @@ describe("claude-code", () => {
     const result = writer.inspect("claude-code");
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
-    expect(result.hooks[0]?.existingCommand).toBe(
-      "npx @membank/cli@latest inject --harness claude-code"
-    );
+    expect(result.hooks[0]?.existingCommand).toBe("npx @membank/cli inject --harness claude-code");
   });
 });
 
@@ -214,7 +207,7 @@ describe("copilot-cli", () => {
     const hooks = cfg.hooks as Record<string, unknown>;
     type FlatHooks = { bash: string }[];
     const bash = (hooks.sessionStart as FlatHooks)[0]?.bash ?? "";
-    expect(bash).toBe("npx -y @membank/cli@latest inject --harness copilot-cli");
+    expect(bash).toBe("npx -y @membank/cli inject --harness copilot-cli");
   });
 
   it("prunes legacy membank entries from removed event slots on write", () => {
@@ -225,14 +218,14 @@ describe("copilot-cli", () => {
         userPromptSubmitted: [
           {
             type: "command",
-            bash: "npx @membank/cli@latest inject --event user-prompt --harness copilot-cli",
+            bash: "npx @membank/cli inject --event user-prompt --harness copilot-cli",
             timeoutSec: 30,
           },
         ],
         postToolUseFailure: [
           {
             type: "command",
-            bash: "npx @membank/cli@latest inject --event tool-failure --harness copilot-cli",
+            bash: "npx @membank/cli inject --event tool-failure --harness copilot-cli",
             timeoutSec: 30,
           },
         ],
@@ -254,7 +247,7 @@ describe("copilot-cli", () => {
         sessionStart: [
           {
             type: "command",
-            bash: "npx @membank/cli@latest inject --harness copilot-cli",
+            bash: "npx @membank/cli inject --harness copilot-cli",
             timeoutSec: 30,
           },
         ],
@@ -264,9 +257,7 @@ describe("copilot-cli", () => {
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
     expect(result.hooks).toHaveLength(1);
-    expect(result.hooks[0]?.existingCommand).toBe(
-      "npx @membank/cli@latest inject --harness copilot-cli"
-    );
+    expect(result.hooks[0]?.existingCommand).toBe("npx @membank/cli inject --harness copilot-cli");
   });
 
   it("inspect returns null existingCommand when not configured", () => {
@@ -298,7 +289,7 @@ describe("codex", () => {
     const hooks = cfg.hooks as Record<string, unknown>;
     type GroupHooks = { hooks: { command: string }[] }[];
     const cmd = (hooks.SessionStart as GroupHooks)[0]?.hooks[0]?.command ?? "";
-    expect(cmd).toBe("npx -y @membank/cli@latest inject --harness codex");
+    expect(cmd).toBe("npx -y @membank/cli inject --harness codex");
   });
 
   it("prunes legacy membank entries from removed event slots on write", () => {
@@ -311,7 +302,7 @@ describe("codex", () => {
             hooks: [
               {
                 type: "command",
-                command: "npx @membank/cli@latest inject --event user-prompt --harness codex",
+                command: "npx @membank/cli inject --event user-prompt --harness codex",
                 timeout: 30,
               },
             ],
@@ -323,7 +314,7 @@ describe("codex", () => {
             hooks: [
               {
                 type: "command",
-                command: "npx @membank/cli@latest inject --event tool-failure --harness codex",
+                command: "npx @membank/cli inject --event tool-failure --harness codex",
                 timeout: 30,
               },
             ],
@@ -349,7 +340,7 @@ describe("codex", () => {
             hooks: [
               {
                 type: "command",
-                command: "npx @membank/cli@latest inject --harness codex",
+                command: "npx @membank/cli inject --harness codex",
                 timeout: 30,
               },
             ],
@@ -361,7 +352,7 @@ describe("codex", () => {
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
     expect(result.hooks).toHaveLength(1);
-    expect(result.hooks[0]?.existingCommand).toBe("npx @membank/cli@latest inject --harness codex");
+    expect(result.hooks[0]?.existingCommand).toBe("npx @membank/cli inject --harness codex");
   });
 });
 
@@ -405,7 +396,7 @@ describe("opencode", () => {
     mkdirSync(join(pluginPath, ".."), { recursive: true });
     writeFileSync(
       pluginPath,
-      "export default { hooks: { 'session.start': async ({ $ }) => $`npx @membank/cli@latest inject`.text() } }"
+      "export default { hooks: { 'session.start': async ({ $ }) => $`npx @membank/cli inject`.text() } }"
     );
     const result = writer.inspect("opencode");
     expect(result.status).toBe("ready");
@@ -421,8 +412,8 @@ describe("opencode", () => {
       [
         "export default {",
         "  hooks: {",
-        '    "session.start": async ({ $ }) => $`npx @membank/cli@latest inject`.text(),',
-        '    "chat.message": async ({ $, message }) => $`npx @membank/cli@latest inject --event user-prompt`.text(),',
+        '    "session.start": async ({ $ }) => $`npx @membank/cli inject`.text(),',
+        '    "chat.message": async ({ $, message }) => $`npx @membank/cli inject --event user-prompt`.text(),',
         "  },",
         "};",
       ].join("\n")

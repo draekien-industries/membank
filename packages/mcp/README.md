@@ -31,7 +31,7 @@ If you're configuring a harness by hand, point it at:
 ```json
 {
   "command": "npx",
-  "args": ["@membank/cli@latest", "--mcp"]
+  "args": ["@membank/cli", "--mcp"]
 }
 ```
 

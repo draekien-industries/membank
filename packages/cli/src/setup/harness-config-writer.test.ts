@@ -106,7 +106,7 @@ describe("claude-code", () => {
 
   it("returns already-configured when membank key present in ~/.claude.json mcpServers", async () => {
     writeJson(claudeJsonPath(dir), {
-      mcpServers: { membank: { command: "npx", args: ["@membank/cli@latest", "--mcp"] } },
+      mcpServers: { membank: { command: "npx", args: ["@membank/cli", "--mcp"] } },
     });
     const result = await writer.write("claude-code");
     expect(result.status).toBe("already-configured");
@@ -137,10 +137,10 @@ describe("claude-code", () => {
     await expect(writer2.write("claude-code")).rejects.toThrow("claude CLI not found");
   });
 
-  it("passes @membank/cli@latest --mcp as the stdio command args", async () => {
+  it("passes @membank/cli --mcp as the stdio command args", async () => {
     await writer.write("claude-code");
     const call = (run as ReturnType<typeof vi.fn>).mock.calls[0] as [string, string[]];
-    expect(call[1]).toContain("@membank/cli@latest");
+    expect(call[1]).toContain("@membank/cli");
     expect(call[1]).toContain("--mcp");
   });
 });
@@ -169,12 +169,12 @@ describe("copilot", () => {
       args: string[];
     };
     expect(entry.command).toBe("npx");
-    expect(entry.args).toContain("@membank/cli@latest");
+    expect(entry.args).toContain("@membank/cli");
   });
 
   it("returns already-configured when mcpServers.membank present in ~/.copilot/mcp-config.json", async () => {
     writeJson(copilotPath(dir), {
-      mcpServers: { membank: { command: "npx", args: ["@membank/cli@latest", "--mcp"] } },
+      mcpServers: { membank: { command: "npx", args: ["@membank/cli", "--mcp"] } },
     });
     const result = await writer.write("copilot");
     expect(result.status).toBe("already-configured");
@@ -284,7 +284,7 @@ describe("opencode", () => {
     };
     expect(entry.type).toBe("local");
     expect(entry.command).toContain("npx");
-    expect(entry.command).toContain("@membank/cli@latest");
+    expect(entry.command).toContain("@membank/cli");
     expect(entry.command).toContain("--mcp");
   });
 
@@ -305,7 +305,7 @@ describe("opencode", () => {
 
   it("returns already-configured when mcp.membank present", async () => {
     writeJson(opencodePath(dir), {
-      mcp: { membank: { type: "local", command: ["npx", "@membank/cli@latest", "--mcp"] } },
+      mcp: { membank: { type: "local", command: ["npx", "@membank/cli", "--mcp"] } },
     });
     const result = await writer.write("opencode");
     expect(result.status).toBe("already-configured");
@@ -320,7 +320,7 @@ describe("opencode", () => {
     const entry = (readJson(opencodePath(dir)).mcp as Record<string, unknown>).membank as {
       command: string[];
     };
-    expect(entry.command).toContain("@membank/cli@latest");
+    expect(entry.command).toContain("@membank/cli");
   });
 
   it("does not invoke the command runner (file-based write)", async () => {

@@ -130,7 +130,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
         hooks: [
           {
             event: "SessionStart",
-            command: "npx -y @membank/cli@latest inject --harness claude-code",
+            command: "npx -y @membank/cli inject --harness claude-code",
             existingCommand: extractInjectCommand(sessionStartInner) || null,
           },
         ],
@@ -156,7 +156,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
             hooks: [
               {
                 type: "command",
-                command: "npx -y @membank/cli@latest inject --harness claude-code",
+                command: "npx -y @membank/cli inject --harness claude-code",
               },
             ],
           },
@@ -181,7 +181,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
         hooks: [
           {
             event: "sessionStart",
-            command: "npx -y @membank/cli@latest inject --harness copilot-cli",
+            command: "npx -y @membank/cli inject --harness copilot-cli",
             existingCommand: extractInjectCommand(sessionStart) || null,
           },
         ],
@@ -204,7 +204,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
           ...filterOutMembankFlat(existing),
           {
             type: "command",
-            bash: "npx -y @membank/cli@latest inject --harness copilot-cli",
+            bash: "npx -y @membank/cli inject --harness copilot-cli",
             timeoutSec: 30,
           },
         ];
@@ -234,7 +234,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
         hooks: [
           {
             event: "SessionStart",
-            command: "npx -y @membank/cli@latest inject --harness codex",
+            command: "npx -y @membank/cli inject --harness codex",
             existingCommand: extractInjectCommand(sessionStartInner) || null,
           },
         ],
@@ -260,7 +260,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
             hooks: [
               {
                 type: "command",
-                command: "npx -y @membank/cli@latest inject --harness codex",
+                command: "npx -y @membank/cli inject --harness codex",
                 timeout: 30,
               },
             ],
@@ -310,7 +310,7 @@ function newOpencodePlugin(): string {
     "export default {",
     "  hooks: {",
     '    "session.start": async ({ $ }) => {',
-    "      return await $`npx -y @membank/cli@latest inject`.text();",
+    "      return await $`npx -y @membank/cli inject`.text();",
     "    },",
     "  },",
     "};",
