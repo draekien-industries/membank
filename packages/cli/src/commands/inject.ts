@@ -4,7 +4,7 @@ import { DatabaseManager, resolveScope, SessionContextBuilder } from "@membank/c
 const SUPPORTED_INJECTION_HARNESSES = ["claude-code", "copilot-cli", "codex", "opencode"] as const;
 
 const MEMORY_GUIDANCE =
-  "[Memory Guidance]: Persistent memory is available via query_memory, save_memory, update_memory, delete_memory. Skipping save_memory when the user gives a correction or preference means they have to repeat themselves next session — that is the failure mode to avoid. Skipping query_memory on topics that touch prior decisions means contradicting yourself. Default to saving (type: correction|preference|decision|learning|fact) when in doubt; rely on dedup to handle redundancy. Pin anything that should appear at every session start.";
+  "[Memory Guidance]: Call save_memory when ANY of these happen: (1) user states a preference or makes a decision; (2) user corrects you; (3) you discover a working fix after a tool error; (4) you learn a non-obvious project fact. Type ∈ correction|preference|decision|learning|fact. Call query_memory before answering anything that might touch prior decisions. When unsure, save.";
 
 type InjectionHarness = (typeof SUPPORTED_INJECTION_HARNESSES)[number];
 

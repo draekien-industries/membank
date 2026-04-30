@@ -11,11 +11,9 @@ describe("MEMORY_GUIDANCE", () => {
     expect(MEMORY_GUIDANCE.startsWith("[Memory Guidance]:")).toBe(true);
   });
 
-  it("references each MCP tool name", () => {
+  it("references the core MCP tools", () => {
     expect(MEMORY_GUIDANCE).toContain("query_memory");
     expect(MEMORY_GUIDANCE).toContain("save_memory");
-    expect(MEMORY_GUIDANCE).toContain("update_memory");
-    expect(MEMORY_GUIDANCE).toContain("delete_memory");
   });
 
   it("names each memory type", () => {
