@@ -281,17 +281,20 @@ export function MemoryList({ selectedId }: MemoryListProps) {
                 <span>{group.label}</span>
                 <span>{group.memories.length}</span>
               </button>
-              {!collapsed &&
-                group.memories.map((memory) => (
-                  <MemoryRow
-                    key={`${group.label}-${memory.id}`}
-                    memory={memory}
-                    selected={selectedId === memory.id}
-                    onSelect={() => handleSelect(memory.id)}
-                    onPin={() => handlePin(memory.id, memory.pinned)}
-                    onDelete={() => handleDelete(memory.id)}
-                  />
-                ))}
+              {!collapsed && (
+                <ul className="m-0 p-0">
+                  {group.memories.map((memory) => (
+                    <MemoryRow
+                      key={`${group.label}-${memory.id}`}
+                      memory={memory}
+                      selected={selectedId === memory.id}
+                      onSelect={() => handleSelect(memory.id)}
+                      onPin={() => handlePin(memory.id, memory.pinned)}
+                      onDelete={() => handleDelete(memory.id)}
+                    />
+                  ))}
+                </ul>
+              )}
             </div>
           );
         })}
