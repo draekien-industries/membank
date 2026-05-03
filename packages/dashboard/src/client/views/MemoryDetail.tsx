@@ -1,50 +1,75 @@
 import { X } from "@phosphor-icons/react";
+import { useForm } from "@tanstack/react-form";
+import { useBlocker } from "@tanstack/react-router";
+import { useState } from "react";
+import * as z from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemoryDetail } from "@/hooks/useMemoryDetail";
-import type { MemoryType } from "@/lib/types";
+import { memoriesCollection } from "@/lib/collections";
+import type { Memory, MemoryType } from "@/lib/types";
 import { MEMORY_TYPES, TYPE_DESCRIPTIONS } from "@/lib/types";
 import { capitalize } from "@/lib/utils";
 
-interface MemoryDetailProps {
-  id: string;
+const memoryFormSchema = z.object({
+  content: z.string().min(1, "Content is required."),
+  type: z.enum(MEMORY_TYPES),
+  tagsInput: z.string(),
+});
+
+interface MemoryDetailFormProps {
+  memory: Memory;
+  addProjectId: string;
+  setAddProjectId: (id: string) => void;
+  availableProjects: Memory["projects"];
+  handleApprove: () => void;
+  handleAddProject: () => Promise<void>;
+  handleRemoveProject: (projectId: string) => Promise<void>;
+  handleClose: () => void;
 }
 
-export function MemoryDetail({ id }: MemoryDetailProps) {
-  const {
-    memory,
-    isLoading,
-    content,
-    setContent,
-    type,
-    setType,
-    tagsInput,
-    setTagsInput,
-    addProjectId,
-    setAddProjectId,
-    saved,
-    dirty,
-    blocker,
-    availableProjects,
-    handleSave,
-    handleApprove,
-    handleAddProject,
-    handleRemoveProject,
-    handleClose,
-  } = useMemoryDetail(id);
+function MemoryDetailForm({
+  memory,
+  addProjectId,
+  setAddProjectId,
+  availableProjects,
+  handleApprove,
+  handleAddProject,
+  handleRemoveProject,
+  handleClose,
+}: MemoryDetailFormProps) {
+  const [saved, setSaved] = useState(false);
 
-  if (isLoading || !memory) {
-    return (
-      <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-        {isLoading ? "Loading…" : "Memory not found"}
-      </div>
-    );
-  }
+  const form = useForm({
+    defaultValues: {
+      content: memory.content,
+      type: memory.type,
+      tagsInput: memory.tags.join(", "),
+    },
+    validators: {
+      onSubmit: memoryFormSchema,
+    },
+    onSubmit: ({ value }) => {
+      const tags = value.tagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+      memoriesCollection.update(memory.id, (draft) => {
+        if (value.content !== memory.content) draft.content = value.content;
+        if (value.type !== memory.type) draft.type = value.type;
+        if (JSON.stringify(tags) !== JSON.stringify(memory.tags)) draft.tags = tags;
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    },
+  });
+
+  const blocker = useBlocker({ shouldBlockFn: () => form.state.isDirty, withResolver: true });
 
   return (
     <div className="flex flex-col h-full">
@@ -67,70 +92,102 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
         </Button>
       </div>
 
-      {/* Form */}
+      {/* Fields */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        <div className="space-y-1.5">
-          <Label
-            htmlFor="memory-content"
-            className="text-[11px] uppercase tracking-wide text-muted-foreground"
-          >
-            Content
-          </Label>
-          <Textarea
-            id="memory-content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={8}
-            className="min-h-32 font-[var(--font-heading)] text-sm"
-          />
-        </div>
+        <FieldGroup>
+          <form.Field name="content">
+            {(field) => {
+              const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel
+                    htmlFor={field.name}
+                    className="text-[11px] uppercase tracking-wide text-muted-foreground"
+                  >
+                    Content
+                  </FieldLabel>
+                  <Textarea
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    rows={8}
+                    className="min-h-32 font-[var(--font-heading)] text-sm"
+                    aria-invalid={isInvalid}
+                  />
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              );
+            }}
+          </form.Field>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label
-              htmlFor="memory-type"
-              className="text-[11px] uppercase tracking-wide text-muted-foreground"
-            >
-              Type
-            </Label>
-            <NativeSelect
-              id="memory-type"
-              value={type}
-              onChange={(e) => setType(e.target.value as MemoryType)}
-              className="w-full"
-            >
-              {MEMORY_TYPES.map((t) => (
-                <NativeSelectOption key={t} value={t}>
-                  {capitalize(t)}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-            <p className="text-[10px] text-muted-foreground leading-snug">
-              {TYPE_DESCRIPTIONS[type]}
-            </p>
-          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <form.Field name="type">
+              {(field) => {
+                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel
+                      htmlFor={field.name}
+                      className="text-[11px] uppercase tracking-wide text-muted-foreground"
+                    >
+                      Type
+                    </FieldLabel>
+                    <NativeSelect
+                      id={field.name}
+                      name={field.name}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value as MemoryType)}
+                      className="w-full"
+                    >
+                      {MEMORY_TYPES.map((t) => (
+                        <NativeSelectOption key={t} value={t}>
+                          {capitalize(t)}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                    <p className="text-[10px] text-muted-foreground leading-snug">
+                      {TYPE_DESCRIPTIONS[field.state.value]}
+                    </p>
+                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  </Field>
+                );
+              }}
+            </form.Field>
 
-          <div className="space-y-1.5">
-            <Label
-              htmlFor="memory-tags"
-              className="text-[11px] uppercase tracking-wide text-muted-foreground"
-            >
-              Tags
-            </Label>
-            <Input
-              id="memory-tags"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="tag1, tag2"
-            />
+            <form.Field name="tagsInput">
+              {(field) => {
+                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
+                return (
+                  <Field data-invalid={isInvalid}>
+                    <FieldLabel
+                      htmlFor={field.name}
+                      className="text-[11px] uppercase tracking-wide text-muted-foreground"
+                    >
+                      Tags
+                    </FieldLabel>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      placeholder="tag1, tag2"
+                      aria-invalid={isInvalid}
+                    />
+                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  </Field>
+                );
+              }}
+            </form.Field>
           </div>
-        </div>
+        </FieldGroup>
 
         {/* Projects section */}
         <div className="space-y-1.5">
-          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            Projects
-          </Label>
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Projects</p>
           <div className="flex flex-wrap gap-1">
             {memory.projects.length === 0 && (
               <span className="text-[11px] text-muted-foreground">Global (no project)</span>
@@ -229,10 +286,55 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
           </Button>
         )}
         <div className="flex-1" />
-        <Button variant="default" size="sm" onClick={handleSave} disabled={!dirty}>
+        <Button
+          variant="default"
+          size="sm"
+          disabled={!form.state.isDirty}
+          onClick={() => void form.handleSubmit()}
+        >
           {saved ? "Saved" : "Save"}
         </Button>
       </div>
     </div>
+  );
+}
+
+interface MemoryDetailProps {
+  id: string;
+}
+
+export function MemoryDetail({ id }: MemoryDetailProps) {
+  const {
+    memory,
+    isLoading,
+    addProjectId,
+    setAddProjectId,
+    availableProjects,
+    handleApprove,
+    handleAddProject,
+    handleRemoveProject,
+    handleClose,
+  } = useMemoryDetail(id);
+
+  if (isLoading || !memory) {
+    return (
+      <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
+        {isLoading ? "Loading…" : "Memory not found"}
+      </div>
+    );
+  }
+
+  return (
+    <MemoryDetailForm
+      key={memory.id}
+      memory={memory}
+      addProjectId={addProjectId}
+      setAddProjectId={setAddProjectId}
+      availableProjects={availableProjects}
+      handleApprove={handleApprove}
+      handleAddProject={handleAddProject}
+      handleRemoveProject={handleRemoveProject}
+      handleClose={handleClose}
+    />
   );
 }

@@ -1,10 +1,9 @@
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useBlocker, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { toast } from "sonner";
 import { addMemoryProject, removeMemoryProject } from "@/lib/api";
 import { memoriesCollection, projectsCollection, queryClient } from "@/lib/collections";
-import type { MemoryType } from "@/lib/types";
 
 export function useMemoryDetail(id: string) {
   const navigate = useNavigate();
@@ -17,42 +16,7 @@ export function useMemoryDetail(id: string) {
 
   const { data: allProjects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
 
-  const [content, setContent] = useState("");
-  const [type, setType] = useState<MemoryType>("fact");
-  const [tagsInput, setTagsInput] = useState("");
-  const [initialized, setInitialized] = useState(false);
   const [addProjectId, setAddProjectId] = useState("");
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    if (memory && !initialized) {
-      setContent(memory.content);
-      setType(memory.type);
-      setTagsInput(memory.tags.join(", "));
-      setInitialized(true);
-    }
-  }, [memory, initialized]);
-
-  const dirty =
-    memory !== null &&
-    (content !== memory.content || type !== memory.type || tagsInput !== memory.tags.join(", "));
-
-  const blocker = useBlocker({ shouldBlockFn: () => dirty, withResolver: true });
-
-  const handleSave = () => {
-    if (!memory || !dirty) return;
-    const tags = tagsInput
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
-    memoriesCollection.update(id, (draft) => {
-      if (content !== memory.content) draft.content = content;
-      if (type !== memory.type) draft.type = type;
-      if (JSON.stringify(tags) !== JSON.stringify(memory.tags)) draft.tags = tags;
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  };
 
   const handleApprove = () => {
     memoriesCollection.update(id, (draft) => {
@@ -89,19 +53,9 @@ export function useMemoryDetail(id: string) {
   return {
     memory,
     isLoading,
-    content,
-    setContent,
-    type,
-    setType,
-    tagsInput,
-    setTagsInput,
     addProjectId,
     setAddProjectId,
-    saved,
-    dirty,
-    blocker,
     availableProjects,
-    handleSave,
     handleApprove,
     handleAddProject,
     handleRemoveProject,

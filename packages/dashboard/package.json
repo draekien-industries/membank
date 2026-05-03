@@ -39,6 +39,7 @@
     "@tanstack/query-core": "^5.100.6",
     "@tanstack/query-db-collection": "^1.0.36",
     "@tanstack/react-db": "^0.1.83",
+    "@tanstack/react-form": "^1.29.1",
     "@tanstack/react-hotkeys": "^0.10.0",
     "@tanstack/react-router": "^1.168.25",
     "@tanstack/router-plugin": "^1.167.28",
