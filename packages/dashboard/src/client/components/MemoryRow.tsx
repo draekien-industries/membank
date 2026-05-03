@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Memory, MemoryType } from "@/lib/types";
 import { TYPE_DESCRIPTIONS } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { capitalize, cn } from "@/lib/utils";
 
 interface MemoryRowProps {
   memory: Memory;
@@ -57,8 +57,7 @@ export const MemoryRow = forwardRef<HTMLLIElement, MemoryRowProps>(function Memo
             className="mt-px shrink-0"
             title={TYPE_DESCRIPTIONS[memory.type as MemoryType]}
           >
-            {memory.type[0]?.toUpperCase()}
-            {memory.type.slice(1)}
+            {capitalize(memory.type)}
           </Badge>
           <p className="flex-1 text-xs leading-relaxed text-foreground line-clamp-2 min-w-0 text-left">
             {preview}

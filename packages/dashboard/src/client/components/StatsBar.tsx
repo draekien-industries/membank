@@ -1,8 +1,8 @@
 import { forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { Stats } from "@/lib/types";
-
-const TYPE_ORDER = ["correction", "preference", "decision", "learning", "fact"] as const;
+import { MEMORY_TYPES } from "@/lib/types";
+import { capitalize } from "@/lib/utils";
 
 interface StatsBarProps {
   stats: Stats | null;
@@ -19,13 +19,12 @@ export const StatsBar = forwardRef<HTMLDivElement, StatsBarProps>(function Stats
       <span className="text-xs">{stats.total} memories</span>
       <span className="text-border">·</span>
       <div className="flex items-center gap-1.5">
-        {TYPE_ORDER.map((type) => {
+        {MEMORY_TYPES.map((type) => {
           const count = stats.byType[type];
           if (!count) return null;
           return (
             <Badge key={type} variant={type}>
-              {type[0]?.toUpperCase()}
-              {type.slice(1)} {count}
+              {capitalize(type)} {count}
             </Badge>
           );
         })}

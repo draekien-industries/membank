@@ -1,5 +1,13 @@
 export type MemoryType = "correction" | "preference" | "decision" | "learning" | "fact";
 
+export const MEMORY_TYPES = [
+  "correction",
+  "preference",
+  "decision",
+  "learning",
+  "fact",
+] as const satisfies readonly MemoryType[];
+
 export const TYPE_DESCRIPTIONS = {
   correction: "Overrides or corrects the AI's default behavior",
   preference: "Your preferred way of working or coding style",

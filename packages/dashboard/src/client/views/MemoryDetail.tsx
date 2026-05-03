@@ -1,15 +1,15 @@
 import { X } from "@phosphor-icons/react";
+import { FieldLabel } from "@/components/FieldLabel";
+import { MetaRow } from "@/components/MetaRow";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemoryDetail } from "@/hooks/useMemoryDetail";
 import type { MemoryType } from "@/lib/types";
-import { TYPE_DESCRIPTIONS } from "@/lib/types";
-
-const TYPES: MemoryType[] = ["correction", "preference", "decision", "learning", "fact"];
+import { MEMORY_TYPES, TYPE_DESCRIPTIONS } from "@/lib/types";
+import { capitalize } from "@/lib/utils";
 
 interface MemoryDetailProps {
   id: string;
@@ -70,12 +70,7 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
       {/* Form */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         <div className="space-y-1.5">
-          <Label
-            htmlFor="memory-content"
-            className="text-[11px] uppercase tracking-wide text-muted-foreground"
-          >
-            Content
-          </Label>
+          <FieldLabel htmlFor="memory-content">Content</FieldLabel>
           <Textarea
             id="memory-content"
             value={content}
@@ -87,22 +82,16 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label
-              htmlFor="memory-type"
-              className="text-[11px] uppercase tracking-wide text-muted-foreground"
-            >
-              Type
-            </Label>
+            <FieldLabel htmlFor="memory-type">Type</FieldLabel>
             <NativeSelect
               id="memory-type"
               value={type}
               onChange={(e) => setType(e.target.value as MemoryType)}
               className="w-full"
             >
-              {TYPES.map((t) => (
+              {MEMORY_TYPES.map((t) => (
                 <NativeSelectOption key={t} value={t}>
-                  {t[0]?.toUpperCase()}
-                  {t.slice(1)}
+                  {capitalize(t)}
                 </NativeSelectOption>
               ))}
             </NativeSelect>
@@ -112,12 +101,7 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
           </div>
 
           <div className="space-y-1.5">
-            <Label
-              htmlFor="memory-tags"
-              className="text-[11px] uppercase tracking-wide text-muted-foreground"
-            >
-              Tags
-            </Label>
+            <FieldLabel htmlFor="memory-tags">Tags</FieldLabel>
             <Input
               id="memory-tags"
               value={tagsInput}
@@ -185,24 +169,10 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
             Details
           </summary>
           <div className="space-y-1 mt-2">
-            {memory.sourceHarness && (
-              <div className="flex justify-between text-[11px] text-muted-foreground">
-                <span>Source</span>
-                <span>{memory.sourceHarness}</span>
-              </div>
-            )}
-            <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>Accessed</span>
-              <span>{memory.accessCount}×</span>
-            </div>
-            <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>Updated</span>
-              <span>{new Date(memory.updatedAt).toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>Created</span>
-              <span>{new Date(memory.createdAt).toLocaleString()}</span>
-            </div>
+            {memory.sourceHarness && <MetaRow label="Source" value={memory.sourceHarness} />}
+            <MetaRow label="Accessed" value={`${memory.accessCount}×`} />
+            <MetaRow label="Updated" value={new Date(memory.updatedAt).toLocaleString()} />
+            <MetaRow label="Created" value={new Date(memory.createdAt).toLocaleString()} />
           </div>
         </details>
       </div>

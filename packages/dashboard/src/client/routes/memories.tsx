@@ -1,8 +1,7 @@
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { z } from "zod";
+import { MEMORY_TYPES } from "@/lib/types";
 import { MemoryList } from "@/views/MemoryList";
-
-const MEMORY_TYPES = ["correction", "preference", "decision", "learning", "fact"] as const;
 
 const memoriesSearchSchema = z.object({
   search: z.string().default("").catch(""),

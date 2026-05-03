@@ -7,10 +7,8 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { useMemoryList } from "@/hooks/useMemoryList";
 import type { MemoryType } from "@/lib/types";
-import { TYPE_DESCRIPTIONS } from "@/lib/types";
-import { cn } from "@/lib/utils";
-
-const TYPES: MemoryType[] = ["correction", "preference", "decision", "learning", "fact"];
+import { MEMORY_TYPES, TYPE_DESCRIPTIONS } from "@/lib/types";
+import { capitalize, cn } from "@/lib/utils";
 
 const SHORTCUTS = [
   ["↑ / ↓", "Navigate list"],
@@ -95,10 +93,9 @@ export function MemoryList({ selectedId }: MemoryListProps) {
             className="w-24"
           >
             <NativeSelectOption value="">All types</NativeSelectOption>
-            {TYPES.map((t) => (
+            {MEMORY_TYPES.map((t) => (
               <NativeSelectOption key={t} value={t} title={TYPE_DESCRIPTIONS[t]}>
-                {t[0]?.toUpperCase()}
-                {t.slice(1)}
+                {capitalize(t)}
               </NativeSelectOption>
             ))}
           </NativeSelect>
