@@ -1,5 +1,6 @@
 import { Moon, Sun } from "@phosphor-icons/react";
 import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { MemoryLogo } from "@/components/MemoryLogo";
 import { StatsBar } from "@/components/StatsBar";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
@@ -15,9 +16,7 @@ function RootLayout() {
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <header className="flex items-center gap-4 px-4 py-2.5 border-b border-border shrink-0">
-        <span className="font-heading text-sm font-semibold tracking-tight text-foreground">
-          membank
-        </span>
+        <MemoryLogo />
         <div className="flex-1 min-w-0">
           <StatsBar stats={stats} />
         </div>
