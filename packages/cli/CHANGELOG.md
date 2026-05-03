@@ -1,5 +1,12 @@
 # @membank/cli
 
+## 0.7.1
+
+### Patch Changes
+
+- Updated dependencies [c669408]
+  - @membank/dashboard@0.4.0
+
 ## 0.7.0
 
 ### Minor Changes
