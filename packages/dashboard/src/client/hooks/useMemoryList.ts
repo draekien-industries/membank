@@ -1,4 +1,5 @@
 import { useLiveQuery } from "@tanstack/react-db";
+import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { memoriesCollection, projectsCollection } from "@/lib/collections";
@@ -18,19 +19,10 @@ export function useMemoryList(selectedId: string | null) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "/") return;
-      const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select") return;
-      e.preventDefault();
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const rowRefs = useRef<Array<HTMLLIElement | null>>([]);
 
   const { data: allMemories = [], isLoading } = useLiveQuery(
     (q) => q.from({ m: memoriesCollection }).orderBy(({ m }) => m.createdAt, "desc"),
@@ -87,6 +79,11 @@ export function useMemoryList(selectedId: string | null) {
     return result;
   }, [filtered, allProjects, search]);
 
+  const flatMemories = useMemo(
+    () => groups.flatMap((g) => (collapsedGroups.has(g.label) ? [] : g.memories)),
+    [groups, collapsedGroups]
+  );
+
   const totalCount = useMemo(() => {
     const seen = new Set<string>();
     let count = 0;
@@ -100,6 +97,22 @@ export function useMemoryList(selectedId: string | null) {
     }
     return count;
   }, [groups]);
+
+  // Clamp focusedIndex when visible list shrinks
+  useEffect(() => {
+    if (flatMemories.length === 0) {
+      setFocusedIndex(-1);
+    } else if (focusedIndex >= flatMemories.length) {
+      setFocusedIndex(flatMemories.length - 1);
+    }
+  }, [flatMemories.length, focusedIndex]);
+
+  // Scroll focused row into view
+  useEffect(() => {
+    if (focusedIndex >= 0) {
+      rowRefs.current[focusedIndex]?.scrollIntoView({ block: "nearest" });
+    }
+  }, [focusedIndex]);
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
@@ -121,6 +134,8 @@ export function useMemoryList(selectedId: string | null) {
   };
 
   const handleSelect = (id: string) => {
+    const idx = flatMemories.findIndex((m) => m.id === id);
+    if (idx >= 0) setFocusedIndex(idx);
     if (selectedId === id) {
       void navigate({ to: "/memories" });
     } else {
@@ -137,6 +152,86 @@ export function useMemoryList(selectedId: string | null) {
     });
   };
 
+  const handleKeyDelete = () => {
+    const mem = flatMemories[focusedIndex];
+    if (!mem) return;
+    if (confirmingId === mem.id) {
+      handleDelete(mem.id);
+      setConfirmingId(null);
+    } else {
+      setConfirmingId(mem.id);
+    }
+  };
+
+  useHotkeys([
+    {
+      hotkey: "/",
+      callback: () => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      },
+      options: { preventDefault: true },
+    },
+    {
+      hotkey: "ArrowUp",
+      callback: () => {
+        setFocusedIndex((i) => (i <= 0 ? flatMemories.length - 1 : i - 1));
+      },
+      options: { preventDefault: true, enabled: flatMemories.length > 0 },
+    },
+    {
+      hotkey: "ArrowDown",
+      callback: () => {
+        setFocusedIndex((i) => (i < 0 || i >= flatMemories.length - 1 ? 0 : i + 1));
+      },
+      options: { preventDefault: true, enabled: flatMemories.length > 0 },
+    },
+    {
+      hotkey: "Enter",
+      callback: () => {
+        const mem = flatMemories[focusedIndex];
+        if (mem) handleSelect(mem.id);
+      },
+      options: { enabled: focusedIndex >= 0 },
+    },
+    {
+      hotkey: "P",
+      callback: () => {
+        const mem = flatMemories[focusedIndex];
+        if (mem) handlePin(mem.id, mem.pinned);
+      },
+      options: { enabled: focusedIndex >= 0 },
+    },
+    {
+      hotkey: "D",
+      callback: handleKeyDelete,
+      options: { enabled: focusedIndex >= 0 },
+    },
+    {
+      hotkey: "Delete",
+      callback: handleKeyDelete,
+      options: { enabled: focusedIndex >= 0 },
+    },
+    {
+      hotkey: "Escape",
+      callback: () => {
+        if (confirmingId) {
+          setConfirmingId(null);
+          return;
+        }
+        if (showShortcuts) {
+          setShowShortcuts(false);
+          return;
+        }
+        if (selectedId) void navigate({ to: "/memories" });
+      },
+    },
+    {
+      hotkey: { key: "?", shift: true },
+      callback: () => setShowShortcuts((v) => !v),
+    },
+  ]);
+
   return {
     search,
     searchInput,
@@ -147,6 +242,13 @@ export function useMemoryList(selectedId: string | null) {
     groups,
     totalCount,
     collapsedGroups,
+    flatMemories,
+    focusedIndex,
+    confirmingId,
+    setConfirmingId,
+    showShortcuts,
+    setShowShortcuts,
+    rowRefs,
     handleSearchChange,
     handlePin,
     handleDelete,

@@ -1,5 +1,5 @@
 import { PushPin, Trash, Warning } from "@phosphor-icons/react";
-import { forwardRef, useState } from "react";
+import { forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Memory, MemoryType } from "@/lib/types";
@@ -8,17 +8,30 @@ import { cn } from "@/lib/utils";
 interface MemoryRowProps {
   memory: Memory;
   selected: boolean;
+  focused: boolean;
+  confirming: boolean;
   onSelect: () => void;
   onPin: () => void;
   onDelete: () => void;
+  onDeleteStart: () => void;
+  onDeleteCancel: () => void;
 }
 
 export const MemoryRow = forwardRef<HTMLLIElement, MemoryRowProps>(function MemoryRow(
-  { memory, selected, onSelect, onPin, onDelete },
+  {
+    memory,
+    selected,
+    focused,
+    confirming,
+    onSelect,
+    onPin,
+    onDelete,
+    onDeleteStart,
+    onDeleteCancel,
+  },
   ref
 ) {
   const preview = memory.content.length > 140 ? `${memory.content.slice(0, 140)}…` : memory.content;
-  const [confirming, setConfirming] = useState(false);
 
   return (
     <li
@@ -26,9 +39,11 @@ export const MemoryRow = forwardRef<HTMLLIElement, MemoryRowProps>(function Memo
       className={cn(
         "group relative flex flex-col gap-1.5 border-b border-border px-4 py-3 transition-colors",
         "hover:bg-accent/40",
-        selected && "bg-accent/60"
+        selected && "bg-accent/60",
+        focused && !selected && "bg-accent/20",
+        focused && "outline-none ring-1 ring-inset ring-primary/40"
       )}
-      onMouseLeave={() => setConfirming(false)}
+      onMouseLeave={onDeleteCancel}
     >
       <div className="flex items-start gap-2">
         <Button
@@ -47,7 +62,9 @@ export const MemoryRow = forwardRef<HTMLLIElement, MemoryRowProps>(function Memo
         <div
           className={cn(
             "flex items-center gap-1 transition-opacity shrink-0",
-            memory.pinned ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+            memory.pinned
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
           )}
         >
           <Button
@@ -62,12 +79,13 @@ export const MemoryRow = forwardRef<HTMLLIElement, MemoryRowProps>(function Memo
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={confirming ? onDelete : () => setConfirming(true)}
-            onBlur={() => setConfirming(false)}
+            onClick={confirming ? onDelete : onDeleteStart}
+            onBlur={onDeleteCancel}
             aria-label={confirming ? "Confirm delete" : "Delete"}
             className={cn(
               confirming ? "text-destructive bg-destructive/10" : "hover:text-destructive",
-              memory.pinned && "opacity-0 group-hover:opacity-100 transition-opacity"
+              memory.pinned &&
+                "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
             )}
           >
             <Trash weight={confirming ? "fill" : "regular"} />

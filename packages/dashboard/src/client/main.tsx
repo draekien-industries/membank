@@ -1,3 +1,4 @@
+import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -17,6 +18,8 @@ if (!root) throw new Error("No #root element");
 
 createRoot(root).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <HotkeysProvider>
+      <RouterProvider router={router} />
+    </HotkeysProvider>
   </StrictMode>
 );

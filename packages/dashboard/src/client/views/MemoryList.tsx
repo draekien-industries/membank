@@ -1,4 +1,4 @@
-import { MagnifyingGlass, PushPin, Warning } from "@phosphor-icons/react";
+import { MagnifyingGlass, PushPin, Warning, X } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { MemoryRow } from "@/components/MemoryRow";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,16 @@ import type { MemoryType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const TYPES: MemoryType[] = ["correction", "preference", "decision", "learning", "fact"];
+
+const SHORTCUTS = [
+  ["↑ / ↓", "Navigate list"],
+  ["Enter", "Open memory"],
+  ["P", "Pin / unpin"],
+  ["D / Del", "Delete (confirm twice)"],
+  ["Escape", "Close / cancel"],
+  ["/", "Focus search"],
+  ["?", "Toggle this help"],
+] as const;
 
 interface MemoryListProps {
   selectedId: string | null;
@@ -26,6 +36,12 @@ export function MemoryList({ selectedId }: MemoryListProps) {
     groups,
     totalCount,
     collapsedGroups,
+    focusedIndex,
+    confirmingId,
+    setConfirmingId,
+    showShortcuts,
+    setShowShortcuts,
+    rowRefs,
     handleSearchChange,
     handlePin,
     handleDelete,
@@ -33,8 +49,16 @@ export function MemoryList({ selectedId }: MemoryListProps) {
     toggleGroup,
   } = useMemoryList(selectedId);
 
+  let flatIndex = 0;
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="relative flex flex-col h-full">
+      {/* ARIA live region for search result changes */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {totalCount} {totalCount === 1 ? "memory" : "memories"}
+        {search.search ? ` matching "${search.search}"` : ""}
+      </div>
+
       {/* Filter bar */}
       <div className="flex flex-col gap-1.5 px-4 pt-3 pb-2 border-b border-border shrink-0">
         {/* Search — primary row */}
@@ -127,6 +151,16 @@ export function MemoryList({ selectedId }: MemoryListProps) {
             >
               <Warning weight={search.needsReview ? "fill" : "regular"} />
             </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setShowShortcuts((v) => !v)}
+              aria-label="Keyboard shortcuts"
+              aria-pressed={showShortcuts}
+              title="Press ? for shortcuts"
+            >
+              <span className="text-[11px] font-mono font-bold">?</span>
+            </Button>
           </div>
         </div>
       </div>
@@ -171,16 +205,29 @@ export function MemoryList({ selectedId }: MemoryListProps) {
               </button>
               {!collapsed && (
                 <ul className="m-0 p-0">
-                  {group.memories.map((memory) => (
-                    <MemoryRow
-                      key={`${group.label}-${memory.id}`}
-                      memory={memory}
-                      selected={selectedId === memory.id}
-                      onSelect={() => handleSelect(memory.id)}
-                      onPin={() => handlePin(memory.id, memory.pinned)}
-                      onDelete={() => handleDelete(memory.id)}
-                    />
-                  ))}
+                  {group.memories.map((memory) => {
+                    const idx = flatIndex++;
+                    return (
+                      <MemoryRow
+                        key={`${group.label}-${memory.id}`}
+                        ref={(el) => {
+                          rowRefs.current[idx] = el;
+                        }}
+                        memory={memory}
+                        selected={selectedId === memory.id}
+                        focused={focusedIndex === idx}
+                        confirming={confirmingId === memory.id}
+                        onSelect={() => handleSelect(memory.id)}
+                        onPin={() => handlePin(memory.id, memory.pinned)}
+                        onDelete={() => {
+                          handleDelete(memory.id);
+                          setConfirmingId(null);
+                        }}
+                        onDeleteStart={() => setConfirmingId(memory.id)}
+                        onDeleteCancel={() => setConfirmingId(null)}
+                      />
+                    );
+                  })}
                 </ul>
               )}
             </div>
@@ -197,6 +244,40 @@ export function MemoryList({ selectedId }: MemoryListProps) {
           )}
         >
           {totalCount} {totalCount === 1 ? "memory" : "memories"}
+        </div>
+      )}
+
+      {/* Keyboard shortcut overlay */}
+      {showShortcuts && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Keyboard shortcuts"
+          className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+        >
+          <div className="bg-popover border border-border rounded-lg p-5 shadow-lg min-w-56">
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-heading text-sm font-semibold">Keyboard shortcuts</p>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setShowShortcuts(false)}
+                aria-label="Close shortcuts"
+              >
+                <X weight="regular" />
+              </Button>
+            </div>
+            <dl className="space-y-2">
+              {SHORTCUTS.map(([key, desc]) => (
+                <div key={key} className="flex items-center gap-4">
+                  <dt className="shrink-0 min-w-20 text-right">
+                    <kbd className="font-mono text-[11px] text-muted-foreground">{key}</kbd>
+                  </dt>
+                  <dd className="text-xs text-foreground">{desc}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
         </div>
       )}
     </div>
