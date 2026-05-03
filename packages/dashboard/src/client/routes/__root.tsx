@@ -1,6 +1,7 @@
+import { Moon, Sun } from "@phosphor-icons/react";
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { StatsBar } from "@/components/StatsBar";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { useStats } from "@/hooks/useStats";
 import { useTheme } from "@/hooks/useTheme";
@@ -20,7 +21,9 @@ function RootLayout() {
         <div className="flex-1 min-w-0">
           <StatsBar stats={stats} />
         </div>
-        <ThemeToggle theme={theme} onToggle={toggle} />
+        <Button variant="ghost" size="icon-sm" onClick={toggle} aria-label="Toggle theme">
+          {theme === "dark" ? <Sun weight="regular" /> : <Moon weight="regular" />}
+        </Button>
       </header>
       <div className="flex flex-1 min-h-0">
         <Outlet />

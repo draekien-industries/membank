@@ -1,9 +1,9 @@
 import { X } from "@phosphor-icons/react";
-import { FieldLabel } from "@/components/FieldLabel";
-import { MetaRow } from "@/components/MetaRow";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemoryDetail } from "@/hooks/useMemoryDetail";
@@ -70,7 +70,12 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
       {/* Form */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         <div className="space-y-1.5">
-          <FieldLabel htmlFor="memory-content">Content</FieldLabel>
+          <Label
+            htmlFor="memory-content"
+            className="text-[11px] uppercase tracking-wide text-muted-foreground"
+          >
+            Content
+          </Label>
           <Textarea
             id="memory-content"
             value={content}
@@ -82,7 +87,12 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <FieldLabel htmlFor="memory-type">Type</FieldLabel>
+            <Label
+              htmlFor="memory-type"
+              className="text-[11px] uppercase tracking-wide text-muted-foreground"
+            >
+              Type
+            </Label>
             <NativeSelect
               id="memory-type"
               value={type}
@@ -101,7 +111,12 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
           </div>
 
           <div className="space-y-1.5">
-            <FieldLabel htmlFor="memory-tags">Tags</FieldLabel>
+            <Label
+              htmlFor="memory-tags"
+              className="text-[11px] uppercase tracking-wide text-muted-foreground"
+            >
+              Tags
+            </Label>
             <Input
               id="memory-tags"
               value={tagsInput}
@@ -113,16 +128,15 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
 
         {/* Projects section */}
         <div className="space-y-1.5">
-          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Projects</p>
+          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            Projects
+          </Label>
           <div className="flex flex-wrap gap-1">
             {memory.projects.length === 0 && (
               <span className="text-[11px] text-muted-foreground">Global (no project)</span>
             )}
             {memory.projects.map((p) => (
-              <span
-                key={p.id}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent text-[11px] text-accent-foreground"
-              >
+              <Badge key={p.id} variant="secondary" className="gap-1 rounded-full text-[11px]">
                 {p.name}
                 <button
                   type="button"
@@ -132,7 +146,7 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
                 >
                   <X weight="regular" className="size-2.5" />
                 </button>
-              </span>
+              </Badge>
             ))}
           </div>
           {availableProjects.length > 0 && (
@@ -163,18 +177,32 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
         </div>
 
         {/* Metadata */}
-        <details className="group pt-2 border-t border-border">
-          <summary className="flex items-center gap-1 cursor-pointer list-none text-[11px] uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors select-none">
-            <span className="transition-transform group-open:rotate-90">›</span>
+        <Collapsible className="group pt-2 border-t border-border">
+          <CollapsibleTrigger className="flex items-center gap-1 cursor-pointer text-[11px] uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors select-none w-full">
+            <span className="transition-transform group-data-[open]:rotate-90">›</span>
             Details
-          </summary>
-          <div className="space-y-1 mt-2">
-            {memory.sourceHarness && <MetaRow label="Source" value={memory.sourceHarness} />}
-            <MetaRow label="Accessed" value={`${memory.accessCount}×`} />
-            <MetaRow label="Updated" value={new Date(memory.updatedAt).toLocaleString()} />
-            <MetaRow label="Created" value={new Date(memory.createdAt).toLocaleString()} />
-          </div>
-        </details>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-1 mt-2">
+            {memory.sourceHarness && (
+              <div className="flex justify-between text-[11px] text-muted-foreground">
+                <span>Source</span>
+                <span>{memory.sourceHarness}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>Accessed</span>
+              <span>{memory.accessCount}×</span>
+            </div>
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>Updated</span>
+              <span>{new Date(memory.updatedAt).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>Created</span>
+              <span>{new Date(memory.createdAt).toLocaleString()}</span>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       {/* Actions */}

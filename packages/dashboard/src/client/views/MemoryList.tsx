@@ -3,7 +3,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { MemoryRow } from "@/components/MemoryRow";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { useMemoryList } from "@/hooks/useMemoryList";
 import type { MemoryType } from "@/lib/types";
@@ -175,32 +177,32 @@ export function MemoryList({ selectedId }: MemoryListProps) {
           </div>
         )}
         {!isLoading && groups.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-32 gap-2 px-6 text-center">
+          <Empty className="border-0 rounded-none p-0 h-32">
             {allMemories.length === 0 ? (
               <>
-                <p className="text-xs text-muted-foreground">No memories yet</p>
-                <p className="text-[10px] text-muted-foreground max-w-48">
+                <EmptyTitle className="text-xs font-normal">No memories yet</EmptyTitle>
+                <EmptyDescription className="max-w-48">
                   Memories are saved automatically by AI coding tools. Run{" "}
                   <code className="font-mono">membank setup</code> to connect your tools.
-                </p>
+                </EmptyDescription>
               </>
             ) : (
               <>
-                <p className="text-xs text-muted-foreground">
+                <EmptyTitle className="text-xs font-normal">
                   {search.search
                     ? `No memories match "${search.search}"`
                     : "No memories match the current filters"}
-                </p>
-                <button
-                  type="button"
+                </EmptyTitle>
+                <Button
+                  variant="link"
+                  size="sm"
                   onClick={() => void navigate({ to: "/memories", search: {} })}
-                  className="text-[11px] text-primary hover:underline"
                 >
                   Clear filters
-                </button>
+                </Button>
               </>
             )}
-          </div>
+          </Empty>
         )}
         {groups.map((group) => {
           const collapsed = collapsedGroups.has(group.label);
@@ -272,7 +274,7 @@ export function MemoryList({ selectedId }: MemoryListProps) {
             {SHORTCUTS.map(([key, desc]) => (
               <div key={key} className="flex items-center gap-4">
                 <dt className="shrink-0 min-w-20 text-right">
-                  <kbd className="font-mono text-[11px] text-muted-foreground">{key}</kbd>
+                  <Kbd>{key}</Kbd>
                 </dt>
                 <dd className="text-xs text-foreground">{desc}</dd>
               </div>
