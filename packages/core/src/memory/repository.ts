@@ -28,7 +28,7 @@ export class MemoryRepository {
   }
 
   async save(options: SaveOptions): Promise<Memory> {
-    const { content, type, tags = [], projectHash, sourceHarness } = options;
+    const { content, type, tags = [], projectHash, projectName, sourceHarness } = options;
 
     const embedding = await this.#embedding.embed(content);
     const embeddingBlob = Buffer.from(embedding.buffer);
@@ -95,11 +95,9 @@ export class MemoryRepository {
       .run(embeddingBlob, id);
 
     if (projectHash !== undefined) {
-      // resolveProject name not available here; caller should have upserted already
-      // if project not yet upserted (e.g. CLI path), upsert with hash as placeholder name
       const project = this.#projects.upsertByHash(
         projectHash,
-        `project-${projectHash.slice(0, 8)}`
+        projectName ?? `project-${projectHash.slice(0, 8)}`
       );
       this.#projects.addAssociation(id, project.id);
     }

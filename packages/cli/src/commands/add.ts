@@ -32,10 +32,11 @@ export async function addCommand(
     const tags = options.tags !== undefined ? options.tags.split(",").map((t) => t.trim()) : [];
 
     let projectHash: string | undefined;
+    let projectName: string | undefined;
     if (!options.global) {
       const project = await resolveProject();
-      projects.upsertByHash(project.hash, project.name);
       projectHash = project.hash;
+      projectName = project.name;
     }
 
     const spinner = formatter.isJson ? null : ora("Saving memory…").start();
@@ -44,6 +45,7 @@ export async function addCommand(
       type: options.type as MemoryType,
       tags,
       projectHash,
+      projectName,
     });
     spinner?.succeed("Memory saved");
 

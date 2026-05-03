@@ -209,10 +209,11 @@ export function createServer(core: CoreServices): Server {
       const tags = Array.isArray(args?.tags) ? (args.tags as string[]) : undefined;
 
       let projectHash: string | undefined;
+      let projectName: string | undefined;
       if (args?.global !== true) {
         const project = await resolveProject();
-        core.projects.upsertByHash(project.hash, project.name);
         projectHash = project.hash;
+        projectName = project.name;
       }
 
       try {
@@ -221,6 +222,7 @@ export function createServer(core: CoreServices): Server {
           type: type as MemoryType,
           tags,
           projectHash,
+          projectName,
         });
 
         return {
