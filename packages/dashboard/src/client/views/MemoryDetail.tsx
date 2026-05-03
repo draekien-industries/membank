@@ -1,14 +1,10 @@
 import { X } from "@phosphor-icons/react";
-import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useBlocker, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { addMemoryProject, removeMemoryProject } from "@/lib/api";
-import { memoriesCollection, projectsCollection, queryClient } from "@/lib/collections";
+import { useMemoryDetail } from "@/hooks/useMemoryDetail";
 import type { MemoryType } from "@/lib/types";
 
 const TYPES: MemoryType[] = ["correction", "preference", "decision", "learning", "fact"];
@@ -18,70 +14,27 @@ interface MemoryDetailProps {
 }
 
 export function MemoryDetail({ id }: MemoryDetailProps) {
-  const navigate = useNavigate();
-
-  const { data: results = [], isLoading } = useLiveQuery(
-    (q) => q.from({ m: memoriesCollection }).where(({ m }) => eq(m.id, id)),
-    [id]
-  );
-  const memory = results[0] ?? null;
-
-  const [content, setContent] = useState("");
-  const [type, setType] = useState<MemoryType>("fact");
-  const [tagsInput, setTagsInput] = useState("");
-  const [initialized, setInitialized] = useState(false);
-  const [addProjectId, setAddProjectId] = useState("");
-  const [saved, setSaved] = useState(false);
-
-  const { data: allProjects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
-
-  useEffect(() => {
-    if (memory && !initialized) {
-      setContent(memory.content);
-      setType(memory.type);
-      setTagsInput(memory.tags.join(", "));
-      setInitialized(true);
-    }
-  }, [memory, initialized]);
-
-  const dirty =
-    memory !== null &&
-    (content !== memory.content || type !== memory.type || tagsInput !== memory.tags.join(", "));
-
-  const blocker = useBlocker({ shouldBlockFn: () => dirty, withResolver: true });
-
-  const handleSave = () => {
-    if (!memory || !dirty) return;
-    const tags = tagsInput
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
-    memoriesCollection.update(id, (draft) => {
-      if (content !== memory.content) draft.content = content;
-      if (type !== memory.type) draft.type = type;
-      if (JSON.stringify(tags) !== JSON.stringify(memory.tags)) draft.tags = tags;
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  };
-
-  const handleApprove = () => {
-    memoriesCollection.update(id, (draft) => {
-      draft.needsReview = false;
-    });
-  };
-
-  const handleAddProject = async () => {
-    if (!addProjectId) return;
-    await addMemoryProject(id, addProjectId);
-    await queryClient.invalidateQueries({ queryKey: ["memories"] });
-    setAddProjectId("");
-  };
-
-  const handleRemoveProject = async (projectId: string) => {
-    await removeMemoryProject(id, projectId);
-    await queryClient.invalidateQueries({ queryKey: ["memories"] });
-  };
+  const {
+    memory,
+    isLoading,
+    content,
+    setContent,
+    type,
+    setType,
+    tagsInput,
+    setTagsInput,
+    addProjectId,
+    setAddProjectId,
+    saved,
+    dirty,
+    blocker,
+    availableProjects,
+    handleSave,
+    handleApprove,
+    handleAddProject,
+    handleRemoveProject,
+    handleClose,
+  } = useMemoryDetail(id);
 
   if (isLoading || !memory) {
     return (
@@ -90,10 +43,6 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
       </div>
     );
   }
-
-  const availableProjects = allProjects.filter(
-    (p) => !memory.projects.some((mp) => mp.id === p.id)
-  );
 
   return (
     <div className="flex flex-col h-full">
@@ -104,12 +53,7 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
           {memory.needsReview && <Badge variant="destructive">needs review</Badge>}
           {memory.pinned && <Badge variant="default">pinned</Badge>}
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => void navigate({ to: "/memories" })}
-          aria-label="Close"
-        >
+        <Button variant="ghost" size="icon-sm" onClick={handleClose} aria-label="Close">
           <X weight="regular" />
         </Button>
       </div>
