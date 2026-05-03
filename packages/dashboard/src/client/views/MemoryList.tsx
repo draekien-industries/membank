@@ -1,9 +1,10 @@
-import { MagnifyingGlass, PushPin, Warning, X } from "@phosphor-icons/react";
+import { MagnifyingGlass, PushPin, Warning } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { MemoryRow } from "@/components/MemoryRow";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { useMemoryList } from "@/hooks/useMemoryList";
 import type { MemoryType } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -78,7 +79,7 @@ export function MemoryList({ selectedId }: MemoryListProps) {
         </div>
         {/* Filters — secondary row */}
         <div className="flex items-center gap-1.5">
-          <Select
+          <NativeSelect
             value={search.type ?? ""}
             onChange={(e) =>
               void navigate({
@@ -89,17 +90,18 @@ export function MemoryList({ selectedId }: MemoryListProps) {
                 }),
               })
             }
-            className="h-6 text-[11px] w-24"
+            size="sm"
+            className="w-24"
           >
-            <option value="">All types</option>
+            <NativeSelectOption value="">All types</NativeSelectOption>
             {TYPES.map((t) => (
-              <option key={t} value={t}>
+              <NativeSelectOption key={t} value={t}>
                 {t[0]?.toUpperCase()}
                 {t.slice(1)}
-              </option>
+              </NativeSelectOption>
             ))}
-          </Select>
-          <Select
+          </NativeSelect>
+          <NativeSelect
             value={search.projectId ?? ""}
             onChange={(e) =>
               void navigate({
@@ -110,18 +112,19 @@ export function MemoryList({ selectedId }: MemoryListProps) {
                 }),
               })
             }
-            className="h-6 text-[11px] w-28"
+            size="sm"
+            className="w-28"
           >
-            <option value="">All projects</option>
-            <option value="global">Global</option>
+            <NativeSelectOption value="">All projects</NativeSelectOption>
+            <NativeSelectOption value="global">Global</NativeSelectOption>
             {[...allProjects]
               .sort((a, b) => a.name.localeCompare(b.name))
               .map((p) => (
-                <option key={p.id} value={p.id}>
+                <NativeSelectOption key={p.id} value={p.id}>
                   {p.name}
-                </option>
+                </NativeSelectOption>
               ))}
-          </Select>
+          </NativeSelect>
           <div className="ml-auto flex items-center gap-1">
             <Button
               variant={search.pinned ? "default" : "ghost"}
@@ -248,38 +251,23 @@ export function MemoryList({ selectedId }: MemoryListProps) {
       )}
 
       {/* Keyboard shortcut overlay */}
-      {showShortcuts && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Keyboard shortcuts"
-          className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
-        >
-          <div className="bg-popover border border-border rounded-lg p-5 shadow-lg min-w-56">
-            <div className="flex items-center justify-between mb-3">
-              <p className="font-heading text-sm font-semibold">Keyboard shortcuts</p>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setShowShortcuts(false)}
-                aria-label="Close shortcuts"
-              >
-                <X weight="regular" />
-              </Button>
-            </div>
-            <dl className="space-y-2">
-              {SHORTCUTS.map(([key, desc]) => (
-                <div key={key} className="flex items-center gap-4">
-                  <dt className="shrink-0 min-w-20 text-right">
-                    <kbd className="font-mono text-[11px] text-muted-foreground">{key}</kbd>
-                  </dt>
-                  <dd className="text-xs text-foreground">{desc}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        </div>
-      )}
+      <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
+        <DialogContent className="min-w-56 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Keyboard shortcuts</DialogTitle>
+          </DialogHeader>
+          <dl className="space-y-2">
+            {SHORTCUTS.map(([key, desc]) => (
+              <div key={key} className="flex items-center gap-4">
+                <dt className="shrink-0 min-w-20 text-right">
+                  <kbd className="font-mono text-[11px] text-muted-foreground">{key}</kbd>
+                </dt>
+                <dd className="text-xs text-foreground">{desc}</dd>
+              </div>
+            ))}
+          </dl>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

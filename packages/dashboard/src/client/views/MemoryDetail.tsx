@@ -2,7 +2,8 @@ import { X } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemoryDetail } from "@/hooks/useMemoryDetail";
 import type { MemoryType } from "@/lib/types";
@@ -61,12 +62,12 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
       {/* Form */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         <div className="space-y-1.5">
-          <label
+          <Label
             htmlFor="memory-content"
             className="text-[11px] uppercase tracking-wide text-muted-foreground"
           >
             Content
-          </label>
+          </Label>
           <Textarea
             id="memory-content"
             value={content}
@@ -78,34 +79,34 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label
+            <Label
               htmlFor="memory-type"
               className="text-[11px] uppercase tracking-wide text-muted-foreground"
             >
               Type
-            </label>
-            <Select
+            </Label>
+            <NativeSelect
               id="memory-type"
               value={type}
               onChange={(e) => setType(e.target.value as MemoryType)}
               className="w-full"
             >
               {TYPES.map((t) => (
-                <option key={t} value={t}>
+                <NativeSelectOption key={t} value={t}>
                   {t[0]?.toUpperCase()}
                   {t.slice(1)}
-                </option>
+                </NativeSelectOption>
               ))}
-            </Select>
+            </NativeSelect>
           </div>
 
           <div className="space-y-1.5">
-            <label
+            <Label
               htmlFor="memory-tags"
               className="text-[11px] uppercase tracking-wide text-muted-foreground"
             >
               Tags
-            </label>
+            </Label>
             <Input
               id="memory-tags"
               value={tagsInput}
@@ -141,18 +142,19 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
           </div>
           {availableProjects.length > 0 && (
             <div className="flex gap-1">
-              <Select
+              <NativeSelect
                 value={addProjectId}
                 onChange={(e) => setAddProjectId(e.target.value)}
-                className="flex-1 text-[11px]"
+                size="sm"
+                className="flex-1"
               >
-                <option value="">Add to project…</option>
+                <NativeSelectOption value="">Add to project…</NativeSelectOption>
                 {availableProjects.map((p) => (
-                  <option key={p.id} value={p.id}>
+                  <NativeSelectOption key={p.id} value={p.id}>
                     {p.name}
-                  </option>
+                  </NativeSelectOption>
                 ))}
-              </Select>
+              </NativeSelect>
               <Button
                 variant="outline"
                 size="sm"
