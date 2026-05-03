@@ -1,5 +1,5 @@
 import type { EmbeddingService, Memory } from "@membank/core";
-import { DatabaseManager, MemoryRepository, QueryEngine } from "@membank/core";
+import { DatabaseManager, MemoryRepository, ProjectRepository, QueryEngine } from "@membank/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Formatter } from "../formatter.js";
 
@@ -14,7 +14,6 @@ interface InsertOpts {
   content: string;
   type: string;
   tags?: string[];
-  scope?: string;
   embedding: Float32Array;
 }
 
@@ -22,15 +21,14 @@ function insertMemory(db: DatabaseManager, opts: InsertOpts): void {
   const now = new Date().toISOString();
   db.db
     .prepare(
-      `INSERT INTO memories (id, content, type, tags, scope, source, access_count, pinned, needs_review, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       opts.id,
       opts.content,
       opts.type,
       JSON.stringify(opts.tags ?? []),
-      opts.scope ?? "global",
       null,
       0,
       0,
@@ -71,7 +69,7 @@ describe("query command integration — real in-memory SQLite", () => {
   beforeEach(() => {
     db = DatabaseManager.openInMemory();
     embeddingStub = { embed: vi.fn() } as unknown as EmbeddingService;
-    repo = new MemoryRepository(db, embeddingStub);
+    repo = new MemoryRepository(db, embeddingStub, new ProjectRepository(db));
     engine = new QueryEngine(db, embeddingStub, repo);
   });
 
@@ -81,7 +79,6 @@ describe("query command integration — real in-memory SQLite", () => {
       content: "Use TypeScript strict mode",
       type: "preference",
       tags: ["typescript", "config"],
-      scope: "global",
       embedding: unitVec(0),
     });
 
@@ -107,7 +104,6 @@ describe("query command integration — real in-memory SQLite", () => {
       content: "Prefer const over let",
       type: "preference",
       tags: [],
-      scope: "global",
       embedding: unitVec(0),
     });
 

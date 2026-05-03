@@ -5,8 +5,9 @@ import {
   listMemoryTypes,
   MEMORY_TYPE_VALUES,
   MemoryRepository,
+  ProjectRepository,
   QueryEngine,
-  resolveScope,
+  resolveProject,
 } from "@membank/core";
 import { Server } from "@modelcontextprotocol/sdk/server";
 import {
@@ -24,6 +25,7 @@ export interface CoreServices {
   embedding: EmbeddingService;
   repo: MemoryRepository;
   query: QueryEngine;
+  projects: ProjectRepository;
 }
 
 export interface ServerOptions {
@@ -36,9 +38,10 @@ export function initCore(options: ServerOptions = {}): CoreServices {
     ? DatabaseManager.openInMemory()
     : DatabaseManager.open(options.dbPath);
   const embedding = new EmbeddingService();
-  const repo = new MemoryRepository(db, embedding);
+  const projects = new ProjectRepository(db);
+  const repo = new MemoryRepository(db, embedding, projects);
   const query = new QueryEngine(db, embedding, repo);
-  return { db, embedding, repo, query };
+  return { db, embedding, repo, query, projects };
 }
 
 export function createServer(core: CoreServices): Server {
@@ -182,14 +185,23 @@ export function createServer(core: CoreServices): Server {
       }
 
       const tags = Array.isArray(args?.tags) ? (args.tags as string[]) : undefined;
-      const scope = typeof args?.scope === "string" ? args.scope : await resolveScope();
+
+      let projectHash: string | undefined;
+      if (typeof args?.scope === "string") {
+        projectHash = args.scope;
+        core.projects.upsertByHash(args.scope, `project-${args.scope.slice(0, 8)}`);
+      } else {
+        const project = await resolveProject();
+        core.projects.upsertByHash(project.hash, project.name);
+        projectHash = project.hash;
+      }
 
       try {
         const memory = await core.repo.save({
           content,
           type: type as MemoryType,
           tags,
-          scope,
+          projectHash,
         });
 
         return {
@@ -275,18 +287,18 @@ export function createServer(core: CoreServices): Server {
       }
 
       const type = args?.type as MemoryType | undefined;
-      const scope = args?.scope as string | undefined;
+      const projectHash = args?.scope as string | undefined;
       const limit = typeof args?.limit === "number" ? args.limit : 10;
 
       try {
-        const results = await core.query.query({ query: queryText, type, scope, limit });
+        const results = await core.query.query({ query: queryText, type, projectHash, limit });
 
         const serialised = results.map((r) => ({
           id: r.id,
           content: r.content,
           type: r.type,
           tags: r.tags,
-          scope: r.scope,
+          projects: r.projects,
           pinned: r.pinned,
           score: r.score,
         }));

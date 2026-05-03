@@ -3,8 +3,13 @@ import { createServer } from "node:net";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import type { MemoryType } from "@membank/core";
-import { DatabaseManager, EmbeddingService, MemoryRepository } from "@membank/core";
+import type { MemoryType, Project } from "@membank/core";
+import {
+  DatabaseManager,
+  EmbeddingService,
+  MemoryRepository,
+  ProjectRepository,
+} from "@membank/core";
 import { Hono } from "hono";
 import open from "open";
 
@@ -29,7 +34,6 @@ interface MemoryRow {
   content: string;
   type: string;
   tags: string;
-  scope: string;
   source: string | null;
   access_count: number;
   pinned: number;
@@ -38,13 +42,13 @@ interface MemoryRow {
   updated_at: string;
 }
 
-function parseRow(row: MemoryRow) {
+function parseRow(row: MemoryRow, projects: Project[] = []) {
   return {
     id: row.id,
     content: row.content,
     type: row.type,
     tags: JSON.parse(row.tags) as string[],
-    scope: row.scope,
+    projects,
     sourceHarness: row.source,
     accessCount: row.access_count,
     pinned: row.pinned !== 0,
@@ -79,39 +83,47 @@ async function findFreePort(preferred: number): Promise<number> {
   }
 }
 
-export function createApiApp(db: DatabaseManager, repo: MemoryRepository): Hono {
+export function createApiApp(
+  db: DatabaseManager,
+  repo: MemoryRepository,
+  projectRepo: ProjectRepository
+): Hono {
   const app = new Hono();
 
   // List memories with optional filters
   app.get("/api/memories", (c) => {
-    const { type, pinned, needsReview, search, scope } = c.req.query();
+    const { type, pinned, needsReview, search, projectId } = c.req.query();
 
     const conditions: string[] = [];
     const params: (string | number)[] = [];
 
     if (type) {
-      conditions.push("type = ?");
+      conditions.push("m.type = ?");
       params.push(type);
     }
     if (pinned === "true") {
-      conditions.push("pinned = 1");
+      conditions.push("m.pinned = 1");
     }
     if (needsReview === "true") {
-      conditions.push("needs_review = 1");
+      conditions.push("m.needs_review = 1");
     }
-    if (scope) {
-      conditions.push("scope = ?");
-      params.push(scope);
+    if (projectId === "global") {
+      conditions.push("m.id NOT IN (SELECT memory_id FROM memory_projects)");
+    } else if (projectId) {
+      conditions.push("m.id IN (SELECT memory_id FROM memory_projects WHERE project_id = ?)");
+      params.push(projectId);
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
     const rows = db.db
       .prepare<(string | number)[], MemoryRow>(
-        `SELECT * FROM memories ${where} ORDER BY created_at DESC`
+        `SELECT m.* FROM memories m ${where} ORDER BY m.created_at DESC`
       )
       .all(...params);
 
-    let memories = rows.map(parseRow);
+    const projectMap = projectRepo.getProjectsForMemories(rows.map((r) => r.id));
+
+    let memories = rows.map((r) => parseRow(r, projectMap.get(r.id) ?? []));
 
     if (search) {
       const q = search.toLowerCase();
@@ -123,12 +135,13 @@ export function createApiApp(db: DatabaseManager, repo: MemoryRepository): Hono 
 
   // Get single memory
   app.get("/api/memories/:id", (c) => {
-    const row = db.db
-      .prepare<[string], MemoryRow>("SELECT * FROM memories WHERE id = ?")
-      .get(c.req.param("id"));
+    const id = c.req.param("id");
+    const row = db.db.prepare<[string], MemoryRow>("SELECT * FROM memories WHERE id = ?").get(id);
 
     if (!row) return c.json({ error: "Not found" }, 404);
-    return c.json(parseRow(row));
+
+    const projectMap = projectRepo.getProjectsForMemories([id]);
+    return c.json(parseRow(row, projectMap.get(id) ?? []));
   });
 
   // Update memory
@@ -178,13 +191,44 @@ export function createApiApp(db: DatabaseManager, repo: MemoryRepository): Hono 
       .prepare<[string], MemoryRow>("SELECT * FROM memories WHERE id = ?")
       .get(id) as MemoryRow;
 
-    return c.json(parseRow(updated));
+    const projectMap = projectRepo.getProjectsForMemories([id]);
+    return c.json(parseRow(updated, projectMap.get(id) ?? []));
   });
 
   // Delete memory
   app.delete("/api/memories/:id", async (c) => {
     await repo.delete(c.req.param("id"));
     return c.json({ ok: true });
+  });
+
+  // Associate memory with project
+  app.post("/api/memories/:id/projects", async (c) => {
+    const memoryId = c.req.param("id");
+    const body = await c.req.json<{ projectId: string }>();
+    projectRepo.addAssociation(memoryId, body.projectId);
+    return c.json({ ok: true });
+  });
+
+  // Remove project association from memory
+  app.delete("/api/memories/:id/projects/:projectId", (c) => {
+    projectRepo.removeAssociation(c.req.param("id"), c.req.param("projectId"));
+    return c.json({ ok: true });
+  });
+
+  // List projects
+  app.get("/api/projects", (c) => {
+    return c.json(projectRepo.list());
+  });
+
+  // Rename project
+  app.patch("/api/projects/:id", async (c) => {
+    const id = c.req.param("id");
+    const body = await c.req.json<{ name: string }>();
+    try {
+      return c.json(projectRepo.rename(id, body.name));
+    } catch {
+      return c.json({ error: "Not found" }, 404);
+    }
   });
 
   // Stats
@@ -226,9 +270,10 @@ export async function startDashboard(opts?: { port?: number }): Promise<void> {
 
   const db = DatabaseManager.open();
   const embedding = new EmbeddingService();
-  const repo = new MemoryRepository(db, embedding);
+  const projects = new ProjectRepository(db);
+  const repo = new MemoryRepository(db, embedding, projects);
 
-  const app = createApiApp(db, repo);
+  const app = createApiApp(db, repo, projects);
 
   // Static file serving + SPA fallback
   const __dir = dirname(fileURLToPath(import.meta.url));

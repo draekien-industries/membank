@@ -16,6 +16,8 @@ describe("DatabaseManager", () => {
 
       expect(tables).toContain("memories");
       expect(tables).toContain("meta");
+      expect(tables).toContain("projects");
+      expect(tables).toContain("memory_projects");
 
       // embeddings is a virtual table; its shadow tables are visible in sqlite_master
       const allNames = mgr.db
@@ -28,7 +30,7 @@ describe("DatabaseManager", () => {
       mgr.close();
     });
 
-    it("memories table has the correct columns", () => {
+    it("memories table has the correct columns (no scope after migration 2)", () => {
       const mgr = DatabaseManager.openInMemory();
 
       const cols = mgr.db
@@ -41,7 +43,6 @@ describe("DatabaseManager", () => {
         "content",
         "type",
         "tags",
-        "scope",
         "source",
         "access_count",
         "pinned",
@@ -52,12 +53,43 @@ describe("DatabaseManager", () => {
         expect(cols).toContain(col);
       }
 
+      expect(cols).not.toContain("scope");
+
+      mgr.close();
+    });
+
+    it("projects table has the correct columns", () => {
+      const mgr = DatabaseManager.openInMemory();
+
+      const cols = mgr.db
+        .prepare<[], { name: string }>("PRAGMA table_info(projects)")
+        .all()
+        .map((r) => r.name);
+
+      for (const col of ["id", "name", "scope_hash", "created_at", "updated_at"]) {
+        expect(cols).toContain(col);
+      }
+
+      mgr.close();
+    });
+
+    it("memory_projects table has the correct columns", () => {
+      const mgr = DatabaseManager.openInMemory();
+
+      const cols = mgr.db
+        .prepare<[], { name: string }>("PRAGMA table_info(memory_projects)")
+        .all()
+        .map((r) => r.name);
+
+      expect(cols).toContain("memory_id");
+      expect(cols).toContain("project_id");
+
       mgr.close();
     });
   });
 
   describe("migrations", () => {
-    it("schema_version in meta starts at 1 after first init", () => {
+    it("schema_version in meta is 2 after full init", () => {
       const mgr = DatabaseManager.openInMemory();
 
       const row = mgr.db
@@ -65,7 +97,7 @@ describe("DatabaseManager", () => {
         .get();
 
       expect(row).not.toBeUndefined();
-      expect(row?.value).toBe("1");
+      expect(row?.value).toBe("2");
 
       mgr.close();
     });
@@ -83,8 +115,8 @@ describe("DatabaseManager", () => {
         .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
         .get();
 
-      expect(v1?.value).toBe("1");
-      expect(v2?.value).toBe("1");
+      expect(v1?.value).toBe("2");
+      expect(v2?.value).toBe("2");
 
       mgr1.close();
       mgr2.close();

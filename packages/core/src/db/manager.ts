@@ -32,6 +32,43 @@ CREATE VIRTUAL TABLE IF NOT EXISTS embeddings USING vec0(
 );
 `,
   ],
+  [
+    2,
+    `
+CREATE TABLE IF NOT EXISTS projects (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  scope_hash TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS memory_projects (
+  memory_id  TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  PRIMARY KEY (memory_id, project_id)
+);
+
+INSERT OR IGNORE INTO projects (id, name, scope_hash, created_at, updated_at)
+SELECT
+  lower(hex(randomblob(16))),
+  'project-' || substr(scope, 1, 8),
+  scope,
+  datetime('now'),
+  datetime('now')
+FROM memories
+WHERE scope != 'global'
+GROUP BY scope;
+
+INSERT OR IGNORE INTO memory_projects (memory_id, project_id)
+SELECT m.id, p.id
+FROM memories m
+JOIN projects p ON p.scope_hash = m.scope
+WHERE m.scope != 'global';
+
+ALTER TABLE memories DROP COLUMN scope;
+`,
+  ],
 ];
 
 export class DatabaseManager {
@@ -72,6 +109,7 @@ export class DatabaseManager {
     }
 
     db.pragma("journal_mode = WAL");
+    db.pragma("foreign_keys = ON");
 
     const manager = new DatabaseManager(db);
     manager.#runMigrations();

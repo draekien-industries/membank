@@ -1,11 +1,19 @@
 export type MemoryType = "correction" | "preference" | "decision" | "learning" | "fact";
 
+export interface Project {
+  id: string;
+  name: string;
+  scopeHash: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Memory {
   id: string;
   content: string;
   type: MemoryType;
   tags: string[];
-  scope: string;
+  projects: Project[];
   sourceHarness: string | null;
   accessCount: number;
   pinned: boolean;

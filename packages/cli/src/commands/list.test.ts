@@ -8,7 +8,6 @@ interface InsertOpts {
   content: string;
   type: string;
   tags?: string[];
-  scope?: string;
   pinned?: boolean;
 }
 
@@ -16,15 +15,14 @@ function insertMemory(db: DatabaseManager, opts: InsertOpts): void {
   const now = new Date().toISOString();
   db.db
     .prepare(
-      `INSERT INTO memories (id, content, type, tags, scope, source, access_count, pinned, needs_review, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       opts.id,
       opts.content,
       opts.type,
       JSON.stringify(opts.tags ?? []),
-      opts.scope ?? "global",
       null,
       0,
       opts.pinned === true ? 1 : 0,
@@ -56,26 +54,15 @@ describe("list command integration — real in-memory SQLite", () => {
     db = DatabaseManager.openInMemory();
   });
 
-  it("lists all memories with id, type, content, scope", () => {
-    insertMemory(db, {
-      id: "mem-1",
-      content: "Use TypeScript",
-      type: "preference",
-      scope: "global",
-    });
-    insertMemory(db, {
-      id: "mem-2",
-      content: "Always test",
-      type: "correction",
-      scope: "project-abc",
-    });
+  it("lists all memories with id, type, content", () => {
+    insertMemory(db, { id: "mem-1", content: "Use TypeScript", type: "preference" });
+    insertMemory(db, { id: "mem-2", content: "Always test", type: "correction" });
 
     const memories = db.db.prepare("SELECT * FROM memories ORDER BY created_at DESC").all() as {
       id: string;
       content: string;
       type: string;
       tags: string;
-      scope: string;
       source: string | null;
       access_count: number;
       pinned: number;
@@ -89,7 +76,7 @@ describe("list command integration — real in-memory SQLite", () => {
       content: r.content,
       type: r.type as MemoryType,
       tags: JSON.parse(r.tags) as string[],
-      scope: r.scope,
+      projects: [],
       sourceHarness: r.source,
       accessCount: r.access_count,
       pinned: r.pinned !== 0,
@@ -104,11 +91,9 @@ describe("list command integration — real in-memory SQLite", () => {
     expect(output).toContain("mem-1");
     expect(output).toContain("preference");
     expect(output).toContain("Use TypeScript");
-    expect(output).toContain("global");
     expect(output).toContain("mem-2");
     expect(output).toContain("correction");
     expect(output).toContain("Always test");
-    expect(output).toContain("project-abc");
   });
 
   it("--type filter returns only memories of that type via repo.list()", () => {
@@ -122,7 +107,6 @@ describe("list command integration — real in-memory SQLite", () => {
       content: string;
       type: string;
       tags: string;
-      scope: string;
       source: string | null;
       access_count: number;
       pinned: number;
@@ -149,19 +133,13 @@ describe("list command integration — real in-memory SQLite", () => {
   });
 
   it("outputMemories JSON mode returns array of memory objects", () => {
-    insertMemory(db, {
-      id: "mem-j1",
-      content: "JSON output test",
-      type: "learning",
-      scope: "global",
-    });
+    insertMemory(db, { id: "mem-j1", content: "JSON output test", type: "learning" });
 
     const rows = db.db.prepare("SELECT * FROM memories").all() as {
       id: string;
       content: string;
       type: string;
       tags: string;
-      scope: string;
       source: string | null;
       access_count: number;
       pinned: number;
@@ -175,7 +153,7 @@ describe("list command integration — real in-memory SQLite", () => {
       content: r.content,
       type: r.type as MemoryType,
       tags: JSON.parse(r.tags) as string[],
-      scope: r.scope,
+      projects: [],
       sourceHarness: r.source,
       accessCount: r.access_count,
       pinned: r.pinned !== 0,

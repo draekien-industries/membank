@@ -69,6 +69,7 @@ describe("MCP server bootstrap", () => {
     expect(session.core.embedding).toBeDefined();
     expect(session.core.repo).toBeDefined();
     expect(session.core.query).toBeDefined();
+    expect(session.core.projects).toBeDefined();
   });
 
   it("in-process transport pair is reusable across multiple connect/close cycles", async () => {

@@ -8,7 +8,7 @@ function makeResult(overrides: Partial<QueryResult> = {}): QueryResult {
     content: "Use TypeScript strict mode",
     type: "preference",
     tags: ["typescript"],
-    scope: "global",
+    projects: [],
     score: 0.85,
     sourceHarness: null,
     accessCount: 0,
@@ -87,7 +87,7 @@ describe("Formatter — JSON mode", () => {
 });
 
 describe("Formatter — human mode", () => {
-  it("outputQueryResults shows id, type, content, tags, scope", () => {
+  it("outputQueryResults shows id, type, content, tags, projects", () => {
     const formatter = new Formatter(false);
     const result = makeResult({ tags: ["ts", "strict"] });
     const output = captureStdout(() => formatter.outputQueryResults([result]));
@@ -97,7 +97,7 @@ describe("Formatter — human mode", () => {
     expect(output).toContain(result.content);
     expect(output).toContain("ts");
     expect(output).toContain("strict");
-    expect(output).toContain(result.scope);
+    expect(output).toContain("global");
   });
 
   it("empty results print a human-readable message", () => {

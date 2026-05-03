@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseManager } from "../db/manager.js";
 import type { EmbeddingService } from "../embedding/service.js";
@@ -15,7 +16,6 @@ interface InsertMemoryOptions {
   content: string;
   type: string;
   tags?: string[];
-  scope?: string;
   source?: string | null;
   accessCount?: number;
   pinned?: boolean;
@@ -29,15 +29,14 @@ function insertMemory(db: DatabaseManager, opts: InsertMemoryOptions): void {
   const now = new Date().toISOString();
   db.db
     .prepare(
-      `INSERT INTO memories (id, content, type, tags, scope, source, access_count, pinned, needs_review, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       opts.id,
       opts.content,
       opts.type,
       JSON.stringify(opts.tags ?? []),
-      opts.scope ?? "global",
       opts.source ?? null,
       opts.accessCount ?? 0,
       opts.pinned ? 1 : 0,
@@ -51,6 +50,23 @@ function insertMemory(db: DatabaseManager, opts: InsertMemoryOptions): void {
       `INSERT INTO embeddings (rowid, embedding) SELECT m.rowid, ? FROM memories m WHERE m.id = ?`
     )
     .run(Buffer.from(opts.embedding.buffer), opts.id);
+}
+
+function insertProject(db: DatabaseManager, scopeHash: string): string {
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  db.db
+    .prepare(
+      `INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+    )
+    .run(id, `project-${scopeHash.slice(0, 8)}`, scopeHash, now, now);
+  return id;
+}
+
+function associateMemoryProject(db: DatabaseManager, memoryId: string, projectId: string): void {
+  db.db
+    .prepare(`INSERT INTO memory_projects (memory_id, project_id) VALUES (?, ?)`)
+    .run(memoryId, projectId);
 }
 
 describe("QueryEngine", () => {
@@ -124,29 +140,29 @@ describe("QueryEngine", () => {
     expect(results[0]?.id).toBe("correction-1");
   });
 
-  it("scope filter returns only memories matching the specified scope", async () => {
+  it("projectHash filter returns only memories associated with that project", async () => {
     insertMemory(dbManager, {
       id: "global-1",
       content: "Global memory",
       type: "fact",
-      scope: "global",
       embedding: unitVec(0),
     });
     insertMemory(dbManager, {
       id: "project-1",
       content: "Project memory",
       type: "fact",
-      scope: "project-abc",
       embedding: unitVec(0),
     });
 
+    const projId = insertProject(dbManager, "project-abc");
+    associateMemoryProject(dbManager, "project-1", projId);
+
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test", scope: "global" });
+    const results = await engine.query({ query: "test", projectHash: "project-abc" });
 
     expect(results.length).toBe(1);
-    expect(results[0]?.scope).toBe("global");
-    expect(results[0]?.id).toBe("global-1");
+    expect(results[0]?.id).toBe("project-1");
   });
 
   it("calls incrementAccessCount once per result", async () => {

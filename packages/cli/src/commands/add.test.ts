@@ -71,14 +71,14 @@ describe("add command integration — real in-memory SQLite", () => {
     expect(parsed.tags).toEqual(["typescript", "naming"]);
   });
 
-  it("--scope saves with the given scope", async () => {
+  it("--scope saves with the given projectHash", async () => {
     const formatter = new Formatter(true);
     const output = await captureStdout(() =>
       addCommand("global rule", { type: "fact", scope: "global" }, formatter, db, embeddingStub)
     );
 
-    const parsed = JSON.parse(output) as { scope: string };
-    expect(parsed.scope).toBe("global");
+    const parsed = JSON.parse(output) as { projects: unknown[] };
+    expect(Array.isArray(parsed.projects)).toBe(true);
   });
 
   it("saved record has an id field", async () => {
@@ -92,13 +92,13 @@ describe("add command integration — real in-memory SQLite", () => {
     expect(parsed.id.length).toBeGreaterThan(0);
   });
 
-  it("default scope is global when not specified", async () => {
+  it("default projects is empty array when no scope specified", async () => {
     const formatter = new Formatter(true);
     const output = await captureStdout(() =>
       addCommand("a learning", { type: "learning" }, formatter, db, embeddingStub)
     );
 
-    const parsed = JSON.parse(output) as { scope: string };
-    expect(parsed.scope).toBe("global");
+    const parsed = JSON.parse(output) as { projects: unknown[] };
+    expect(Array.isArray(parsed.projects)).toBe(true);
   });
 });

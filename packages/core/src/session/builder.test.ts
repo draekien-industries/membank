@@ -10,7 +10,6 @@ function insertMemory(
     content?: string;
     type?: string;
     tags?: string[];
-    scope?: string;
     source?: string | null;
     pinned?: boolean;
     needsReview?: boolean;
@@ -20,15 +19,14 @@ function insertMemory(
   const now = new Date().toISOString();
   db.db
     .prepare(
-      `INSERT INTO memories (id, content, type, tags, scope, source, access_count, pinned, needs_review, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`
     )
     .run(
       id,
       opts.content ?? "test content",
       opts.type ?? "fact",
       JSON.stringify(opts.tags ?? []),
-      opts.scope ?? "global",
       opts.source ?? null,
       opts.pinned ? 1 : 0,
       opts.needsReview ? 1 : 0,
@@ -36,6 +34,23 @@ function insertMemory(
       now
     );
   return id;
+}
+
+function insertProject(db: DatabaseManager, scopeHash: string, name?: string): string {
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  db.db
+    .prepare(
+      `INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+    )
+    .run(id, name ?? `project-${scopeHash.slice(0, 8)}`, scopeHash, now, now);
+  return id;
+}
+
+function associateMemoryProject(db: DatabaseManager, memoryId: string, projectId: string): void {
+  db.db
+    .prepare(`INSERT INTO memory_projects (memory_id, project_id) VALUES (?, ?)`)
+    .run(memoryId, projectId);
 }
 
 describe("listMemoryTypes()", () => {
@@ -54,29 +69,42 @@ describe("SessionContextBuilder", () => {
   });
 
   it("returns pinned global memories", () => {
-    insertMemory(db, { scope: "global", pinned: true, content: "global pinned" });
+    // global = no entry in memory_projects
+    insertMemory(db, { pinned: true, content: "global pinned" });
     const ctx = builder.getSessionContext("project-x");
     expect(ctx.pinnedGlobal).toHaveLength(1);
     expect(ctx.pinnedGlobal[0]?.content).toBe("global pinned");
   });
 
   it("does NOT return unpinned global memories in pinnedGlobal", () => {
-    insertMemory(db, { scope: "global", pinned: false, content: "unpinned global" });
+    insertMemory(db, { pinned: false, content: "unpinned global" });
     const ctx = builder.getSessionContext("project-x");
     expect(ctx.pinnedGlobal).toHaveLength(0);
   });
 
   it("returns pinned project memories for the given scope", () => {
-    insertMemory(db, { scope: "project-a", pinned: true, content: "project-a pinned" });
+    const memId = insertMemory(db, { pinned: true, content: "project-a pinned" });
+    const projId = insertProject(db, "project-a");
+    associateMemoryProject(db, memId, projId);
     const ctx = builder.getSessionContext("project-a");
     expect(ctx.pinnedProject).toHaveLength(1);
     expect(ctx.pinnedProject[0]?.content).toBe("project-a pinned");
   });
 
   it("does NOT return pinned memories from a different project scope", () => {
-    insertMemory(db, { scope: "project-b", pinned: true, content: "project-b pinned" });
+    const memId = insertMemory(db, { pinned: true, content: "project-b pinned" });
+    const projId = insertProject(db, "project-b");
+    associateMemoryProject(db, memId, projId);
     const ctx = builder.getSessionContext("project-a");
     expect(ctx.pinnedProject).toHaveLength(0);
+  });
+
+  it("does NOT include project memories in pinnedGlobal", () => {
+    const memId = insertMemory(db, { pinned: true, content: "project memory" });
+    const projId = insertProject(db, "project-z");
+    associateMemoryProject(db, memId, projId);
+    const ctx = builder.getSessionContext("project-x");
+    expect(ctx.pinnedGlobal).toHaveLength(0);
   });
 
   it("stats contains correct counts per type including 0 for missing types", () => {
@@ -99,7 +127,6 @@ describe("SessionContextBuilder", () => {
 
   it("pinnedGlobal memories have correct shape (tags as array, booleans, camelCase)", () => {
     insertMemory(db, {
-      scope: "global",
       pinned: true,
       content: "shaped memory",
       type: "preference",

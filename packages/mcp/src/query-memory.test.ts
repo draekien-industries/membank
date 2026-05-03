@@ -77,7 +77,7 @@ describe("query_memory tool", () => {
       content: string;
       type: string;
       tags: string[];
-      scope: string;
+      projects: { id: string; name: string; scopeHash: string }[];
       pinned: boolean;
       score: number;
     }>;
@@ -88,7 +88,7 @@ describe("query_memory tool", () => {
       expect(item).toHaveProperty("content");
       expect(item).toHaveProperty("type");
       expect(item).toHaveProperty("tags");
-      expect(item).toHaveProperty("scope");
+      expect(item).toHaveProperty("projects");
       expect(item).toHaveProperty("pinned");
       expect(item).toHaveProperty("score");
     }
@@ -136,12 +136,12 @@ describe("query_memory tool", () => {
     await session.core.repo.save({
       content: "project uses ESLint for linting",
       type: "fact",
-      scope: "project-abc",
+      projectHash: "project-abc",
     });
     await session.core.repo.save({
       content: "global linting preference is Biome",
       type: "fact",
-      scope: "global",
+      projectHash: "global",
     });
 
     const result = await session.client.callTool({
@@ -152,13 +152,12 @@ describe("query_memory tool", () => {
     if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     const parsed = JSON.parse((block as { type: string; text: string }).text) as Array<{
-      scope: string;
+      content: string;
     }>;
 
-    expect(parsed.length).toBeGreaterThan(0);
-    for (const item of parsed) {
-      expect(item.scope).toBe("project-abc");
-    }
+    // the scope filter should return only the memory associated with project-abc
+    expect(parsed.length).toBe(1);
+    expect(parsed[0]?.content).toBe("project uses ESLint for linting");
   });
 
   it("limit caps the number of results returned", async () => {

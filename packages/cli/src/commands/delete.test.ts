@@ -8,10 +8,10 @@ function insertMemory(db: DatabaseManager, id: string): void {
   const now = new Date().toISOString();
   db.db
     .prepare(
-      `INSERT INTO memories (id, content, type, tags, scope, source, access_count, pinned, needs_review, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(id, "test content", "fact", "[]", "global", null, 0, 0, 0, now, now);
+    .run(id, "test content", "fact", "[]", null, 0, 0, 0, now, now);
 
   const zero = Buffer.from(new Float32Array(384).fill(0).buffer);
   db.db

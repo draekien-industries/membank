@@ -29,22 +29,25 @@ export class QueryEngine {
   }
 
   async query(options: QueryOptions): Promise<Array<Memory & { score: number }>> {
-    const { query, type, scope, limit = 10 } = options;
+    const { query, type, projectHash, limit = 10 } = options;
 
     const queryEmbedding = await this.#embedding.embed(query);
     const queryBlob = Buffer.from(queryEmbedding.buffer);
 
     const whereClauses: string[] = [];
     const params: unknown[] = [queryBlob];
+    let joinClause = "";
 
     if (type !== undefined) {
       whereClauses.push("m.type = ?");
       params.push(type);
     }
 
-    if (scope !== undefined) {
-      whereClauses.push("m.scope = ?");
-      params.push(scope);
+    if (projectHash !== undefined) {
+      joinClause =
+        "LEFT JOIN memory_projects mp ON mp.memory_id = m.id LEFT JOIN projects p ON p.id = mp.project_id";
+      whereClauses.push("p.scope_hash = ?");
+      params.push(projectHash);
     }
 
     const whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
@@ -52,6 +55,7 @@ export class QueryEngine {
     const sql = `
       SELECT m.*, (1 - vec_distance_cosine(e.embedding, ?)) AS cosine_sim
       FROM memories m JOIN embeddings e ON e.rowid = m.rowid
+      ${joinClause}
       ${whereSQL}
     `;
 
@@ -62,7 +66,7 @@ export class QueryEngine {
     const scored = rows
       .filter((row) => row.cosine_sim > 0)
       .map((row) => {
-        const memory = rowToMemory(row);
+        const memory = rowToMemory(row, []);
         const score = this.#computeScore(memory, now);
         return { ...memory, score };
       });

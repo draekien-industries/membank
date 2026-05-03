@@ -9,6 +9,7 @@ const memoriesSearchSchema = z.object({
   type: z.enum(MEMORY_TYPES).optional().catch(undefined),
   pinned: z.boolean().default(false).catch(false),
   needsReview: z.boolean().default(false).catch(false),
+  projectId: z.string().optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/memories")({

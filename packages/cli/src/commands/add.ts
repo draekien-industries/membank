@@ -3,6 +3,7 @@ import {
   DatabaseManager,
   EmbeddingService as EmbeddingServiceImpl,
   MemoryRepository,
+  ProjectRepository,
 } from "@membank/core";
 import ora from "ora";
 import type { Formatter } from "../formatter.js";
@@ -24,7 +25,7 @@ export async function addCommand(
   const resolvedDb = db ?? DatabaseManager.open();
   try {
     const embedding = embeddingService ?? new EmbeddingServiceImpl();
-    const repo = new MemoryRepository(resolvedDb, embedding);
+    const repo = new MemoryRepository(resolvedDb, embedding, new ProjectRepository(resolvedDb));
 
     const tags = options.tags !== undefined ? options.tags.split(",").map((t) => t.trim()) : [];
 
@@ -33,7 +34,7 @@ export async function addCommand(
       content,
       type: options.type as MemoryType,
       tags,
-      scope: options.scope,
+      projectHash: options.scope,
     });
     spinner?.succeed("Memory saved");
 

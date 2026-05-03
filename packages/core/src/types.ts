@@ -8,12 +8,20 @@ export const MEMORY_TYPE_VALUES = [
   "fact",
 ] as const satisfies readonly MemoryType[];
 
+export interface Project {
+  id: string;
+  name: string;
+  scopeHash: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Memory {
   id: string;
   content: string;
   type: MemoryType;
   tags: string[];
-  scope: string;
+  projects: Project[];
   sourceHarness: string | null;
   accessCount: number;
   pinned: boolean;
@@ -25,7 +33,7 @@ export interface Memory {
 export interface QueryOptions {
   query: string;
   type?: MemoryType;
-  scope?: string;
+  projectHash?: string;
   limit?: number;
 }
 
@@ -33,7 +41,7 @@ export interface SaveOptions {
   content: string;
   type: MemoryType;
   tags?: string[];
-  scope?: string;
+  projectHash?: string;
   sourceHarness?: string;
 }
 

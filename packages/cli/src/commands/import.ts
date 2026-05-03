@@ -15,9 +15,7 @@ function isValidRecord(r: unknown): r is ExportRecord {
     rec.id.length > 0 &&
     typeof rec.content === "string" &&
     typeof rec.type === "string" &&
-    MEMORY_TYPES.has(rec.type) &&
-    typeof rec.scope === "string" &&
-    rec.scope.length > 0
+    MEMORY_TYPES.has(rec.type)
   );
 }
 
@@ -57,7 +55,7 @@ export async function importCommand(
   const invalidIndex = parsed.memories.findIndex((r) => !isValidRecord(r));
   if (invalidIndex !== -1) {
     formatter.error(
-      `Invalid memory record at index ${invalidIndex}: must have id, content, type, and scope`
+      `Invalid memory record at index ${invalidIndex}: must have id, content, and type`
     );
     process.exit(1);
   }
@@ -76,8 +74,8 @@ export async function importCommand(
   }
 
   const insertMemory = db.db.prepare(
-    `INSERT OR REPLACE INTO memories (id, content, type, tags, scope, source, access_count, pinned, needs_review, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT OR REPLACE INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   const insertEmbedding = db.db.prepare(
@@ -91,7 +89,6 @@ export async function importCommand(
         rec.content,
         rec.type,
         JSON.stringify(rec.tags ?? []),
-        rec.scope,
         rec.sourceHarness ?? null,
         rec.accessCount ?? 0,
         rec.pinned ? 1 : 0,

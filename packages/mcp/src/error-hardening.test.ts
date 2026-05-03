@@ -1,3 +1,4 @@
+import type { ProjectRepository } from "@membank/core";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -138,7 +139,6 @@ describe("error hardening", () => {
       const saved = await session.core.repo.save({
         content: "to be deleted",
         type: "fact",
-        scope: "global",
       });
 
       vi.spyOn(session.core.repo, "delete").mockRejectedValue(new Error("DB locked"));
@@ -160,7 +160,6 @@ describe("error hardening", () => {
       const saved = await session.core.repo.save({
         content: "to be deleted",
         type: "fact",
-        scope: "global",
       });
 
       vi.spyOn(session.core.repo, "delete").mockRejectedValueOnce(new Error("DB locked"));
@@ -268,6 +267,21 @@ describe("error hardening", () => {
         query: {
           query: () => Promise.reject(dbError),
         } as unknown as CoreServices["query"],
+        projects: {
+          upsertByHash: vi.fn().mockReturnValue({
+            id: "p1",
+            name: "test",
+            scopeHash: "abc",
+            createdAt: "",
+            updatedAt: "",
+          }),
+          rename: vi.fn(),
+          list: vi.fn().mockReturnValue([]),
+          getByHash: vi.fn().mockReturnValue(undefined),
+          addAssociation: vi.fn(),
+          removeAssociation: vi.fn(),
+          getProjectsForMemories: vi.fn().mockReturnValue(new Map()),
+        } as unknown as ProjectRepository,
       };
 
       const server = createServer(stubCore);

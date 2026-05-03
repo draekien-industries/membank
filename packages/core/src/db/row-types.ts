@@ -1,11 +1,10 @@
-import type { Memory, MemoryType } from "../types.js";
+import type { Memory, MemoryType, Project } from "../types.js";
 
 export interface MemoryRow {
   id: string;
   content: string;
   type: string;
   tags: string;
-  scope: string;
   source: string | null;
   access_count: number;
   pinned: number;
@@ -14,17 +13,35 @@ export interface MemoryRow {
   updated_at: string;
 }
 
-export function rowToMemory(row: MemoryRow): Memory {
+export interface ProjectRow {
+  id: string;
+  name: string;
+  scope_hash: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function rowToMemory(row: MemoryRow, projects: Project[]): Memory {
   return {
     id: row.id,
     content: row.content,
     type: row.type as MemoryType,
     tags: JSON.parse(row.tags) as string[],
-    scope: row.scope,
+    projects,
     sourceHarness: row.source,
     accessCount: row.access_count,
     pinned: row.pinned !== 0,
     needsReview: row.needs_review !== 0,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function rowToProject(row: ProjectRow): Project {
+  return {
+    id: row.id,
+    name: row.name,
+    scopeHash: row.scope_hash,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

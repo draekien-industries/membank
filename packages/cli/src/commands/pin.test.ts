@@ -1,5 +1,5 @@
 import type { EmbeddingService } from "@membank/core";
-import { DatabaseManager, MemoryRepository } from "@membank/core";
+import { DatabaseManager, MemoryRepository, ProjectRepository } from "@membank/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Formatter } from "../formatter.js";
 import { pinCommand } from "./pin.js";
@@ -42,7 +42,7 @@ function captureStderr(fn: () => void): string {
 }
 
 async function insertMemory(db: DatabaseManager, embeddingStub: EmbeddingService): Promise<string> {
-  const repo = new MemoryRepository(db, embeddingStub);
+  const repo = new MemoryRepository(db, embeddingStub, new ProjectRepository(db));
   const memory = await repo.save({ content: "test content", type: "fact" });
   return memory.id;
 }

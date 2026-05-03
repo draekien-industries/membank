@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseManager } from "../db/manager.js";
 import type { EmbeddingService } from "../embedding/service.js";
+import { ProjectRepository } from "../project/repository.js";
 import { MemoryRepository } from "./repository.js";
 
 // Build a unit-vector embedding seeded at a specific dimension index.
@@ -36,12 +37,14 @@ function countRows(db: DatabaseManager): number {
 describe("MemoryRepository", () => {
   let dbManager: DatabaseManager;
   let embeddingStub: EmbeddingService;
+  let projectRepo: ProjectRepository;
   let repo: MemoryRepository;
 
   beforeEach(() => {
     dbManager = DatabaseManager.openInMemory();
     embeddingStub = { embed: vi.fn() } as unknown as EmbeddingService;
-    repo = new MemoryRepository(dbManager, embeddingStub);
+    projectRepo = new ProjectRepository(dbManager);
+    repo = new MemoryRepository(dbManager, embeddingStub, projectRepo);
   });
 
   it("save() inserts a new memory when no similar exists", async () => {
@@ -56,7 +59,7 @@ describe("MemoryRepository", () => {
     expect(memory.id).toBeTruthy();
     expect(memory.content).toBe("Use tabs for indentation");
     expect(memory.type).toBe("preference");
-    expect(memory.scope).toBe("global");
+    expect(memory.projects).toEqual([]);
     expect(memory.tags).toEqual([]);
     expect(memory.pinned).toBe(false);
     expect(memory.needsReview).toBe(false);
@@ -70,7 +73,7 @@ describe("MemoryRepository", () => {
       content: "Always write tests",
       type: "correction",
       tags: ["testing", "quality"],
-      scope: "project-abc",
+      projectHash: "abc123",
       sourceHarness: "claude",
     });
 
@@ -79,7 +82,8 @@ describe("MemoryRepository", () => {
     expect(typeof memory.pinned).toBe("boolean");
     expect(typeof memory.needsReview).toBe("boolean");
     expect(typeof memory.accessCount).toBe("number");
-    expect(memory.scope).toBe("project-abc");
+    expect(memory.projects).toHaveLength(1);
+    expect(memory.projects[0]?.scopeHash).toBe("abc123");
     expect(memory.sourceHarness).toBe("claude");
     expect(memory.createdAt).toBeTruthy();
     expect(memory.updatedAt).toBeTruthy();

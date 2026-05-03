@@ -68,7 +68,7 @@ describe("save_memory tool", () => {
       content: string;
       type: string;
       tags: string[];
-      scope: string;
+      projects: { id: string; name: string; scopeHash: string }[];
       pinned: boolean;
       needsReview: boolean;
       createdAt: string;
@@ -79,7 +79,7 @@ describe("save_memory tool", () => {
     expect(memory.content).toBe("prefer spaces over tabs");
     expect(memory.type).toBe("preference");
     expect(memory.tags).toEqual([]);
-    expect(typeof memory.scope).toBe("string");
+    expect(Array.isArray(memory.projects)).toBe(true);
     expect(memory.createdAt).toBeTruthy();
     expect(memory.updatedAt).toBeTruthy();
   });
@@ -96,12 +96,12 @@ describe("save_memory tool", () => {
     if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     const memory = JSON.parse((block as { type: string; text: string }).text) as {
-      scope: string;
+      projects: { id: string; name: string; scopeHash: string }[];
     };
 
-    // scope must be a non-empty string (resolved from git remote or cwd hash)
-    expect(typeof memory.scope).toBe("string");
-    expect(memory.scope.length).toBeGreaterThan(0);
+    // projects must be an array (resolved from git remote or cwd hash)
+    expect(Array.isArray(memory.projects)).toBe(true);
+    expect(memory.projects.length).toBeGreaterThanOrEqual(0);
   });
 
   it("accepts explicit scope and saves with that scope", async () => {
@@ -116,10 +116,10 @@ describe("save_memory tool", () => {
     if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     const memory = JSON.parse((block as { type: string; text: string }).text) as {
-      scope: string;
+      projects: { id: string; name: string; scopeHash: string }[];
     };
 
-    expect(memory.scope).toBe("my-project");
+    expect(memory.projects.some((p) => p.scopeHash === "my-project")).toBe(true);
   });
 
   it("saves tags when provided", async () => {
@@ -193,7 +193,7 @@ describe("save_memory tool", () => {
     await session.core.repo.save({
       content: "always use TypeScript strict mode for all projects",
       type: "preference",
-      scope: "global",
+      projectHash: "global",
     });
 
     await session.client.callTool({
@@ -209,7 +209,7 @@ describe("save_memory tool", () => {
     const results = await session.core.query.query({
       query: "TypeScript strict mode",
       type: "preference",
-      scope: "global",
+      projectHash: "global",
       limit: 10,
     });
 

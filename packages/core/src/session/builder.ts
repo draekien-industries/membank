@@ -20,16 +20,25 @@ export class SessionContextBuilder {
     this.#db = db;
   }
 
-  getSessionContext(projectScope: string): SessionContext {
+  getSessionContext(projectHash: string): SessionContext {
     const pinnedGlobal = this.#db.db
-      .prepare<[], MemoryRow>("SELECT * FROM memories WHERE scope = 'global' AND pinned = 1")
+      .prepare<[], MemoryRow>(
+        `SELECT * FROM memories
+         WHERE id NOT IN (SELECT memory_id FROM memory_projects)
+         AND pinned = 1`
+      )
       .all()
-      .map(rowToMemory);
+      .map((row) => rowToMemory(row, []));
 
     const pinnedProject = this.#db.db
-      .prepare<[string], MemoryRow>("SELECT * FROM memories WHERE scope = ? AND pinned = 1")
-      .all(projectScope)
-      .map(rowToMemory);
+      .prepare<[string], MemoryRow>(
+        `SELECT m.* FROM memories m
+         JOIN memory_projects mp ON mp.memory_id = m.id
+         JOIN projects p ON p.id = mp.project_id
+         WHERE p.scope_hash = ? AND m.pinned = 1`
+      )
+      .all(projectHash)
+      .map((row) => rowToMemory(row, []));
 
     const typeCounts = this.#db.db
       .prepare<[], TypeCountRow>("SELECT type, COUNT(*) as count FROM memories GROUP BY type")

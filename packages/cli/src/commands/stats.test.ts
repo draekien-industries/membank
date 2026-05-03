@@ -1,5 +1,5 @@
 import type { EmbeddingService } from "@membank/core";
-import { DatabaseManager, MemoryRepository } from "@membank/core";
+import { DatabaseManager, MemoryRepository, ProjectRepository } from "@membank/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Formatter } from "../formatter.js";
 
@@ -14,15 +14,14 @@ function insertMemory(db: DatabaseManager, opts: InsertOpts): void {
   const now = new Date().toISOString();
   db.db
     .prepare(
-      `INSERT INTO memories (id, content, type, tags, scope, source, access_count, pinned, needs_review, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       opts.id,
       opts.content,
       opts.type,
       JSON.stringify([]),
-      "global",
       null,
       0,
       0,
@@ -54,7 +53,7 @@ describe("stats command integration — real in-memory SQLite", () => {
   beforeEach(() => {
     db = DatabaseManager.openInMemory();
     const embeddingStub = { embed: vi.fn() } as unknown as EmbeddingService;
-    repo = new MemoryRepository(db, embeddingStub);
+    repo = new MemoryRepository(db, embeddingStub, new ProjectRepository(db));
   });
 
   it("stats returns correct counts per type", () => {

@@ -87,10 +87,12 @@ export function MemoryRow({ memory, selected, onSelect, onPin, onDelete }: Memor
           {memory.needsReview && (
             <Warning weight="fill" className="size-3 text-[var(--type-correction)]" />
           )}
-          {memory.scope !== "global" && (
-            <span className="text-[10px] text-muted-foreground truncate max-w-24">
-              {memory.scope}
+          {memory.projects.length > 0 ? (
+            <span className="text-[10px] text-muted-foreground truncate max-w-32">
+              {memory.projects.map((p) => p.name).join(", ")}
             </span>
+          ) : (
+            <span className="text-[10px] text-muted-foreground">global</span>
           )}
           <span className="text-[10px] text-muted-foreground">
             {new Date(memory.updatedAt).toLocaleDateString()}

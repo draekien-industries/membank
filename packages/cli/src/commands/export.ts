@@ -8,7 +8,6 @@ interface ExportRow {
   content: string;
   type: string;
   tags: string;
-  scope: string;
   source: string | null;
   access_count: number;
   pinned: number;
@@ -23,7 +22,6 @@ export interface ExportRecord {
   content: string;
   type: string;
   tags: string[];
-  scope: string;
   sourceHarness: string | null;
   accessCount: number;
   pinned: boolean;
@@ -55,7 +53,6 @@ export function exportCommand(
     content: row.content,
     type: row.type,
     tags: JSON.parse(row.tags) as string[],
-    scope: row.scope,
     sourceHarness: row.source,
     accessCount: row.access_count,
     pinned: row.pinned !== 0,

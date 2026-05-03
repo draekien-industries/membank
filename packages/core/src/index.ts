@@ -1,6 +1,7 @@
 export * from "./db/index.js";
 export * from "./embedding/index.js";
 export * from "./memory/index.js";
+export * from "./project/index.js";
 export * from "./query/index.js";
 export * from "./scope/index.js";
 export * from "./session/index.js";

@@ -1,5 +1,5 @@
 import type { Memory, SessionContext } from "@membank/core";
-import { DatabaseManager, resolveScope, SessionContextBuilder } from "@membank/core";
+import { DatabaseManager, resolveProject, SessionContextBuilder } from "@membank/core";
 
 const SUPPORTED_INJECTION_HARNESSES = ["claude-code", "copilot-cli", "codex", "opencode"] as const;
 
@@ -62,7 +62,9 @@ function outputAdditionalContext(
 }
 
 async function handleSessionStart(opts: { harness?: string; scope?: string }): Promise<void> {
-  const projectScope = opts.scope ?? (await resolveScope());
+  const resolved =
+    opts.scope !== undefined ? { hash: opts.scope, name: opts.scope } : await resolveProject();
+  const projectScope = resolved.hash;
 
   const db = DatabaseManager.open();
   let text: string;

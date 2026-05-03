@@ -10,20 +10,19 @@ import { exportCommand } from "./export.js";
 function insertMemory(
   db: DatabaseManager,
   id: string,
-  opts?: { content?: string; type?: string; scope?: string; pinned?: boolean }
+  opts?: { content?: string; type?: string; pinned?: boolean }
 ): void {
   const now = new Date().toISOString();
   db.db
     .prepare(
-      `INSERT INTO memories (id, content, type, tags, scope, source, access_count, pinned, needs_review, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
       opts?.content ?? "test content",
       opts?.type ?? "fact",
       "[]",
-      opts?.scope ?? "global",
       null,
       0,
       opts?.pinned === true ? 1 : 0,
@@ -80,8 +79,8 @@ describe("export command — real in-memory SQLite", () => {
   });
 
   it("exports memories to specified --output path", () => {
-    insertMemory(db, "mem-1", { content: "Use TypeScript", type: "preference", scope: "global" });
-    insertMemory(db, "mem-2", { content: "Always test", type: "correction", scope: "project-abc" });
+    insertMemory(db, "mem-1", { content: "Use TypeScript", type: "preference" });
+    insertMemory(db, "mem-2", { content: "Always test", type: "correction" });
 
     const outputPath = tempPath("export-test-1.json");
     captureStdout(() => exportCommand(db, humanFormatter, { output: outputPath }));
@@ -94,7 +93,7 @@ describe("export command — real in-memory SQLite", () => {
   });
 
   it("exported file contains all Memory fields", () => {
-    insertMemory(db, "mem-3", { content: "Some fact", type: "fact", scope: "global" });
+    insertMemory(db, "mem-3", { content: "Some fact", type: "fact" });
 
     const outputPath = tempPath("export-test-2.json");
     captureStdout(() => exportCommand(db, humanFormatter, { output: outputPath }));
@@ -105,7 +104,6 @@ describe("export command — real in-memory SQLite", () => {
     expect(rec?.id).toBe("mem-3");
     expect(rec?.content).toBe("Some fact");
     expect(rec?.type).toBe("fact");
-    expect(rec?.scope).toBe("global");
     expect(Array.isArray(rec?.tags)).toBe(true);
     expect(typeof rec?.accessCount).toBe("number");
     expect(typeof rec?.pinned).toBe("boolean");
@@ -133,10 +131,10 @@ describe("export command — real in-memory SQLite", () => {
     const now = new Date().toISOString();
     db.db
       .prepare(
-        `INSERT INTO memories (id, content, type, tags, scope, source, access_count, pinned, needs_review, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run("mem-noEmbed", "no embedding", "fact", "[]", "global", null, 0, 0, 0, now, now);
+      .run("mem-noEmbed", "no embedding", "fact", "[]", null, 0, 0, 0, now, now);
 
     const outputPath = tempPath("export-test-4.json");
     captureStdout(() => exportCommand(db, humanFormatter, { output: outputPath }));

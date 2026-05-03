@@ -6,8 +6,8 @@ import { MemoryRow } from "@/components/MemoryRow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { memoriesCollection } from "@/lib/collections";
-import type { MemoryType } from "@/lib/types";
+import { memoriesCollection, projectsCollection } from "@/lib/collections";
+import type { Memory, MemoryType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Route as MemoriesRoute } from "@/routes/memories";
 
@@ -17,18 +17,27 @@ interface MemoryListProps {
   selectedId: string | null;
 }
 
+interface Group {
+  label: string;
+  projectId: string | null;
+  memories: Memory[];
+}
+
 export function MemoryList({ selectedId }: MemoryListProps) {
   const search = MemoriesRoute.useSearch();
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState(search.search);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
   const { data: allMemories = [], isLoading } = useLiveQuery(
     (q) => q.from({ m: memoriesCollection }).orderBy(({ m }) => m.createdAt, "desc"),
     []
   );
 
-  const memories = useMemo(() => {
+  const { data: allProjects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
+
+  const filtered = useMemo(() => {
     let ms = allMemories;
     if (search.type) ms = ms.filter((m) => m.type === search.type);
     if (search.pinned) ms = ms.filter((m) => m.pinned);
@@ -39,6 +48,56 @@ export function MemoryList({ selectedId }: MemoryListProps) {
     }
     return ms;
   }, [allMemories, search]);
+
+  const groups = useMemo((): Group[] => {
+    const { projectId } = search;
+
+    if (projectId === "global") {
+      return [
+        {
+          label: "Global",
+          projectId: null,
+          memories: filtered.filter((m) => m.projects.length === 0),
+        },
+      ];
+    }
+
+    if (projectId !== undefined) {
+      const project = allProjects.find((p) => p.id === projectId);
+      const memories = filtered.filter((m) => m.projects.some((p) => p.id === projectId));
+      return [{ label: project?.name ?? projectId, projectId, memories }];
+    }
+
+    const result: Group[] = [];
+
+    const globalMemories = filtered.filter((m) => m.projects.length === 0);
+    if (globalMemories.length > 0) {
+      result.push({ label: "Global", projectId: null, memories: globalMemories });
+    }
+
+    for (const project of [...allProjects].sort((a, b) => a.name.localeCompare(b.name))) {
+      const memories = filtered.filter((m) => m.projects.some((p) => p.id === project.id));
+      if (memories.length > 0) {
+        result.push({ label: project.name, projectId: project.id, memories });
+      }
+    }
+
+    return result;
+  }, [filtered, allProjects, search]);
+
+  const totalCount = useMemo(() => {
+    const seen = new Set<string>();
+    let count = 0;
+    for (const g of groups) {
+      for (const m of g.memories) {
+        if (!seen.has(m.id)) {
+          seen.add(m.id);
+          count++;
+        }
+      }
+    }
+    return count;
+  }, [groups]);
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
@@ -56,9 +115,7 @@ export function MemoryList({ selectedId }: MemoryListProps) {
 
   const handleDelete = (id: string) => {
     memoriesCollection.delete(id);
-    if (selectedId === id) {
-      void navigate({ to: "/memories" });
-    }
+    if (selectedId === id) void navigate({ to: "/memories" });
   };
 
   const handleSelect = (id: string) => {
@@ -69,17 +126,26 @@ export function MemoryList({ selectedId }: MemoryListProps) {
     }
   };
 
+  const toggleGroup = (label: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Filter bar */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border shrink-0">
-        <div className="relative flex-1 max-w-64">
+        <div className="relative flex-1 max-w-48">
           <MagnifyingGlass
             weight="regular"
             className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none"
           />
           <Input
-            placeholder="Search memories…"
+            placeholder="Search…"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-6"
@@ -96,7 +162,7 @@ export function MemoryList({ selectedId }: MemoryListProps) {
               }),
             })
           }
-          className="w-28"
+          className="w-24"
         >
           <option value="">All types</option>
           {TYPES.map((t) => (
@@ -105,6 +171,29 @@ export function MemoryList({ selectedId }: MemoryListProps) {
               {t.slice(1)}
             </option>
           ))}
+        </Select>
+        <Select
+          value={search.projectId ?? ""}
+          onChange={(e) =>
+            void navigate({
+              to: "/memories",
+              search: (prev) => ({
+                ...prev,
+                projectId: e.target.value || undefined,
+              }),
+            })
+          }
+          className="w-28"
+        >
+          <option value="">All projects</option>
+          <option value="global">Global</option>
+          {[...allProjects]
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
         </Select>
         <Button
           variant={search.pinned ? "default" : "ghost"}
@@ -136,39 +225,59 @@ export function MemoryList({ selectedId }: MemoryListProps) {
         </Button>
       </div>
 
-      {/* Memory rows */}
+      {/* Memory rows grouped */}
       <div className="flex-1 overflow-y-auto">
         {isLoading && allMemories.length === 0 && (
           <div className="flex items-center justify-center h-24 text-xs text-muted-foreground">
             Loading…
           </div>
         )}
-        {!isLoading && memories.length === 0 && (
+        {!isLoading && groups.length === 0 && (
           <div className="flex items-center justify-center h-24 text-xs text-muted-foreground">
             No memories found
           </div>
         )}
-        {memories.map((memory) => (
-          <MemoryRow
-            key={memory.id}
-            memory={memory}
-            selected={selectedId === memory.id}
-            onSelect={() => handleSelect(memory.id)}
-            onPin={() => handlePin(memory.id, memory.pinned)}
-            onDelete={() => handleDelete(memory.id)}
-          />
-        ))}
+        {groups.map((group) => {
+          const collapsed = collapsedGroups.has(group.label);
+          return (
+            <div key={group.label}>
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.label)}
+                className={cn(
+                  "sticky top-0 z-10 w-full flex items-center justify-between px-4 py-1.5",
+                  "bg-background/95 backdrop-blur border-b border-border",
+                  "text-[10px] uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+                )}
+              >
+                <span>{group.label}</span>
+                <span>{group.memories.length}</span>
+              </button>
+              {!collapsed &&
+                group.memories.map((memory) => (
+                  <MemoryRow
+                    key={`${group.label}-${memory.id}`}
+                    memory={memory}
+                    selected={selectedId === memory.id}
+                    onSelect={() => handleSelect(memory.id)}
+                    onPin={() => handlePin(memory.id, memory.pinned)}
+                    onDelete={() => handleDelete(memory.id)}
+                  />
+                ))}
+            </div>
+          );
+        })}
       </div>
 
       {/* Count */}
-      {memories.length > 0 && (
+      {totalCount > 0 && (
         <div
           className={cn(
             "px-4 py-2 border-t border-border shrink-0",
             "text-[10px] text-muted-foreground"
           )}
         >
-          {memories.length} {memories.length === 1 ? "memory" : "memories"}
+          {totalCount} {totalCount === 1 ? "memory" : "memories"}
         </div>
       )}
     </div>

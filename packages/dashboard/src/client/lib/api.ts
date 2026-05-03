@@ -1,4 +1,4 @@
-import type { Filters, Memory, MemoryType, Stats } from "./types";
+import type { Filters, Memory, MemoryType, Project, Stats } from "./types";
 
 const BASE = "/api";
 
@@ -45,4 +45,30 @@ export function patchMemory(
 
 export function deleteMemory(id: string): Promise<void> {
   return request<void>(`/memories/${id}`, { method: "DELETE" });
+}
+
+export function listProjects(): Promise<Project[]> {
+  return request<Project[]>("/projects");
+}
+
+export function renameProject(id: string, name: string): Promise<Project> {
+  return request<Project>(`/projects/${id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function addMemoryProject(memoryId: string, projectId: string): Promise<void> {
+  return request<void>(`/memories/${memoryId}/projects`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ projectId }),
+  });
+}
+
+export function removeMemoryProject(memoryId: string, projectId: string): Promise<void> {
+  return request<void>(`/memories/${memoryId}/projects/${projectId}`, {
+    method: "DELETE",
+  });
 }

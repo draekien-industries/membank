@@ -46,7 +46,6 @@ function makeExportFile(overrides?: Partial<ExportFile>): ExportFile {
         content: "Imported content",
         type: "fact",
         tags: ["tag1"],
-        scope: "global",
         sourceHarness: null,
         accessCount: 0,
         pinned: false,
@@ -135,7 +134,6 @@ describe("import command — real in-memory SQLite", () => {
           content: "has embedding",
           type: "fact",
           tags: [],
-          scope: "global",
           sourceHarness: null,
           accessCount: 0,
           pinned: false,
@@ -261,12 +259,12 @@ describe("import command — real in-memory SQLite", () => {
     expect(rows.n).toBe(0);
   });
 
-  it("exits with code 1 for invalid memory records (missing scope)", async () => {
+  it("exits with code 1 for invalid memory records (missing type)", async () => {
     const file = {
       version: 1,
       exportedAt: new Date().toISOString(),
       memories: [
-        { id: "bad-1", content: "no scope", type: "fact" }, // missing scope
+        { id: "bad-1", content: "no type" }, // missing type
       ],
     };
     const p = writeTempFile("import-bad-record.json", JSON.stringify(file));
@@ -331,22 +329,10 @@ describe("import command — real in-memory SQLite", () => {
     const now = new Date().toISOString();
     sourceDb.db
       .prepare(
-        `INSERT INTO memories (id, content, type, tags, scope, source, access_count, pinned, needs_review, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run(
-        "rt-1",
-        "Round trip content 1",
-        "preference",
-        '["a"]',
-        "global",
-        null,
-        3,
-        1,
-        0,
-        now,
-        now
-      );
+      .run("rt-1", "Round trip content 1", "preference", '["a"]', null, 3, 1, 0, now, now);
     const zero = Buffer.from(new Float32Array(384).fill(0.2).buffer);
     sourceDb.db
       .prepare(
@@ -356,10 +342,10 @@ describe("import command — real in-memory SQLite", () => {
 
     sourceDb.db
       .prepare(
-        `INSERT INTO memories (id, content, type, tags, scope, source, access_count, pinned, needs_review, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run("rt-2", "Round trip content 2", "decision", "[]", "proj-x", null, 0, 0, 0, now, now);
+      .run("rt-2", "Round trip content 2", "decision", "[]", null, 0, 0, 0, now, now);
 
     // Export
     const exportPath = join(tmpdir(), "round-trip-export.json");
@@ -406,7 +392,6 @@ describe("import command — real in-memory SQLite", () => {
           content: "first",
           type: "fact",
           tags: [],
-          scope: "global",
           sourceHarness: null,
           accessCount: 0,
           pinned: false,
@@ -420,7 +405,6 @@ describe("import command — real in-memory SQLite", () => {
           content: "second",
           type: "preference",
           tags: [],
-          scope: "global",
           sourceHarness: null,
           accessCount: 0,
           pinned: false,

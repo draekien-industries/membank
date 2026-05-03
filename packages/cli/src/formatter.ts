@@ -52,9 +52,9 @@ export class Formatter {
     process.stdout.write("\n");
     process.stdout.write(`  ${colorType(memory.type)}  ${chalk.dim(memory.id)}\n`);
     process.stdout.write(`  ${memory.content}\n`);
-    process.stdout.write(
-      `  ${chalk.dim("Tags:")} ${tags}  ${chalk.dim("Scope:")} ${memory.scope}\n`
-    );
+    const scope =
+      memory.projects.length > 0 ? memory.projects.map((p) => p.name).join(", ") : "global";
+    process.stdout.write(`  ${chalk.dim("Tags:")} ${tags}  ${chalk.dim("Scope:")} ${scope}\n`);
     process.stdout.write(`\n  ${chalk.dim(`Hint: pin with  membank pin ${memory.id}`)}\n\n`);
   }
 
@@ -76,7 +76,8 @@ export class Formatter {
 
     for (const m of memories) {
       const tags = m.tags.length > 0 ? m.tags.join(", ") : "(none)";
-      const meta = `${truncate(m.content, 45)}\n${chalk.dim(`${tags} · ${m.scope}`)}`;
+      const mScope = m.projects.length > 0 ? m.projects.map((p) => p.name).join(", ") : "global";
+      const meta = `${truncate(m.content, 45)}\n${chalk.dim(`${tags} · ${mScope}`)}`;
       table.push([colorType(m.type), chalk.dim(m.id), meta, m.pinned ? "📌" : ""]);
     }
 
@@ -126,7 +127,8 @@ export class Formatter {
       const score =
         r.score >= 0.85 ? chalk.bold(scoreStr) : r.score < 0.75 ? chalk.dim(scoreStr) : scoreStr;
       const tags = r.tags.length > 0 ? r.tags.join(", ") : "(none)";
-      const meta = `${truncate(r.content, 45)}\n${chalk.dim(`${tags} · ${r.scope}`)}`;
+      const rScope = r.projects.length > 0 ? r.projects.map((p) => p.name).join(", ") : "global";
+      const meta = `${truncate(r.content, 45)}\n${chalk.dim(`${tags} · ${rScope}`)}`;
       table.push([colorType(r.type), chalk.dim(r.id), meta, score]);
     }
 

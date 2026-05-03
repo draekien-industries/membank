@@ -3,6 +3,7 @@ import type { DatabaseManager } from "../db/manager.js";
 import type { MemoryRow } from "../db/row-types.js";
 import { rowToMemory } from "../db/row-types.js";
 import type { EmbeddingService } from "../embedding/service.js";
+import type { ProjectRepository } from "../project/repository.js";
 import type { Memory, MemoryType, SaveOptions } from "../types.js";
 import { MEMORY_TYPE_VALUES } from "../types.js";
 
@@ -14,26 +15,48 @@ interface SimilarityRow extends MemoryRow {
 export class MemoryRepository {
   readonly #db: DatabaseManager;
   readonly #embedding: EmbeddingService;
+  readonly #projects: ProjectRepository;
 
-  constructor(db: DatabaseManager, embeddingService: EmbeddingService) {
+  constructor(
+    db: DatabaseManager,
+    embeddingService: EmbeddingService,
+    projects: ProjectRepository
+  ) {
     this.#db = db;
     this.#embedding = embeddingService;
+    this.#projects = projects;
   }
 
   async save(options: SaveOptions): Promise<Memory> {
-    const { content, type, tags = [], scope = "global", sourceHarness } = options;
+    const { content, type, tags = [], projectHash, sourceHarness } = options;
 
     const embedding = await this.#embedding.embed(content);
     const embeddingBlob = Buffer.from(embedding.buffer);
 
-    const top = this.#db.db
-      .prepare<[Buffer, string, string], SimilarityRow>(
-        `SELECT m.rowid, m.*, (1 - vec_distance_cosine(e.embedding, ?)) AS similarity
-         FROM memories m JOIN embeddings e ON e.rowid = m.rowid
-         WHERE m.type = ? AND m.scope = ?
-         ORDER BY similarity DESC LIMIT 1`
-      )
-      .get(embeddingBlob, type, scope);
+    // Dedup: find similar memory in same context
+    let top: SimilarityRow | undefined;
+    if (projectHash !== undefined) {
+      top = this.#db.db
+        .prepare<[Buffer, string, string], SimilarityRow>(
+          `SELECT m.rowid, m.*, (1 - vec_distance_cosine(e.embedding, ?)) AS similarity
+           FROM memories m JOIN embeddings e ON e.rowid = m.rowid
+           JOIN memory_projects mp ON mp.memory_id = m.id
+           JOIN projects p ON p.id = mp.project_id
+           WHERE m.type = ? AND p.scope_hash = ?
+           ORDER BY similarity DESC LIMIT 1`
+        )
+        .get(embeddingBlob, type, projectHash);
+    } else {
+      top = this.#db.db
+        .prepare<[Buffer, string], SimilarityRow>(
+          `SELECT m.rowid, m.*, (1 - vec_distance_cosine(e.embedding, ?)) AS similarity
+           FROM memories m JOIN embeddings e ON e.rowid = m.rowid
+           WHERE m.type = ?
+           AND m.id NOT IN (SELECT memory_id FROM memory_projects)
+           ORDER BY similarity DESC LIMIT 1`
+        )
+        .get(embeddingBlob, type);
+    }
 
     const now = new Date().toISOString();
 
@@ -41,17 +64,16 @@ export class MemoryRepository {
       this.#db.db
         .prepare(`UPDATE memories SET content = ?, updated_at = ? WHERE id = ?`)
         .run(content, now, top.id);
-
       this.#db.db
         .prepare(`UPDATE embeddings SET embedding = ? WHERE rowid = ?`)
         .run(embeddingBlob, top.rowid);
 
       const updated = this.#db.db
         .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
-        .get(top.id);
+        .get(top.id) as MemoryRow;
 
-      // updated is guaranteed to exist since we just updated it
-      return rowToMemory(updated as MemoryRow);
+      const projectMap = this.#projects.getProjectsForMemories([top.id]);
+      return rowToMemory(updated, projectMap.get(top.id) ?? []);
     }
 
     if (top !== undefined && top.similarity >= 0.75) {
@@ -61,24 +83,33 @@ export class MemoryRepository {
     const id = randomUUID();
     this.#db.db
       .prepare(
-        `INSERT INTO memories (id, content, type, tags, scope, source, access_count, pinned, needs_review, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)`
+        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 0, 0, 0, ?, ?)`
       )
-      .run(id, content, type, JSON.stringify(tags), scope, sourceHarness ?? null, now, now);
+      .run(id, content, type, JSON.stringify(tags), sourceHarness ?? null, now, now);
 
-    // sqlite-vec v0.1.9 does not accept parameterized rowid on INSERT into vec0 tables.
-    // Use a SELECT subquery to copy the rowid from the memories row we just inserted.
     this.#db.db
       .prepare(
         `INSERT INTO embeddings (rowid, embedding) SELECT m.rowid, ? FROM memories m WHERE m.id = ?`
       )
       .run(embeddingBlob, id);
 
+    if (projectHash !== undefined) {
+      // resolveProject name not available here; caller should have upserted already
+      // if project not yet upserted (e.g. CLI path), upsert with hash as placeholder name
+      const project = this.#projects.upsertByHash(
+        projectHash,
+        `project-${projectHash.slice(0, 8)}`
+      );
+      this.#projects.addAssociation(id, project.id);
+    }
+
     const row = this.#db.db
       .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
       .get(id) as MemoryRow;
 
-    return rowToMemory(row);
+    const projectMap = this.#projects.getProjectsForMemories([id]);
+    return rowToMemory(row, projectMap.get(id) ?? []);
   }
 
   async update(id: string, patch: { content?: string; tags?: string[] }): Promise<Memory> {
@@ -121,7 +152,8 @@ export class MemoryRepository {
       .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
       .get(id) as MemoryRow;
 
-    return rowToMemory(updated);
+    const projectMap = this.#projects.getProjectsForMemories([id]);
+    return rowToMemory(updated, projectMap.get(id) ?? []);
   }
 
   delete(id: string): Promise<void> {
@@ -133,6 +165,7 @@ export class MemoryRepository {
       this.#db.db.prepare(`DELETE FROM embeddings WHERE rowid = ?`).run(row.rowid);
     }
 
+    this.#db.db.prepare(`DELETE FROM memory_projects WHERE memory_id = ?`).run(id);
     this.#db.db.prepare(`DELETE FROM memories WHERE id = ?`).run(id);
 
     return Promise.resolve();
@@ -158,7 +191,11 @@ export class MemoryRepository {
       )
       .all(...params);
 
-    return rows.map(rowToMemory);
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((r) => r.id);
+    const projectMap = this.#projects.getProjectsForMemories(ids);
+    return rows.map((row) => rowToMemory(row, projectMap.get(row.id) ?? []));
   }
 
   stats(): { byType: Record<MemoryType, number>; total: number; needsReview: number } {
@@ -210,7 +247,8 @@ export class MemoryRepository {
       .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
       .get(id) as MemoryRow;
 
-    return rowToMemory(updated);
+    const projectMap = this.#projects.getProjectsForMemories([id]);
+    return rowToMemory(updated, projectMap.get(id) ?? []);
   }
 
   incrementAccessCount(id: string): void {

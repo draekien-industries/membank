@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { memoriesCollection } from "@/lib/collections";
+import { addMemoryProject, removeMemoryProject } from "@/lib/api";
+import { memoriesCollection, projectsCollection, queryClient } from "@/lib/collections";
 import type { MemoryType } from "@/lib/types";
 
 const TYPES: MemoryType[] = ["correction", "preference", "decision", "learning", "fact"];
@@ -29,6 +30,9 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
   const [type, setType] = useState<MemoryType>("fact");
   const [tagsInput, setTagsInput] = useState("");
   const [initialized, setInitialized] = useState(false);
+  const [addProjectId, setAddProjectId] = useState("");
+
+  const { data: allProjects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
 
   useEffect(() => {
     if (memory && !initialized) {
@@ -62,6 +66,18 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
     });
   };
 
+  const handleAddProject = async () => {
+    if (!addProjectId) return;
+    await addMemoryProject(id, addProjectId);
+    await queryClient.invalidateQueries({ queryKey: ["memories"] });
+    setAddProjectId("");
+  };
+
+  const handleRemoveProject = async (projectId: string) => {
+    await removeMemoryProject(id, projectId);
+    await queryClient.invalidateQueries({ queryKey: ["memories"] });
+  };
+
   if (isLoading || !memory) {
     return (
       <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
@@ -69,6 +85,10 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
       </div>
     );
   }
+
+  const availableProjects = allProjects.filter(
+    (p) => !memory.projects.some((mp) => mp.id === p.id)
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -146,12 +166,58 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
           </div>
         </div>
 
+        {/* Projects section */}
+        <div className="space-y-1.5">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Projects</p>
+          <div className="flex flex-wrap gap-1">
+            {memory.projects.length === 0 && (
+              <span className="text-[10px] text-muted-foreground">Global (no project)</span>
+            )}
+            {memory.projects.map((p) => (
+              <span
+                key={p.id}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent text-[10px] text-accent-foreground"
+              >
+                {p.name}
+                <button
+                  type="button"
+                  onClick={() => void handleRemoveProject(p.id)}
+                  className="hover:text-destructive transition-colors leading-none"
+                  aria-label={`Remove from ${p.name}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+          {availableProjects.length > 0 && (
+            <div className="flex gap-1">
+              <Select
+                value={addProjectId}
+                onChange={(e) => setAddProjectId(e.target.value)}
+                className="flex-1 text-[10px]"
+              >
+                <option value="">Add to project…</option>
+                {availableProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!addProjectId}
+                onClick={() => void handleAddProject()}
+              >
+                +
+              </Button>
+            </div>
+          )}
+        </div>
+
         {/* Metadata */}
         <div className="space-y-1 pt-2 border-t border-border">
-          <div className="flex justify-between text-[10px] text-muted-foreground">
-            <span>Scope</span>
-            <span>{memory.scope}</span>
-          </div>
           {memory.sourceHarness && (
             <div className="flex justify-between text-[10px] text-muted-foreground">
               <span>Source</span>
