@@ -61,9 +61,8 @@ function outputAdditionalContext(
   process.stdout.write(`${text}\n`);
 }
 
-async function handleSessionStart(opts: { harness?: string; scope?: string }): Promise<void> {
-  const resolved =
-    opts.scope !== undefined ? { hash: opts.scope, name: opts.scope } : await resolveProject();
+async function handleSessionStart(opts: { harness?: string }): Promise<void> {
+  const resolved = await resolveProject();
   const projectScope = resolved.hash;
 
   const db = DatabaseManager.open();
@@ -84,11 +83,7 @@ async function handleSessionStart(opts: { harness?: string; scope?: string }): P
   outputAdditionalContext(text, harness, "SessionStart");
 }
 
-export async function injectCommand(opts: {
-  harness?: string;
-  scope?: string;
-  event?: string;
-}): Promise<void> {
+export async function injectCommand(opts: { harness?: string; event?: string }): Promise<void> {
   // Legacy --event values from stale hooks installed before user-prompt/tool-failure
   // were removed: silently no-op so old hook configs don't crash.
   if (opts.event !== undefined && opts.event !== "session-start") {

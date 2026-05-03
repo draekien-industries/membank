@@ -12,6 +12,7 @@ import { exportCommand } from "./commands/export.js";
 import { importCommand } from "./commands/import.js";
 import { injectCommand } from "./commands/inject.js";
 import { listCommand } from "./commands/list.js";
+import { migrateCommand } from "./commands/migrate.js";
 import { pinCommand } from "./commands/pin.js";
 import { queryCommand } from "./commands/query.js";
 import { statsCommand } from "./commands/stats.js";
@@ -107,17 +108,19 @@ program
   .description("save a new memory")
   .requiredOption("--type <type>", "memory type (correction|preference|decision|learning|fact)")
   .option("--tags <tags>", "comma-separated tags")
-  .option("--scope <scope>", "scope (global or project identifier)")
-  .action(async (content: string, cmdOptions: { type: string; tags?: string; scope?: string }) => {
-    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
-    const formatter = Formatter.create(globalOpts.json === true);
-    try {
-      await addCommand(content, cmdOptions, formatter);
-    } catch (err) {
-      formatter.error(err instanceof Error ? err.message : String(err));
-      process.exit(2);
+  .option("--global", "save as a global memory, not tied to any project")
+  .action(
+    async (content: string, cmdOptions: { type: string; tags?: string; global?: boolean }) => {
+      const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+      const formatter = Formatter.create(globalOpts.json === true);
+      try {
+        await addCommand(content, cmdOptions, formatter);
+      } catch (err) {
+        formatter.error(err instanceof Error ? err.message : String(err));
+        process.exit(2);
+      }
     }
-  });
+  );
 
 program
   .command("pin <id>")
@@ -191,13 +194,12 @@ program
     "--harness <name>",
     "format output for a specific harness (claude-code|copilot-cli|codex|opencode)"
   )
-  .option("--scope <scope>", "project scope override (default: auto-detect from git remote)")
   .option(
     "--event <event>",
     "hook event type (only session-start is supported; other values no-op for legacy hook compatibility)",
     "session-start"
   )
-  .action(async (cmdOptions: { harness?: string; scope?: string; event?: string }) => {
+  .action(async (cmdOptions: { harness?: string; event?: string }) => {
     try {
       await injectCommand(cmdOptions);
     } catch (err) {
@@ -296,6 +298,24 @@ program
       if (results.some((r) => r.status === "error")) {
         process.exit(1);
       }
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+program
+  .command("migrate <mode> [name]")
+  .description("list or run a named data migration (modes: list, run)")
+  .action(async (mode: string, name: string | undefined) => {
+    if (mode !== "list" && mode !== "run") {
+      process.stderr.write(`Error: mode must be "list" or "run"\n`);
+      process.exit(1);
+    }
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    try {
+      await migrateCommand(mode, name, formatter);
     } catch (err) {
       formatter.error(err instanceof Error ? err.message : String(err));
       process.exit(2);

@@ -104,22 +104,22 @@ describe("save_memory tool", () => {
     expect(memory.projects.length).toBeGreaterThanOrEqual(0);
   });
 
-  it("accepts explicit scope and saves with that scope", async () => {
+  it("accepts global flag and saves as a global memory", async () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
     const result = await session.client.callTool({
       name: "save_memory",
-      arguments: { content: "use biome for linting", type: "fact", scope: "my-project" },
+      arguments: { content: "use biome for linting", type: "fact", global: true },
     });
 
     if ("toolResult" in result) throw new Error("unreachable");
     const [block] = result.content;
     const memory = JSON.parse((block as { type: string; text: string }).text) as {
-      projects: { id: string; name: string; scopeHash: string }[];
+      projects: unknown[];
     };
 
-    expect(memory.projects.some((p) => p.scopeHash === "my-project")).toBe(true);
+    expect(memory.projects).toEqual([]);
   });
 
   it("saves tags when provided", async () => {

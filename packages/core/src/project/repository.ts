@@ -71,6 +71,15 @@ export class ProjectRepository {
       .run(memoryId, projectId);
   }
 
+  countMemories(projectId: string): number {
+    const row = this.#db.db
+      .prepare<[string], { count: number }>(
+        `SELECT COUNT(*) AS count FROM memory_projects WHERE project_id = ?`
+      )
+      .get(projectId);
+    return row?.count ?? 0;
+  }
+
   getProjectsForMemories(memoryIds: string[]): Map<string, Project[]> {
     if (memoryIds.length === 0) return new Map();
     const placeholders = memoryIds.map(() => "?").join(",");

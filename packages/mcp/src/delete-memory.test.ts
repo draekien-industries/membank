@@ -69,7 +69,6 @@ describe("delete_memory tool", () => {
     const saved = await session.core.repo.save({
       content: "temporary preference",
       type: "preference",
-      scope: "global",
     });
 
     const result = await session.client.callTool({

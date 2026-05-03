@@ -54,7 +54,7 @@ export class Formatter {
     process.stdout.write(`  ${memory.content}\n`);
     const scope =
       memory.projects.length > 0 ? memory.projects.map((p) => p.name).join(", ") : "global";
-    process.stdout.write(`  ${chalk.dim("Tags:")} ${tags}  ${chalk.dim("Scope:")} ${scope}\n`);
+    process.stdout.write(`  ${chalk.dim("Tags:")} ${tags}  ${chalk.dim("Project:")} ${scope}\n`);
     process.stdout.write(`\n  ${chalk.dim(`Hint: pin with  membank pin ${memory.id}`)}\n\n`);
   }
 

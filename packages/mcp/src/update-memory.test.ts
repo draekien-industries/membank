@@ -69,7 +69,6 @@ describe("update_memory tool", () => {
     const saved = await session.core.repo.save({
       content: "use tabs for indentation",
       type: "preference",
-      scope: "global",
     });
 
     const result = await session.client.callTool({
@@ -89,7 +88,6 @@ describe("update_memory tool", () => {
     const saved = await session.core.repo.save({
       content: "prefer functional components",
       type: "preference",
-      scope: "global",
       tags: ["react"],
     });
 

@@ -60,7 +60,7 @@ export function createServer(core: CoreServices): Server {
       {
         name: "save_memory",
         description:
-          "Save a new memory. Handles deduplication automatically — near-identical memories (cosine similarity >0.92, same type and scope) overwrite the existing record.",
+          "Save a new memory. Handles deduplication automatically — near-identical memories (cosine similarity >0.92, same type and project) overwrite the existing record.",
         inputSchema: {
           type: "object",
           properties: {
@@ -75,7 +75,10 @@ export function createServer(core: CoreServices): Server {
               items: { type: "string" },
               description: "Optional tags",
             },
-            scope: { type: "string", description: "Scope (defaults to resolved project scope)" },
+            global: {
+              type: "boolean",
+              description: "Save as a global memory, not tied to any project",
+            },
           },
           required: ["content", "type"],
         },
@@ -121,10 +124,29 @@ export function createServer(core: CoreServices): Server {
               enum: [...MEMORY_TYPE_VALUES],
               description: "Filter by memory type",
             },
-            scope: { type: "string", description: "Filter by scope" },
             limit: { type: "number", description: "Maximum results to return (default 10)" },
           },
           required: ["query"],
+        },
+      },
+      {
+        name: "migrate",
+        description:
+          'List or run named data migrations. Use mode "list" to see available migrations; mode "run" with a migration name to execute one.',
+        inputSchema: {
+          type: "object",
+          properties: {
+            mode: {
+              type: "string",
+              enum: ["list", "run"],
+              description: 'Mode: "list" to see available migrations, "run" to execute one',
+            },
+            name: {
+              type: "string",
+              description: 'Migration name (required when mode is "run")',
+            },
+          },
+          required: ["mode"],
         },
       },
       {
@@ -187,10 +209,7 @@ export function createServer(core: CoreServices): Server {
       const tags = Array.isArray(args?.tags) ? (args.tags as string[]) : undefined;
 
       let projectHash: string | undefined;
-      if (typeof args?.scope === "string") {
-        projectHash = args.scope;
-        core.projects.upsertByHash(args.scope, `project-${args.scope.slice(0, 8)}`);
-      } else {
+      if (args?.global !== true) {
         const project = await resolveProject();
         core.projects.upsertByHash(project.hash, project.name);
         projectHash = project.hash;
@@ -287,11 +306,10 @@ export function createServer(core: CoreServices): Server {
       }
 
       const type = args?.type as MemoryType | undefined;
-      const projectHash = args?.scope as string | undefined;
       const limit = typeof args?.limit === "number" ? args.limit : 10;
 
       try {
-        const results = await core.query.query({ query: queryText, type, projectHash, limit });
+        const results = await core.query.query({ query: queryText, type, limit });
 
         const serialised = results.map((r) => ({
           id: r.id,
@@ -310,6 +328,76 @@ export function createServer(core: CoreServices): Server {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: message }], isError: true };
       }
+    }
+
+    if (request.params.name === "migrate") {
+      const args = request.params.arguments as Record<string, unknown> | undefined;
+      const mode = args?.mode;
+
+      if (mode !== "list" && mode !== "run") {
+        throw new McpError(ErrorCode.InvalidParams, 'mode must be "list" or "run"');
+      }
+
+      const migrations = [
+        {
+          name: "scope-to-projects",
+          description:
+            "Rename the auto-migrated project for the current directory from its generic hash-derived name to the resolved repo/directory name.",
+        },
+      ] as const;
+
+      if (mode === "list") {
+        return {
+          content: [{ type: "text", text: JSON.stringify(migrations) }],
+        };
+      }
+
+      const migrationName = args?.name;
+      if (typeof migrationName !== "string" || migrationName.trim() === "") {
+        throw new McpError(ErrorCode.InvalidParams, "name is required for run mode");
+      }
+
+      if (migrationName === "scope-to-projects") {
+        try {
+          const resolved = await resolveProject();
+          const project = core.projects.getByHash(resolved.hash);
+          if (project === undefined) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({ error: "No project found for current directory." }),
+                },
+              ],
+              isError: true,
+            };
+          }
+          const oldName = project.name;
+          const memoryCount = core.projects.countMemories(project.id);
+          core.projects.rename(project.id, resolved.name);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  migration: "scope-to-projects",
+                  oldName,
+                  newName: resolved.name,
+                  memoryCount,
+                }),
+              },
+            ],
+          };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          return { content: [{ type: "text", text: message }], isError: true };
+        }
+      }
+
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        `Unknown migration: "${migrationName}". Available: scope-to-projects`
+      );
     }
 
     if (request.params.name === "pin_memory" || request.params.name === "unpin_memory") {

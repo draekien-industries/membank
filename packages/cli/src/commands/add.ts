@@ -4,6 +4,7 @@ import {
   EmbeddingService as EmbeddingServiceImpl,
   MemoryRepository,
   ProjectRepository,
+  resolveProject,
 } from "@membank/core";
 import ora from "ora";
 import type { Formatter } from "../formatter.js";
@@ -11,7 +12,7 @@ import type { Formatter } from "../formatter.js";
 interface AddCommandOptions {
   type: string;
   tags?: string;
-  scope?: string;
+  global?: boolean;
 }
 
 export async function addCommand(
@@ -25,16 +26,24 @@ export async function addCommand(
   const resolvedDb = db ?? DatabaseManager.open();
   try {
     const embedding = embeddingService ?? new EmbeddingServiceImpl();
-    const repo = new MemoryRepository(resolvedDb, embedding, new ProjectRepository(resolvedDb));
+    const projects = new ProjectRepository(resolvedDb);
+    const repo = new MemoryRepository(resolvedDb, embedding, projects);
 
     const tags = options.tags !== undefined ? options.tags.split(",").map((t) => t.trim()) : [];
+
+    let projectHash: string | undefined;
+    if (!options.global) {
+      const project = await resolveProject();
+      projects.upsertByHash(project.hash, project.name);
+      projectHash = project.hash;
+    }
 
     const spinner = formatter.isJson ? null : ora("Saving memory…").start();
     const memory = await repo.save({
       content,
       type: options.type as MemoryType,
       tags,
-      projectHash: options.scope,
+      projectHash,
     });
     spinner?.succeed("Memory saved");
 

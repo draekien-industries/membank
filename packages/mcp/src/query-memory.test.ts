@@ -129,7 +129,7 @@ describe("query_memory tool", () => {
     }
   });
 
-  it("scope filter restricts results to that scope only", async () => {
+  it("returns memories from all projects when querying", async () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
@@ -141,12 +141,11 @@ describe("query_memory tool", () => {
     await session.core.repo.save({
       content: "global linting preference is Biome",
       type: "fact",
-      projectHash: "global",
     });
 
     const result = await session.client.callTool({
       name: "query_memory",
-      arguments: { query: "linting tool configuration", scope: "project-abc" },
+      arguments: { query: "linting tool configuration" },
     });
 
     if ("toolResult" in result) throw new Error("unreachable");
@@ -155,9 +154,7 @@ describe("query_memory tool", () => {
       content: string;
     }>;
 
-    // the scope filter should return only the memory associated with project-abc
-    expect(parsed.length).toBe(1);
-    expect(parsed[0]?.content).toBe("project uses ESLint for linting");
+    expect(parsed.length).toBe(2);
   });
 
   it("limit caps the number of results returned", async () => {
