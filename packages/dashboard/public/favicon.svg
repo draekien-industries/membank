@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Dark bg, slight violet tint -->
+  <rect width="32" height="32" rx="7" fill="#100f17"/>
+  <!-- Triangle edges -->
+  <line x1="16" y1="7" x2="8" y2="21" stroke="#7c6fd6" stroke-width="2" stroke-linecap="round"/>
+  <line x1="16" y1="7" x2="24" y2="21" stroke="#7c6fd6" stroke-width="2" stroke-linecap="round"/>
+  <line x1="8" y1="21" x2="24" y2="21" stroke="#7c6fd6" stroke-width="2" stroke-linecap="round"/>
+  <!-- Nodes -->
+  <circle cx="16" cy="7" r="3" fill="#c4b5fd"/>
+  <circle cx="8" cy="21" r="3" fill="#c4b5fd"/>
+  <circle cx="24" cy="21" r="3" fill="#c4b5fd"/>
+</svg>
