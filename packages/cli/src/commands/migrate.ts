@@ -1,46 +1,10 @@
-import { DatabaseManager, ProjectRepository, resolveProject } from "@membank/core";
+import {
+  DatabaseManager,
+  MIGRATIONS,
+  ProjectRepository,
+  runScopeToProjectsMigration,
+} from "@membank/core";
 import type { Formatter } from "../formatter.js";
-
-interface Migration {
-  name: string;
-  description: string;
-  run(db: DatabaseManager, formatter: Formatter): Promise<void>;
-}
-
-const MIGRATIONS: Migration[] = [
-  {
-    name: "scope-to-projects",
-    description:
-      "Rename the auto-migrated project for the current directory from its generic hash-derived name to the resolved repo/directory name.",
-    async run(db, formatter) {
-      const resolved = await resolveProject();
-      const projects = new ProjectRepository(db);
-      const project = projects.getByHash(resolved.hash);
-
-      if (project === undefined) {
-        formatter.error("No project found for current directory.");
-        return;
-      }
-
-      const oldName = project.name;
-      const count = projects.countMemories(project.id);
-      projects.rename(project.id, resolved.name);
-
-      if (formatter.isJson) {
-        process.stdout.write(
-          `${JSON.stringify({ migration: "scope-to-projects", oldName, newName: resolved.name, memoryCount: count })}\n`
-        );
-      } else {
-        process.stdout.write(
-          `Found project: ${oldName} (${count} ${count === 1 ? "memory" : "memories"})\n`
-        );
-        process.stdout.write(`Resolved name: ${resolved.name}\n`);
-        process.stdout.write(`Renamed → ${resolved.name}\n`);
-        process.stdout.write("Done.\n");
-      }
-    },
-  },
-];
 
 export async function migrateCommand(
   mode: "list" | "run",
@@ -65,8 +29,7 @@ export async function migrateCommand(
     process.exit(1);
   }
 
-  const migration = MIGRATIONS.find((m) => m.name === name);
-  if (migration === undefined) {
+  if (!MIGRATIONS.some((m) => m.name === name)) {
     formatter.error(
       `Unknown migration: "${name}". Available: ${MIGRATIONS.map((m) => m.name).join(", ")}`
     );
@@ -75,7 +38,24 @@ export async function migrateCommand(
 
   const db = DatabaseManager.open();
   try {
-    await migration.run(db, formatter);
+    if (name === "scope-to-projects") {
+      const result = await runScopeToProjectsMigration(new ProjectRepository(db));
+      if (result === null) {
+        formatter.error("No project found for current directory.");
+        return;
+      }
+      if (formatter.isJson) {
+        process.stdout.write(`${JSON.stringify(result)}\n`);
+      } else {
+        const { oldName, newName, memoryCount } = result;
+        process.stdout.write(
+          `Found project: ${oldName} (${memoryCount} ${memoryCount === 1 ? "memory" : "memories"})\n`
+        );
+        process.stdout.write(`Resolved name: ${newName}\n`);
+        process.stdout.write(`Renamed → ${newName}\n`);
+        process.stdout.write("Done.\n");
+      }
+    }
   } finally {
     db.close();
   }

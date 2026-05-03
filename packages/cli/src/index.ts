@@ -129,7 +129,7 @@ program
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
     const formatter = Formatter.create(globalOpts.json === true);
     try {
-      pinCommand(id, formatter);
+      pinCommand(id);
     } catch (err) {
       formatter.error(err instanceof Error ? err.message : String(err));
       process.exit(2);
@@ -143,7 +143,7 @@ program
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
     const formatter = Formatter.create(globalOpts.json === true);
     try {
-      unpinCommand(id, formatter);
+      unpinCommand(id);
     } catch (err) {
       formatter.error(err instanceof Error ? err.message : String(err));
       process.exit(2);

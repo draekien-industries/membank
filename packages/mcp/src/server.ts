@@ -5,9 +5,11 @@ import {
   listMemoryTypes,
   MEMORY_TYPE_VALUES,
   MemoryRepository,
+  MIGRATIONS,
   ProjectRepository,
   QueryEngine,
   resolveProject,
+  runScopeToProjectsMigration,
 } from "@membank/core";
 import { Server } from "@modelcontextprotocol/sdk/server";
 import {
@@ -333,17 +335,9 @@ export function createServer(core: CoreServices): Server {
         throw new McpError(ErrorCode.InvalidParams, 'mode must be "list" or "run"');
       }
 
-      const migrations = [
-        {
-          name: "scope-to-projects",
-          description:
-            "Rename the auto-migrated project for the current directory from its generic hash-derived name to the resolved repo/directory name.",
-        },
-      ] as const;
-
       if (mode === "list") {
         return {
-          content: [{ type: "text", text: JSON.stringify(migrations) }],
+          content: [{ type: "text", text: JSON.stringify(MIGRATIONS) }],
         };
       }
 
@@ -354,9 +348,8 @@ export function createServer(core: CoreServices): Server {
 
       if (migrationName === "scope-to-projects") {
         try {
-          const resolved = await resolveProject();
-          const project = core.projects.getByHash(resolved.hash);
-          if (project === undefined) {
+          const result = await runScopeToProjectsMigration(core.projects);
+          if (result === null) {
             return {
               content: [
                 {
@@ -367,21 +360,8 @@ export function createServer(core: CoreServices): Server {
               isError: true,
             };
           }
-          const oldName = project.name;
-          const memoryCount = core.projects.countMemories(project.id);
-          core.projects.rename(project.id, resolved.name);
           return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  migration: "scope-to-projects",
-                  oldName,
-                  newName: resolved.name,
-                  memoryCount,
-                }),
-              },
-            ],
+            content: [{ type: "text", text: JSON.stringify(result) }],
           };
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
@@ -391,7 +371,7 @@ export function createServer(core: CoreServices): Server {
 
       throw new McpError(
         ErrorCode.InvalidParams,
-        `Unknown migration: "${migrationName}". Available: scope-to-projects`
+        `Unknown migration: "${migrationName}". Available: ${MIGRATIONS.map((m) => m.name).join(", ")}`
       );
     }
 
