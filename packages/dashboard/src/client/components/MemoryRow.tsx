@@ -1,4 +1,5 @@
 import { PushPin, Trash, Warning } from "@phosphor-icons/react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Memory, MemoryType } from "@/lib/types";
@@ -12,24 +13,18 @@ interface MemoryRowProps {
   onDelete: () => void;
 }
 
-const TYPE_ABBREV: Record<MemoryType, string> = {
-  correction: "COR",
-  preference: "PRF",
-  decision: "DEC",
-  learning: "LRN",
-  fact: "FCT",
-};
-
 export function MemoryRow({ memory, selected, onSelect, onPin, onDelete }: MemoryRowProps) {
   const preview = memory.content.length > 140 ? `${memory.content.slice(0, 140)}…` : memory.content;
+  const [confirming, setConfirming] = useState(false);
 
   return (
-    <div
+    <li
       className={cn(
         "group relative flex flex-col gap-1.5 border-b border-border px-4 py-3 transition-colors",
         "hover:bg-accent/40",
         selected && "bg-accent/60"
       )}
+      onMouseLeave={() => setConfirming(false)}
     >
       <div className="flex items-start gap-2">
         <Button
@@ -38,7 +33,8 @@ export function MemoryRow({ memory, selected, onSelect, onPin, onDelete }: Memor
           className="h-auto flex-1 min-w-0 items-start justify-start whitespace-normal p-0 font-normal hover:bg-transparent"
         >
           <Badge variant={memory.type as MemoryType} className="mt-px shrink-0">
-            {TYPE_ABBREV[memory.type]}
+            {memory.type[0]?.toUpperCase()}
+            {memory.type.slice(1)}
           </Badge>
           <p className="flex-1 text-xs leading-relaxed text-foreground line-clamp-2 min-w-0 text-left">
             {preview}
@@ -62,14 +58,15 @@ export function MemoryRow({ memory, selected, onSelect, onPin, onDelete }: Memor
           <Button
             variant="ghost"
             size="icon-sm"
-            onClick={onDelete}
-            aria-label="Delete"
+            onClick={confirming ? onDelete : () => setConfirming(true)}
+            onBlur={() => setConfirming(false)}
+            aria-label={confirming ? "Confirm delete" : "Delete"}
             className={cn(
-              "hover:text-destructive",
+              confirming ? "text-destructive bg-destructive/10" : "hover:text-destructive",
               memory.pinned && "opacity-0 group-hover:opacity-100 transition-opacity"
             )}
           >
-            <Trash weight="regular" />
+            <Trash weight={confirming ? "fill" : "regular"} />
           </Button>
         </div>
       </div>
@@ -88,17 +85,17 @@ export function MemoryRow({ memory, selected, onSelect, onPin, onDelete }: Memor
             <Warning weight="fill" className="size-3 text-[var(--type-correction)]" />
           )}
           {memory.projects.length > 0 ? (
-            <span className="text-[10px] text-muted-foreground truncate max-w-32">
+            <span className="text-[11px] text-muted-foreground truncate max-w-32">
               {memory.projects.map((p) => p.name).join(", ")}
             </span>
           ) : (
-            <span className="text-[10px] text-muted-foreground">global</span>
+            <span className="text-[11px] text-muted-foreground">global</span>
           )}
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-[11px] text-muted-foreground">
             {new Date(memory.updatedAt).toLocaleDateString()}
           </span>
         </div>
       </div>
-    </div>
+    </li>
   );
 }

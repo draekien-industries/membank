@@ -1,6 +1,6 @@
 import { X } from "@phosphor-icons/react";
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useNavigate } from "@tanstack/react-router";
+import { useBlocker, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
   const [tagsInput, setTagsInput] = useState("");
   const [initialized, setInitialized] = useState(false);
   const [addProjectId, setAddProjectId] = useState("");
+  const [saved, setSaved] = useState(false);
 
   const { data: allProjects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
 
@@ -47,6 +48,8 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
     memory !== null &&
     (content !== memory.content || type !== memory.type || tagsInput !== memory.tags.join(", "));
 
+  const blocker = useBlocker({ shouldBlockFn: () => dirty, withResolver: true });
+
   const handleSave = () => {
     if (!memory || !dirty) return;
     const tags = tagsInput
@@ -58,6 +61,8 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
       if (type !== memory.type) draft.type = type;
       if (JSON.stringify(tags) !== JSON.stringify(memory.tags)) draft.tags = tags;
     });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
   };
 
   const handleApprove = () => {
@@ -114,7 +119,7 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
         <div className="space-y-1.5">
           <label
             htmlFor="memory-content"
-            className="text-[10px] uppercase tracking-wide text-muted-foreground"
+            className="text-[11px] uppercase tracking-wide text-muted-foreground"
           >
             Content
           </label>
@@ -123,7 +128,7 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={8}
-            className="min-h-32"
+            className="min-h-32 font-[var(--font-heading)] text-sm"
           />
         </div>
 
@@ -131,7 +136,7 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
           <div className="space-y-1.5">
             <label
               htmlFor="memory-type"
-              className="text-[10px] uppercase tracking-wide text-muted-foreground"
+              className="text-[11px] uppercase tracking-wide text-muted-foreground"
             >
               Type
             </label>
@@ -153,7 +158,7 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
           <div className="space-y-1.5">
             <label
               htmlFor="memory-tags"
-              className="text-[10px] uppercase tracking-wide text-muted-foreground"
+              className="text-[11px] uppercase tracking-wide text-muted-foreground"
             >
               Tags
             </label>
@@ -168,15 +173,15 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
 
         {/* Projects section */}
         <div className="space-y-1.5">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Projects</p>
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Projects</p>
           <div className="flex flex-wrap gap-1">
             {memory.projects.length === 0 && (
-              <span className="text-[10px] text-muted-foreground">Global (no project)</span>
+              <span className="text-[11px] text-muted-foreground">Global (no project)</span>
             )}
             {memory.projects.map((p) => (
               <span
                 key={p.id}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent text-[10px] text-accent-foreground"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent text-[11px] text-accent-foreground"
               >
                 {p.name}
                 <button
@@ -185,7 +190,7 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
                   className="hover:text-destructive transition-colors leading-none"
                   aria-label={`Remove from ${p.name}`}
                 >
-                  ×
+                  <X weight="regular" className="size-2.5" />
                 </button>
               </span>
             ))}
@@ -195,7 +200,7 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
               <Select
                 value={addProjectId}
                 onChange={(e) => setAddProjectId(e.target.value)}
-                className="flex-1 text-[10px]"
+                className="flex-1 text-[11px]"
               >
                 <option value="">Add to project…</option>
                 {availableProjects.map((p) => (
@@ -219,20 +224,20 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
         {/* Metadata */}
         <div className="space-y-1 pt-2 border-t border-border">
           {memory.sourceHarness && (
-            <div className="flex justify-between text-[10px] text-muted-foreground">
+            <div className="flex justify-between text-[11px] text-muted-foreground">
               <span>Source</span>
               <span>{memory.sourceHarness}</span>
             </div>
           )}
-          <div className="flex justify-between text-[10px] text-muted-foreground">
+          <div className="flex justify-between text-[11px] text-muted-foreground">
             <span>Accessed</span>
             <span>{memory.accessCount}×</span>
           </div>
-          <div className="flex justify-between text-[10px] text-muted-foreground">
+          <div className="flex justify-between text-[11px] text-muted-foreground">
             <span>Updated</span>
             <span>{new Date(memory.updatedAt).toLocaleString()}</span>
           </div>
-          <div className="flex justify-between text-[10px] text-muted-foreground">
+          <div className="flex justify-between text-[11px] text-muted-foreground">
             <span>Created</span>
             <span>{new Date(memory.createdAt).toLocaleString()}</span>
           </div>
@@ -241,14 +246,30 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
 
       {/* Actions */}
       <div className="flex items-center gap-2 px-4 py-3 border-t border-border shrink-0">
-        {memory.needsReview && (
-          <Button variant="outline" size="sm" onClick={handleApprove}>
-            Approve
+        {blocker.status === "blocked" && (
+          <>
+            <span className="text-xs text-destructive">Unsaved changes</span>
+            <Button variant="ghost" size="sm" onClick={() => blocker.proceed()}>
+              Discard
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => blocker.reset()}>
+              Keep editing
+            </Button>
+          </>
+        )}
+        {memory.needsReview && blocker.status !== "blocked" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleApprove}
+            title="Mark as reviewed — this memory was flagged as a possible duplicate or conflict"
+          >
+            Mark reviewed
           </Button>
         )}
         <div className="flex-1" />
         <Button variant="default" size="sm" onClick={handleSave} disabled={!dirty}>
-          Save
+          {saved ? "Saved" : "Save"}
         </Button>
       </div>
     </div>

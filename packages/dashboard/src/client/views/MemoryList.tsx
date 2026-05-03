@@ -1,7 +1,7 @@
 import { MagnifyingGlass, PushPin, Warning } from "@phosphor-icons/react";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useNavigate } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MemoryRow } from "@/components/MemoryRow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,21 @@ export function MemoryList({ selectedId }: MemoryListProps) {
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState(search.search);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "/") return;
+      const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      e.preventDefault();
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const { data: allMemories = [], isLoading } = useLiveQuery(
     (q) => q.from({ m: memoriesCollection }).orderBy(({ m }) => m.createdAt, "desc"),
@@ -139,90 +153,94 @@ export function MemoryList({ selectedId }: MemoryListProps) {
     <div className="flex flex-col h-full">
       {/* Filter bar */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border shrink-0">
-        <div className="relative flex-1 max-w-48">
+        <div className="relative flex-1">
           <MagnifyingGlass
             weight="regular"
             className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none"
           />
           <Input
+            ref={inputRef}
             placeholder="Search…"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-6"
+            title="Press / to focus"
           />
         </div>
-        <Select
-          value={search.type ?? ""}
-          onChange={(e) =>
-            void navigate({
-              to: "/memories",
-              search: (prev) => ({
-                ...prev,
-                type: e.target.value ? (e.target.value as MemoryType) : undefined,
-              }),
-            })
-          }
-          className="w-24"
-        >
-          <option value="">All types</option>
-          {TYPES.map((t) => (
-            <option key={t} value={t}>
-              {t[0]?.toUpperCase()}
-              {t.slice(1)}
-            </option>
-          ))}
-        </Select>
-        <Select
-          value={search.projectId ?? ""}
-          onChange={(e) =>
-            void navigate({
-              to: "/memories",
-              search: (prev) => ({
-                ...prev,
-                projectId: e.target.value || undefined,
-              }),
-            })
-          }
-          className="w-28"
-        >
-          <option value="">All projects</option>
-          <option value="global">Global</option>
-          {[...allProjects]
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Select
+            value={search.type ?? ""}
+            onChange={(e) =>
+              void navigate({
+                to: "/memories",
+                search: (prev) => ({
+                  ...prev,
+                  type: e.target.value ? (e.target.value as MemoryType) : undefined,
+                }),
+              })
+            }
+            className="w-24"
+          >
+            <option value="">All types</option>
+            {TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t[0]?.toUpperCase()}
+                {t.slice(1)}
               </option>
             ))}
-        </Select>
-        <Button
-          variant={search.pinned ? "default" : "ghost"}
-          size="icon-sm"
-          onClick={() =>
-            void navigate({
-              to: "/memories",
-              search: (prev) => ({ ...prev, pinned: !prev.pinned }),
-            })
-          }
-          aria-label="Pinned only"
-          aria-pressed={search.pinned}
-        >
-          <PushPin weight={search.pinned ? "fill" : "regular"} />
-        </Button>
-        <Button
-          variant={search.needsReview ? "destructive" : "ghost"}
-          size="icon-sm"
-          onClick={() =>
-            void navigate({
-              to: "/memories",
-              search: (prev) => ({ ...prev, needsReview: !prev.needsReview }),
-            })
-          }
-          aria-label="Needs review only"
-          aria-pressed={search.needsReview}
-        >
-          <Warning weight={search.needsReview ? "fill" : "regular"} />
-        </Button>
+          </Select>
+          <Select
+            value={search.projectId ?? ""}
+            onChange={(e) =>
+              void navigate({
+                to: "/memories",
+                search: (prev) => ({
+                  ...prev,
+                  projectId: e.target.value || undefined,
+                }),
+              })
+            }
+            className="w-28"
+          >
+            <option value="">All projects</option>
+            <option value="global">Global</option>
+            {[...allProjects]
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+          </Select>
+          <Button
+            variant={search.pinned ? "default" : "ghost"}
+            size="icon-sm"
+            onClick={() =>
+              void navigate({
+                to: "/memories",
+                search: (prev) => ({ ...prev, pinned: !prev.pinned }),
+              })
+            }
+            aria-label="Pinned only"
+            aria-pressed={search.pinned}
+          >
+            <PushPin weight={search.pinned ? "fill" : "regular"} />
+          </Button>
+          <Button
+            variant={search.needsReview ? "destructive" : "ghost"}
+            size="icon-sm"
+            onClick={() =>
+              void navigate({
+                to: "/memories",
+                search: (prev) => ({ ...prev, needsReview: !prev.needsReview }),
+              })
+            }
+            aria-label="Needs review only"
+            aria-pressed={search.needsReview}
+          >
+            <Warning weight={search.needsReview ? "fill" : "regular"} />
+          </Button>
+        </div>
       </div>
 
       {/* Memory rows grouped */}
@@ -233,8 +251,18 @@ export function MemoryList({ selectedId }: MemoryListProps) {
           </div>
         )}
         {!isLoading && groups.length === 0 && (
-          <div className="flex items-center justify-center h-24 text-xs text-muted-foreground">
-            No memories found
+          <div className="flex flex-col items-center justify-center h-32 gap-2 px-6 text-center">
+            {allMemories.length === 0 ? (
+              <>
+                <p className="text-xs text-muted-foreground">No memories yet</p>
+                <p className="text-[10px] text-muted-foreground max-w-48">
+                  Memories are saved automatically by AI coding tools. Run{" "}
+                  <code className="font-mono">membank setup</code> to connect your tools.
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">No memories match the current filters</p>
+            )}
           </div>
         )}
         {groups.map((group) => {
@@ -247,7 +275,7 @@ export function MemoryList({ selectedId }: MemoryListProps) {
                 className={cn(
                   "sticky top-0 z-10 w-full flex items-center justify-between px-4 py-1.5",
                   "bg-background/95 backdrop-blur border-b border-border",
-                  "text-[10px] uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+                  "text-[11px] uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
                 )}
               >
                 <span>{group.label}</span>
@@ -274,7 +302,7 @@ export function MemoryList({ selectedId }: MemoryListProps) {
         <div
           className={cn(
             "px-4 py-2 border-t border-border shrink-0",
-            "text-[10px] text-muted-foreground"
+            "text-[11px] text-muted-foreground"
           )}
         >
           {totalCount} {totalCount === 1 ? "memory" : "memories"}
