@@ -1,5 +1,19 @@
 # @membank/cli
 
+## 0.6.0
+
+### Minor Changes
+
+- 19327d6: Added Projects as first-class entities: memories are now associated with named projects (derived from git remote or working directory) instead of raw SHA-256 hashes, and a memory can belong to multiple projects simultaneously or remain global (no associations).
+
+### Patch Changes
+
+- Updated dependencies [8ad1190]
+- Updated dependencies [19327d6]
+  - @membank/dashboard@0.3.0
+  - @membank/core@0.6.0
+  - @membank/mcp@0.7.0
+
 ## 0.5.1
 
 ### Patch Changes
