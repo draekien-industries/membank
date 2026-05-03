@@ -1,7 +1,7 @@
 import { X } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useBlocker } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as z from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,21 +22,50 @@ const memoryFormSchema = z.object({
   tagsInput: z.string(),
 });
 
+interface FormFieldProps {
+  field: {
+    name: string;
+    state: {
+      meta: {
+        isTouched: boolean;
+        isValid: boolean;
+        errors: Array<{ message?: string } | undefined>;
+      };
+    };
+  };
+  label: string;
+  description?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+function FormField({ field, label, description, children }: FormFieldProps) {
+  const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
+  return (
+    <Field data-invalid={isInvalid}>
+      <FieldLabel
+        htmlFor={field.name}
+        className="text-[11px] uppercase tracking-wide text-muted-foreground"
+      >
+        {label}
+      </FieldLabel>
+      {children}
+      {description}
+      {isInvalid && <FieldError errors={field.state.meta.errors} />}
+    </Field>
+  );
+}
+
 interface MemoryDetailFormProps {
   memory: Memory;
-  addProjectId: string;
-  setAddProjectId: (id: string) => void;
   availableProjects: Memory["projects"];
   handleApprove: () => void;
-  handleAddProject: () => Promise<void>;
+  handleAddProject: (projectId: string) => Promise<boolean>;
   handleRemoveProject: (projectId: string) => Promise<void>;
   handleClose: () => void;
 }
 
 function MemoryDetailForm({
   memory,
-  addProjectId,
-  setAddProjectId,
   availableProjects,
   handleApprove,
   handleAddProject,
@@ -44,6 +73,13 @@ function MemoryDetailForm({
   handleClose,
 }: MemoryDetailFormProps) {
   const [saved, setSaved] = useState(false);
+  const [addProjectId, setAddProjectId] = useState("");
+
+  useEffect(() => {
+    if (!saved) return;
+    const timer = setTimeout(() => setSaved(false), 1500);
+    return () => clearTimeout(timer);
+  }, [saved]);
 
   const form = useForm({
     defaultValues: {
@@ -65,15 +101,19 @@ function MemoryDetailForm({
         if (JSON.stringify(tags) !== JSON.stringify(memory.tags)) draft.tags = tags;
       });
       setSaved(true);
-      setTimeout(() => setSaved(false), 1500);
     },
   });
 
   const blocker = useBlocker({ shouldBlockFn: () => form.state.isDirty, withResolver: true });
 
+  const onAddProject = async () => {
+    if (!addProjectId) return;
+    const ok = await handleAddProject(addProjectId);
+    if (ok) setAddProjectId("");
+  };
+
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
           <Badge variant={memory.type}>{memory.type}</Badge>
@@ -92,100 +132,73 @@ function MemoryDetailForm({
         </Button>
       </div>
 
-      {/* Fields */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         <FieldGroup>
           <form.Field name="content">
-            {(field) => {
-              const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
-              return (
-                <Field data-invalid={isInvalid}>
-                  <FieldLabel
-                    htmlFor={field.name}
-                    className="text-[11px] uppercase tracking-wide text-muted-foreground"
+            {(field) => (
+              <FormField field={field} label="Content">
+                <Textarea
+                  id={field.name}
+                  name={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  rows={8}
+                  className="min-h-32 font-[var(--font-heading)] text-sm"
+                  aria-invalid={field.state.meta.isTouched && !field.state.meta.isValid}
+                />
+              </FormField>
+            )}
+          </form.Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <form.Field name="type">
+              {(field) => (
+                <FormField
+                  field={field}
+                  label="Type"
+                  description={
+                    <p className="text-[10px] text-muted-foreground leading-snug">
+                      {TYPE_DESCRIPTIONS[field.state.value]}
+                    </p>
+                  }
+                >
+                  <NativeSelect
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value as MemoryType)}
+                    className="w-full"
                   >
-                    Content
-                  </FieldLabel>
-                  <Textarea
+                    {MEMORY_TYPES.map((t) => (
+                      <NativeSelectOption key={t} value={t}>
+                        {capitalize(t)}
+                      </NativeSelectOption>
+                    ))}
+                  </NativeSelect>
+                </FormField>
+              )}
+            </form.Field>
+
+            <form.Field name="tagsInput">
+              {(field) => (
+                <FormField field={field} label="Tags">
+                  <Input
                     id={field.name}
                     name={field.name}
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(e) => field.handleChange(e.target.value)}
-                    rows={8}
-                    className="min-h-32 font-[var(--font-heading)] text-sm"
-                    aria-invalid={isInvalid}
+                    placeholder="tag1, tag2"
+                    aria-invalid={field.state.meta.isTouched && !field.state.meta.isValid}
                   />
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
-                </Field>
-              );
-            }}
-          </form.Field>
-
-          <div className="grid grid-cols-2 gap-3">
-            <form.Field name="type">
-              {(field) => {
-                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel
-                      htmlFor={field.name}
-                      className="text-[11px] uppercase tracking-wide text-muted-foreground"
-                    >
-                      Type
-                    </FieldLabel>
-                    <NativeSelect
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value as MemoryType)}
-                      className="w-full"
-                    >
-                      {MEMORY_TYPES.map((t) => (
-                        <NativeSelectOption key={t} value={t}>
-                          {capitalize(t)}
-                        </NativeSelectOption>
-                      ))}
-                    </NativeSelect>
-                    <p className="text-[10px] text-muted-foreground leading-snug">
-                      {TYPE_DESCRIPTIONS[field.state.value]}
-                    </p>
-                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
-                  </Field>
-                );
-              }}
-            </form.Field>
-
-            <form.Field name="tagsInput">
-              {(field) => {
-                const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldLabel
-                      htmlFor={field.name}
-                      className="text-[11px] uppercase tracking-wide text-muted-foreground"
-                    >
-                      Tags
-                    </FieldLabel>
-                    <Input
-                      id={field.name}
-                      name={field.name}
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) => field.handleChange(e.target.value)}
-                      placeholder="tag1, tag2"
-                      aria-invalid={isInvalid}
-                    />
-                    {isInvalid && <FieldError errors={field.state.meta.errors} />}
-                  </Field>
-                );
-              }}
+                </FormField>
+              )}
             </form.Field>
           </div>
         </FieldGroup>
 
-        {/* Projects section */}
         <div className="space-y-1.5">
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Projects</p>
           <div className="flex flex-wrap gap-1">
@@ -225,7 +238,7 @@ function MemoryDetailForm({
                 variant="outline"
                 size="sm"
                 disabled={!addProjectId}
-                onClick={() => void handleAddProject()}
+                onClick={() => void onAddProject()}
               >
                 +
               </Button>
@@ -233,7 +246,6 @@ function MemoryDetailForm({
           )}
         </div>
 
-        {/* Metadata */}
         <Collapsible className="group pt-2 border-t border-border">
           <CollapsibleTrigger className="flex items-center gap-1 cursor-pointer text-[11px] uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors select-none w-full">
             <span className="transition-transform group-data-[open]:rotate-90">›</span>
@@ -262,7 +274,6 @@ function MemoryDetailForm({
         </Collapsible>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-2 px-4 py-3 border-t border-border shrink-0">
         {blocker.status === "blocked" && (
           <>
@@ -307,8 +318,6 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
   const {
     memory,
     isLoading,
-    addProjectId,
-    setAddProjectId,
     availableProjects,
     handleApprove,
     handleAddProject,
@@ -328,8 +337,6 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
     <MemoryDetailForm
       key={memory.id}
       memory={memory}
-      addProjectId={addProjectId}
-      setAddProjectId={setAddProjectId}
       availableProjects={availableProjects}
       handleApprove={handleApprove}
       handleAddProject={handleAddProject}

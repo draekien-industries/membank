@@ -1,6 +1,5 @@
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
 import { toast } from "sonner";
 import { addMemoryProject, removeMemoryProject } from "@/lib/api";
 import { memoriesCollection, projectsCollection, queryClient } from "@/lib/collections";
@@ -16,22 +15,20 @@ export function useMemoryDetail(id: string) {
 
   const { data: allProjects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
 
-  const [addProjectId, setAddProjectId] = useState("");
-
   const handleApprove = () => {
     memoriesCollection.update(id, (draft) => {
       draft.needsReview = false;
     });
   };
 
-  const handleAddProject = async () => {
-    if (!addProjectId) return;
+  const handleAddProject = async (projectId: string): Promise<boolean> => {
     try {
-      await addMemoryProject(id, addProjectId);
+      await addMemoryProject(id, projectId);
       await queryClient.invalidateQueries({ queryKey: ["memories"] });
-      setAddProjectId("");
+      return true;
     } catch {
       toast.error("Failed to add project — try again");
+      return false;
     }
   };
 
@@ -53,8 +50,6 @@ export function useMemoryDetail(id: string) {
   return {
     memory,
     isLoading,
-    addProjectId,
-    setAddProjectId,
     availableProjects,
     handleApprove,
     handleAddProject,

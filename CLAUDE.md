@@ -103,6 +103,10 @@ Write the description in past tense, one sentence: what changed and why it matte
 
 Changelog and release notes are generated automatically by changesets from the changeset descriptions — do not write them manually.
 
+## Implementation checklist
+
+After completing any implementation task, run `/simplify` to review the changes for reuse, quality, and efficiency before considering the work done.
+
 ## Subagent worktree cleanup
 
 After any wave of subagents using `isolation: "worktree"`, clean up leftover worktrees:
@@ -113,5 +117,7 @@ git worktree remove -f -f <path>         # unregister (use -f -f to override loc
 git worktree prune                       # remove stale refs
 rm -rf <path>                            # delete directory if still present
 ```
+
+**Before removing a worktree**, ensure all changes are committed on its branch — uncommitted work is lost when the worktree is deleted. Verify with `git -C <path> status` and commit if needed before cleanup.
 
 Worktrees that made no changes are auto-cleaned by the framework. Ones that made changes (or were locked) need manual removal after their branches are merged.
