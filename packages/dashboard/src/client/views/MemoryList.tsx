@@ -36,22 +36,24 @@ export function MemoryList({ selectedId }: MemoryListProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Filter bar */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border shrink-0">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-1.5 px-4 pt-3 pb-2 border-b border-border shrink-0">
+        {/* Search — primary row */}
+        <div className="relative">
           <MagnifyingGlass
             weight="regular"
-            className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none"
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none"
           />
           <Input
             ref={inputRef}
             placeholder="Search…"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-6"
+            className="pl-7"
             title="Press / to focus"
           />
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* Filters — secondary row */}
+        <div className="flex items-center gap-1.5">
           <Select
             value={search.type ?? ""}
             onChange={(e) =>
@@ -63,7 +65,7 @@ export function MemoryList({ selectedId }: MemoryListProps) {
                 }),
               })
             }
-            className="w-24"
+            className="h-6 text-[11px] w-24"
           >
             <option value="">All types</option>
             {TYPES.map((t) => (
@@ -84,7 +86,7 @@ export function MemoryList({ selectedId }: MemoryListProps) {
                 }),
               })
             }
-            className="w-28"
+            className="h-6 text-[11px] w-28"
           >
             <option value="">All projects</option>
             <option value="global">Global</option>
@@ -96,34 +98,36 @@ export function MemoryList({ selectedId }: MemoryListProps) {
                 </option>
               ))}
           </Select>
-          <Button
-            variant={search.pinned ? "default" : "ghost"}
-            size="icon-sm"
-            onClick={() =>
-              void navigate({
-                to: "/memories",
-                search: (prev) => ({ ...prev, pinned: !prev.pinned }),
-              })
-            }
-            aria-label="Pinned only"
-            aria-pressed={search.pinned}
-          >
-            <PushPin weight={search.pinned ? "fill" : "regular"} />
-          </Button>
-          <Button
-            variant={search.needsReview ? "destructive" : "ghost"}
-            size="icon-sm"
-            onClick={() =>
-              void navigate({
-                to: "/memories",
-                search: (prev) => ({ ...prev, needsReview: !prev.needsReview }),
-              })
-            }
-            aria-label="Needs review only"
-            aria-pressed={search.needsReview}
-          >
-            <Warning weight={search.needsReview ? "fill" : "regular"} />
-          </Button>
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              variant={search.pinned ? "default" : "ghost"}
+              size="icon-sm"
+              onClick={() =>
+                void navigate({
+                  to: "/memories",
+                  search: (prev) => ({ ...prev, pinned: !prev.pinned }),
+                })
+              }
+              aria-label="Pinned only"
+              aria-pressed={search.pinned}
+            >
+              <PushPin weight={search.pinned ? "fill" : "regular"} />
+            </Button>
+            <Button
+              variant={search.needsReview ? "destructive" : "ghost"}
+              size="icon-sm"
+              onClick={() =>
+                void navigate({
+                  to: "/memories",
+                  search: (prev) => ({ ...prev, needsReview: !prev.needsReview }),
+                })
+              }
+              aria-label="Needs review only"
+              aria-pressed={search.needsReview}
+            >
+              <Warning weight={search.needsReview ? "fill" : "regular"} />
+            </Button>
+          </div>
         </div>
       </div>
 
