@@ -1,5 +1,13 @@
 export type MemoryType = "correction" | "preference" | "decision" | "learning" | "fact";
 
+export const TYPE_DESCRIPTIONS = {
+  correction: "Overrides or corrects the AI's default behavior",
+  preference: "Your preferred way of working or coding style",
+  decision: "A deliberate choice about how to approach something",
+  learning: "Something the AI learned about your codebase or context",
+  fact: "A fixed fact about your project or environment",
+} satisfies Record<MemoryType, string>;
+
 export interface Project {
   id: string;
   name: string;

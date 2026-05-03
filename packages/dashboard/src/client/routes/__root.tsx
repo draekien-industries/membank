@@ -1,6 +1,7 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { StatsBar } from "@/components/StatsBar";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Toaster } from "@/components/ui/sonner";
 import { useStats } from "@/hooks/useStats";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -24,6 +25,7 @@ function RootLayout() {
       <div className="flex flex-1 min-h-0">
         <Outlet />
       </div>
+      <Toaster position="bottom-right" />
     </div>
   );
 }

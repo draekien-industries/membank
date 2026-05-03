@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/query-core";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import { createCollection } from "@tanstack/react-db";
+import { toast } from "sonner";
 import { deleteMemory, listProjects, patchMemory, renameProject } from "./api.js";
 import type { Memory, MemoryType, Project } from "./types.js";
 
@@ -17,21 +18,29 @@ export const memoriesCollection = createCollection(
     queryClient,
     getKey: (m) => m.id,
     onUpdate: async ({ transaction }) => {
-      await Promise.all(
-        transaction.mutations.map((mut) => {
-          const c = mut.changes as Partial<Memory>;
-          return patchMemory(mut.original.id, {
-            content: c.content,
-            tags: c.tags,
-            type: c.type as MemoryType | undefined,
-            pinned: c.pinned,
-            needsReview: c.needsReview,
-          });
-        })
-      );
+      try {
+        await Promise.all(
+          transaction.mutations.map((mut) => {
+            const c = mut.changes as Partial<Memory>;
+            return patchMemory(mut.original.id, {
+              content: c.content,
+              tags: c.tags,
+              type: c.type as MemoryType | undefined,
+              pinned: c.pinned,
+              needsReview: c.needsReview,
+            });
+          })
+        );
+      } catch {
+        toast.error("Failed to save — changes may not have been stored");
+      }
     },
     onDelete: async ({ transaction }) => {
-      await Promise.all(transaction.mutations.map((mut) => deleteMemory(mut.original.id)));
+      try {
+        await Promise.all(transaction.mutations.map((mut) => deleteMemory(mut.original.id)));
+      } catch {
+        toast.error("Failed to delete — try again");
+      }
     },
   })
 );

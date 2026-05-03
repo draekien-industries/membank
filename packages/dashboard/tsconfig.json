@@ -1,6 +1,13 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }],
+  "references": [
+    {
+      "path": "./tsconfig.app.json"
+    },
+    {
+      "path": "./tsconfig.node.json"
+    }
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",
@@ -14,7 +21,10 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "noUncheckedIndexedAccess": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "paths": {
+      "@/*": ["./src/client/*"]
+    }
   },
   "include": ["src/server/**/*", "tsdown.config.ts"]
 }

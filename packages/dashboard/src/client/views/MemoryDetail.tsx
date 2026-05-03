@@ -7,6 +7,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Textarea } from "@/components/ui/textarea";
 import { useMemoryDetail } from "@/hooks/useMemoryDetail";
 import type { MemoryType } from "@/lib/types";
+import { TYPE_DESCRIPTIONS } from "@/lib/types";
 
 const TYPES: MemoryType[] = ["correction", "preference", "decision", "learning", "fact"];
 
@@ -51,7 +52,14 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
           <Badge variant={memory.type}>{memory.type}</Badge>
-          {memory.needsReview && <Badge variant="destructive">needs review</Badge>}
+          {memory.needsReview && (
+            <Badge
+              variant="destructive"
+              title="Flagged for review — possible duplicate or conflict with another memory"
+            >
+              needs review
+            </Badge>
+          )}
           {memory.pinned && <Badge variant="default">pinned</Badge>}
         </div>
         <Button variant="ghost" size="icon-sm" onClick={handleClose} aria-label="Close">
@@ -98,6 +106,9 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
                 </NativeSelectOption>
               ))}
             </NativeSelect>
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              {TYPE_DESCRIPTIONS[type]}
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -168,26 +179,32 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
         </div>
 
         {/* Metadata */}
-        <div className="space-y-1 pt-2 border-t border-border">
-          {memory.sourceHarness && (
+        <details className="group pt-2 border-t border-border">
+          <summary className="flex items-center gap-1 cursor-pointer list-none text-[11px] uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors select-none">
+            <span className="transition-transform group-open:rotate-90">›</span>
+            Details
+          </summary>
+          <div className="space-y-1 mt-2">
+            {memory.sourceHarness && (
+              <div className="flex justify-between text-[11px] text-muted-foreground">
+                <span>Source</span>
+                <span>{memory.sourceHarness}</span>
+              </div>
+            )}
             <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>Source</span>
-              <span>{memory.sourceHarness}</span>
+              <span>Accessed</span>
+              <span>{memory.accessCount}×</span>
             </div>
-          )}
-          <div className="flex justify-between text-[11px] text-muted-foreground">
-            <span>Accessed</span>
-            <span>{memory.accessCount}×</span>
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>Updated</span>
+              <span>{new Date(memory.updatedAt).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>Created</span>
+              <span>{new Date(memory.createdAt).toLocaleString()}</span>
+            </div>
           </div>
-          <div className="flex justify-between text-[11px] text-muted-foreground">
-            <span>Updated</span>
-            <span>{new Date(memory.updatedAt).toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between text-[11px] text-muted-foreground">
-            <span>Created</span>
-            <span>{new Date(memory.createdAt).toLocaleString()}</span>
-          </div>
-        </div>
+        </details>
       </div>
 
       {/* Actions */}

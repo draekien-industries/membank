@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { useMemoryList } from "@/hooks/useMemoryList";
 import type { MemoryType } from "@/lib/types";
+import { TYPE_DESCRIPTIONS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const TYPES: MemoryType[] = ["correction", "preference", "decision", "learning", "fact"];
@@ -95,7 +96,7 @@ export function MemoryList({ selectedId }: MemoryListProps) {
           >
             <NativeSelectOption value="">All types</NativeSelectOption>
             {TYPES.map((t) => (
-              <NativeSelectOption key={t} value={t}>
+              <NativeSelectOption key={t} value={t} title={TYPE_DESCRIPTIONS[t]}>
                 {t[0]?.toUpperCase()}
                 {t.slice(1)}
               </NativeSelectOption>
@@ -151,6 +152,7 @@ export function MemoryList({ selectedId }: MemoryListProps) {
               }
               aria-label="Needs review only"
               aria-pressed={search.needsReview}
+              title="Show memories flagged for review — possible duplicates or conflicts"
             >
               <Warning weight={search.needsReview ? "fill" : "regular"} />
             </Button>
@@ -186,7 +188,20 @@ export function MemoryList({ selectedId }: MemoryListProps) {
                 </p>
               </>
             ) : (
-              <p className="text-xs text-muted-foreground">No memories match the current filters</p>
+              <>
+                <p className="text-xs text-muted-foreground">
+                  {search.search
+                    ? `No memories match "${search.search}"`
+                    : "No memories match the current filters"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void navigate({ to: "/memories", search: {} })}
+                  className="text-[11px] text-primary hover:underline"
+                >
+                  Clear filters
+                </button>
+              </>
             )}
           </div>
         )}

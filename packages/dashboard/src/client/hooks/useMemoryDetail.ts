@@ -1,6 +1,7 @@
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useBlocker, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { addMemoryProject, removeMemoryProject } from "@/lib/api";
 import { memoriesCollection, projectsCollection, queryClient } from "@/lib/collections";
 import type { MemoryType } from "@/lib/types";
@@ -61,14 +62,22 @@ export function useMemoryDetail(id: string) {
 
   const handleAddProject = async () => {
     if (!addProjectId) return;
-    await addMemoryProject(id, addProjectId);
-    await queryClient.invalidateQueries({ queryKey: ["memories"] });
-    setAddProjectId("");
+    try {
+      await addMemoryProject(id, addProjectId);
+      await queryClient.invalidateQueries({ queryKey: ["memories"] });
+      setAddProjectId("");
+    } catch {
+      toast.error("Failed to add project — try again");
+    }
   };
 
   const handleRemoveProject = async (projectId: string) => {
-    await removeMemoryProject(id, projectId);
-    await queryClient.invalidateQueries({ queryKey: ["memories"] });
+    try {
+      await removeMemoryProject(id, projectId);
+      await queryClient.invalidateQueries({ queryKey: ["memories"] });
+    } catch {
+      toast.error("Failed to remove project — try again");
+    }
   };
 
   const handleClose = () => void navigate({ to: "/memories" });

@@ -3,6 +3,7 @@ import { forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Memory, MemoryType } from "@/lib/types";
+import { TYPE_DESCRIPTIONS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 interface MemoryRowProps {
@@ -51,7 +52,11 @@ export const MemoryRow = forwardRef<HTMLLIElement, MemoryRowProps>(function Memo
           onClick={onSelect}
           className="h-auto flex-1 min-w-0 items-start justify-start whitespace-normal p-0 font-normal hover:bg-transparent"
         >
-          <Badge variant={memory.type as MemoryType} className="mt-px shrink-0">
+          <Badge
+            variant={memory.type as MemoryType}
+            className="mt-px shrink-0"
+            title={TYPE_DESCRIPTIONS[memory.type as MemoryType]}
+          >
             {memory.type[0]?.toUpperCase()}
             {memory.type.slice(1)}
           </Badge>
@@ -104,7 +109,9 @@ export const MemoryRow = forwardRef<HTMLLIElement, MemoryRowProps>(function Memo
         )}
         <div className="flex items-center gap-1.5 ml-auto">
           {memory.needsReview && (
-            <Warning weight="fill" className="size-3 text-[var(--type-correction)]" />
+            <span title="Flagged for review — possible duplicate or conflict with another memory">
+              <Warning weight="fill" className="size-3 text-[var(--type-correction)]" />
+            </span>
           )}
           {memory.projects.length > 0 ? (
             <span className="text-[11px] text-muted-foreground truncate max-w-32">
