@@ -1,5 +1,18 @@
 # @membank/mcp
 
+## 0.8.0
+
+### Minor Changes
+
+- 0a3ac28: Removed the `--scope` / `scope` parameter from CLI and MCP in favour of automatic project detection. Added `--global` flag (CLI) and `global` boolean (MCP `save_memory`) to explicitly save a memory with no project association. Added `membank migrate list | run <name>` command and matching MCP `migrate` tool to rename auto-migrated projects to their resolved names.
+
+### Patch Changes
+
+- 11ab2bf: Extracted migration logic and registry into core, eliminating duplication between CLI and MCP. CLI pin/unpin commands now use MemoryRepository.setPin() instead of raw SQL.
+- Updated dependencies [0a3ac28]
+- Updated dependencies [11ab2bf]
+  - @membank/core@0.6.1
+
 ## 0.7.0
 
 ### Minor Changes
