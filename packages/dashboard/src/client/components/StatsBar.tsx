@@ -20,7 +20,8 @@ export function StatsBar({ stats }: StatsBarProps) {
           if (!count) return null;
           return (
             <Badge key={type} variant={type}>
-              {type[0]?.toUpperCase()} {count}
+              {type[0]?.toUpperCase()}
+              {type.slice(1)} {count}
             </Badge>
           );
         })}
