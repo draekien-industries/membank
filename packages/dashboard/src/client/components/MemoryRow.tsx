@@ -1,5 +1,5 @@
 import { PushPin, Trash, Warning } from "@phosphor-icons/react";
-import { useState } from "react";
+import { forwardRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Memory, MemoryType } from "@/lib/types";
@@ -13,12 +13,16 @@ interface MemoryRowProps {
   onDelete: () => void;
 }
 
-export function MemoryRow({ memory, selected, onSelect, onPin, onDelete }: MemoryRowProps) {
+export const MemoryRow = forwardRef<HTMLLIElement, MemoryRowProps>(function MemoryRow(
+  { memory, selected, onSelect, onPin, onDelete },
+  ref
+) {
   const preview = memory.content.length > 140 ? `${memory.content.slice(0, 140)}…` : memory.content;
   const [confirming, setConfirming] = useState(false);
 
   return (
     <li
+      ref={ref}
       className={cn(
         "group relative flex flex-col gap-1.5 border-b border-border px-4 py-3 transition-colors",
         "hover:bg-accent/40",
@@ -98,4 +102,4 @@ export function MemoryRow({ memory, selected, onSelect, onPin, onDelete }: Memor
       </div>
     </li>
   );
-}
+});

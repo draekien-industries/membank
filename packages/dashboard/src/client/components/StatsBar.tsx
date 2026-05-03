@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { Stats } from "@/lib/types";
 
@@ -7,11 +8,14 @@ interface StatsBarProps {
   stats: Stats | null;
 }
 
-export function StatsBar({ stats }: StatsBarProps) {
+export const StatsBar = forwardRef<HTMLDivElement, StatsBarProps>(function StatsBar(
+  { stats },
+  ref
+) {
   if (!stats) return null;
 
   return (
-    <div className="flex items-center gap-3 text-muted-foreground">
+    <div ref={ref} className="flex items-center gap-3 text-muted-foreground">
       <span className="text-xs">{stats.total} memories</span>
       <span className="text-border">·</span>
       <div className="flex items-center gap-1.5">
@@ -34,4 +38,4 @@ export function StatsBar({ stats }: StatsBarProps) {
       )}
     </div>
   );
-}
+});
