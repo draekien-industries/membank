@@ -208,21 +208,14 @@ export function createServer(core: CoreServices): Server {
 
       const tags = Array.isArray(args?.tags) ? (args.tags as string[]) : undefined;
 
-      let projectHash: string | undefined;
-      let projectName: string | undefined;
-      if (args?.global !== true) {
-        const project = await resolveProject();
-        projectHash = project.hash;
-        projectName = project.name;
-      }
+      const projectScope = args?.global === true ? undefined : await resolveProject();
 
       try {
         const memory = await core.repo.save({
           content,
           type: type as MemoryType,
           tags,
-          projectHash,
-          projectName,
+          projectScope,
         });
 
         return {

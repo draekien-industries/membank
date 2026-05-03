@@ -31,21 +31,14 @@ export async function addCommand(
 
     const tags = options.tags !== undefined ? options.tags.split(",").map((t) => t.trim()) : [];
 
-    let projectHash: string | undefined;
-    let projectName: string | undefined;
-    if (!options.global) {
-      const project = await resolveProject();
-      projectHash = project.hash;
-      projectName = project.name;
-    }
+    const projectScope = options.global ? undefined : await resolveProject();
 
     const spinner = formatter.isJson ? null : ora("Saving memory…").start();
     const memory = await repo.save({
       content,
       type: options.type as MemoryType,
       tags,
-      projectHash,
-      projectName,
+      projectScope,
     });
     spinner?.succeed("Memory saved");
 

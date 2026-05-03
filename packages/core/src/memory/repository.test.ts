@@ -73,7 +73,7 @@ describe("MemoryRepository", () => {
       content: "Always write tests",
       type: "correction",
       tags: ["testing", "quality"],
-      projectHash: "abc123",
+      projectScope: { hash: "abc123", name: "test-project" },
       sourceHarness: "claude",
     });
 

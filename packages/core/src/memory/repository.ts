@@ -28,14 +28,14 @@ export class MemoryRepository {
   }
 
   async save(options: SaveOptions): Promise<Memory> {
-    const { content, type, tags = [], projectHash, projectName, sourceHarness } = options;
+    const { content, type, tags = [], projectScope, sourceHarness } = options;
 
     const embedding = await this.#embedding.embed(content);
     const embeddingBlob = Buffer.from(embedding.buffer);
 
     // Dedup: find similar memory in same context
     let top: SimilarityRow | undefined;
-    if (projectHash !== undefined) {
+    if (projectScope !== undefined) {
       top = this.#db.db
         .prepare<[Buffer, string, string], SimilarityRow>(
           `SELECT m.rowid, m.*, (1 - vec_distance_cosine(e.embedding, ?)) AS similarity
@@ -45,7 +45,7 @@ export class MemoryRepository {
            WHERE m.type = ? AND p.scope_hash = ?
            ORDER BY similarity DESC LIMIT 1`
         )
-        .get(embeddingBlob, type, projectHash);
+        .get(embeddingBlob, type, projectScope.hash);
     } else {
       top = this.#db.db
         .prepare<[Buffer, string], SimilarityRow>(
@@ -94,11 +94,8 @@ export class MemoryRepository {
       )
       .run(embeddingBlob, id);
 
-    if (projectHash !== undefined) {
-      const project = this.#projects.upsertByHash(
-        projectHash,
-        projectName ?? `project-${projectHash.slice(0, 8)}`
-      );
+    if (projectScope !== undefined) {
+      const project = this.#projects.upsertByHash(projectScope.hash, projectScope.name);
       this.#projects.addAssociation(id, project.id);
     }
 

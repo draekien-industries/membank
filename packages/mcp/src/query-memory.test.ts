@@ -136,7 +136,7 @@ describe("query_memory tool", () => {
     await session.core.repo.save({
       content: "project uses ESLint for linting",
       type: "fact",
-      projectHash: "project-abc",
+      projectScope: { hash: "project-abc", name: "project-abc" },
     });
     await session.core.repo.save({
       content: "global linting preference is Biome",

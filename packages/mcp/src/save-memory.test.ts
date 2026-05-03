@@ -193,7 +193,7 @@ describe("save_memory tool", () => {
     await session.core.repo.save({
       content: "always use TypeScript strict mode for all projects",
       type: "preference",
-      projectHash: "global",
+      projectScope: { hash: "global", name: "global" },
     });
 
     await session.client.callTool({

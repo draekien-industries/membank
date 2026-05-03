@@ -41,8 +41,7 @@ export interface SaveOptions {
   content: string;
   type: MemoryType;
   tags?: string[];
-  projectHash?: string;
-  projectName?: string;
+  projectScope?: { hash: string; name: string };
   sourceHarness?: string;
 }
 
