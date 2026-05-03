@@ -9,7 +9,7 @@ packages/
   core/       @membank/core   — DB, embeddings, query engine, dedup logic
   mcp/        @membank/mcp    — stdio MCP server (5 tools exposed to LLMs)
   cli/        @membank/cli    — CLI + npx entrypoint, also starts MCP server
-  dashboard/  @membank/dash   — web UI (stub, not yet implemented)
+  dashboard/  @membank/dashboard — web UI
 ```
 
 `core` has no workspace deps. `mcp` depends on `core`. `cli` depends on `core` and `mcp`. Build order is enforced by Turborepo.
@@ -83,7 +83,7 @@ Run at the end of the work, before committing:
 pnpm changeset
 ```
 
-Select only the affected packages (`@membank/core`, `@membank/mcp`, `@membank/cli`). Choose the bump type:
+Select only the affected packages (`@membank/core`, `@membank/mcp`, `@membank/cli`, `@membank/dashboard`). Choose the bump type:
 
 - `patch` — bug fix, internal refactor, no API change
 - `minor` — new feature, backwards-compatible
@@ -93,7 +93,7 @@ Write the description in past tense, one sentence: what changed and why it matte
 
 **When a worktree is completed:** create the changeset inside the worktree before merging or handing off the branch. The `.changeset/*.md` file must be part of the PR diff.
 
-**Skip only:** pure docs/test changes with no runtime effect, or changes scoped entirely to `@membank/dash` (stub, not published).
+**Skip only:** pure docs/test changes with no runtime effect.
 
 ## Release cycle
 
