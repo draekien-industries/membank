@@ -1,5 +1,13 @@
 # @membank/dashboard
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [abb83cd]
+- Updated dependencies [ee56f9c]
+  - @membank/core@0.7.0
+
 ## 0.4.0
 
 ### Minor Changes

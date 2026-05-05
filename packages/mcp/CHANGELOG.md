@@ -1,5 +1,18 @@
 # @membank/mcp
 
+## 0.9.0
+
+### Minor Changes
+
+- abb83cd: query_memory now excludes pinned memories by default to avoid duplicating session-injected context; pass `includePinned: true` (MCP) or `--include-pinned` (CLI) to opt in.
+- ee56f9c: Added zod runtime validation at DB and public-API boundaries in core; exported reusable schemas (MemoryTypeSchema, SaveOptionsSchema, QueryOptionsSchema, MemoryRowSchema, etc.) from @membank/core. MCP now uses these shared schemas instead of hand-rolled type checks. CLI MemoryTypeSchema and TagsRowSchema now re-exported from core to eliminate duplication.
+
+### Patch Changes
+
+- Updated dependencies [abb83cd]
+- Updated dependencies [ee56f9c]
+  - @membank/core@0.7.0
+
 ## 0.8.0
 
 ### Minor Changes
