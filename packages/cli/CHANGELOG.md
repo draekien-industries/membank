@@ -1,5 +1,22 @@
 # @membank/cli
 
+## 0.8.0
+
+### Minor Changes
+
+- abb83cd: query_memory now excludes pinned memories by default to avoid duplicating session-injected context; pass `includePinned: true` (MCP) or `--include-pinned` (CLI) to opt in.
+- 47e0a49: Setup now installs a UserPromptSubmit injection hook alongside SessionStart, so pinned memories survive context compression and Claude is nudged to call query_memory before exploration tasks.
+
+### Patch Changes
+
+- d88db3a: Replaced ad-hoc CLI input validation with zod schemas; invalid `--type`, `--harness`, `--limit`, `--port`, migrate mode, and import-file shape now produce uniform, descriptive errors instead of silently accepting bad input.
+- ee56f9c: Added zod runtime validation at DB and public-API boundaries in core; exported reusable schemas (MemoryTypeSchema, SaveOptionsSchema, QueryOptionsSchema, MemoryRowSchema, etc.) from @membank/core. MCP now uses these shared schemas instead of hand-rolled type checks. CLI MemoryTypeSchema and TagsRowSchema now re-exported from core to eliminate duplication.
+- Updated dependencies [abb83cd]
+- Updated dependencies [ee56f9c]
+  - @membank/core@0.7.0
+  - @membank/mcp@0.9.0
+  - @membank/dashboard@0.4.1
+
 ## 0.7.1
 
 ### Patch Changes
