@@ -128,18 +128,32 @@ export function useMemoryList(selectedId: string | null) {
     });
   };
 
+  const hasActiveFilters = !!(
+    search.search ||
+    search.type ||
+    search.projectId ||
+    search.pinned ||
+    search.needsReview
+  );
+
+  const handleClearFilters = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setSearchInput("");
+    void navigate({ to: "/memories", search: () => ({}) });
+  };
+
   const handleDelete = (id: string) => {
     memoriesCollection.delete(id);
-    if (selectedId === id) void navigate({ to: "/memories" });
+    if (selectedId === id) void navigate({ to: "/memories", search: (prev) => prev });
   };
 
   const handleSelect = (id: string) => {
     const idx = flatMemories.findIndex((m) => m.id === id);
     if (idx >= 0) setFocusedIndex(idx);
     if (selectedId === id) {
-      void navigate({ to: "/memories" });
+      void navigate({ to: "/memories", search: (prev) => prev });
     } else {
-      void navigate({ to: "/memories/$id", params: { id } });
+      void navigate({ to: "/memories/$id", params: { id }, search: (prev) => prev });
     }
   };
 
@@ -223,7 +237,11 @@ export function useMemoryList(selectedId: string | null) {
           setShowShortcuts(false);
           return;
         }
-        if (selectedId) void navigate({ to: "/memories" });
+        if (selectedId) {
+          void navigate({ to: "/memories", search: (prev) => prev });
+          return;
+        }
+        if (hasActiveFilters) handleClearFilters();
       },
     },
     {
@@ -249,6 +267,8 @@ export function useMemoryList(selectedId: string | null) {
     showShortcuts,
     setShowShortcuts,
     rowRefs,
+    hasActiveFilters,
+    handleClearFilters,
     handleSearchChange,
     handlePin,
     handleDelete,

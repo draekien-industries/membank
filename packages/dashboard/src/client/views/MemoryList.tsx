@@ -1,4 +1,4 @@
-import { MagnifyingGlass, PushPin, Warning } from "@phosphor-icons/react";
+import { Eraser, MagnifyingGlass, PushPin, Warning } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { MemoryRow } from "@/components/MemoryRow";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,8 @@ export function MemoryList({ selectedId }: MemoryListProps) {
     showShortcuts,
     setShowShortcuts,
     rowRefs,
+    hasActiveFilters,
+    handleClearFilters,
     handleSearchChange,
     handlePin,
     handleDelete,
@@ -126,6 +128,17 @@ export function MemoryList({ selectedId }: MemoryListProps) {
               ))}
           </NativeSelect>
           <div className="ml-auto flex items-center gap-1">
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleClearFilters}
+                aria-label="Clear filters"
+                title="Clear all filters"
+              >
+                <Eraser weight="regular" />
+              </Button>
+            )}
             <Button
               variant={search.pinned ? "default" : "ghost"}
               size="icon-sm"
