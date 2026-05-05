@@ -3,37 +3,39 @@ import { DatabaseManager, resolveProject, SessionContextBuilder } from "@membank
 
 const SUPPORTED_INJECTION_HARNESSES = ["claude-code", "copilot-cli", "codex", "opencode"] as const;
 
-const MEMORY_GUIDANCE =
-  "[Memory Guidance]: Call save_memory when ANY of these happen: (1) user states a preference or makes a decision; (2) user corrects you; (3) you discover a working fix after a tool error; (4) you learn a non-obvious project fact. Type ∈ correction|preference|decision|learning|fact. Call query_memory before answering anything that might touch prior decisions. When unsure, save.";
+const MEMORY_GUIDANCE = [
+  "Save (call save_memory) when: (1) user states a preference or makes a decision; (2) user corrects you; (3) you discover a working fix after a tool error; (4) you learn a non-obvious project fact. Type ∈ correction|preference|decision|learning|fact. When unsure, save.",
+  "Query (call query_memory) before: answering anything that touches prior decisions, and before exploration tasks (file reads, searches, web lookups) where past corrections or preferences may apply. Skip when clearly irrelevant (e.g. trivial arithmetic). Soft guideline, not a hard rule.",
+].join("\n");
 
 type InjectionHarness = (typeof SUPPORTED_INJECTION_HARNESSES)[number];
 
+function xmlEscape(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 function formatContext(ctx: SessionContext): string {
-  const lines: string[] = [];
+  const parts: string[] = [];
 
   const statParts = (Object.entries(ctx.stats) as [string, number][])
     .filter(([, count]) => count > 0)
     .map(([type, count]) => `${count} ${type}${count !== 1 ? "s" : ""}`);
 
   if (statParts.length > 0) {
-    lines.push(`[Memory Stats]: ${statParts.join(", ")}`);
-  } else {
-    lines.push("[Memory Stats]: no memories saved yet");
+    parts.push(`<memory-stats>\n${statParts.join(", ")}\n</memory-stats>`);
   }
 
-  const formatMemory = (m: Memory) => `"${m.content}" (${m.type})`;
-
-  for (const m of ctx.pinnedGlobal) {
-    lines.push(`[Pinned Global]: ${formatMemory(m)}`);
+  const allPinned: Memory[] = [...ctx.pinnedGlobal, ...ctx.pinnedProject];
+  if (allPinned.length > 0) {
+    const memLines = allPinned.map(
+      (m) => `  <memory type="${m.type}">${xmlEscape(m.content)}</memory>`
+    );
+    parts.push(`<pinned-memories>\n${memLines.join("\n")}\n</pinned-memories>`);
   }
 
-  for (const m of ctx.pinnedProject) {
-    lines.push(`[Pinned Project]: ${formatMemory(m)}`);
-  }
+  parts.push(`<memory-guidance>\n${MEMORY_GUIDANCE}\n</memory-guidance>`);
 
-  lines.push(MEMORY_GUIDANCE);
-
-  return lines.join("\n");
+  return parts.join("\n");
 }
 
 function outputAdditionalContext(
@@ -61,36 +63,45 @@ function outputAdditionalContext(
   process.stdout.write(`${text}\n`);
 }
 
-async function handleSessionStart(opts: { harness?: string }): Promise<void> {
+async function buildText(): Promise<string> {
   const resolved = await resolveProject();
-  const projectScope = resolved.hash;
-
   const db = DatabaseManager.open();
-  let text: string;
   try {
     const builder = new SessionContextBuilder(db);
-    const ctx = builder.getSessionContext(projectScope);
-    text = formatContext(ctx);
+    const ctx = builder.getSessionContext(resolved.hash);
+    return formatContext(ctx);
   } finally {
     db.close();
   }
+}
 
-  if (!text) {
+async function handleEvent(
+  harness: InjectionHarness | undefined,
+  eventName: string
+): Promise<void> {
+  const text = await buildText().catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`membank inject: ${msg}\n`);
+    return null;
+  });
+  if (text === null) {
     process.exit(0);
   }
-
-  const harness = opts.harness as InjectionHarness | undefined;
-  outputAdditionalContext(text, harness, "SessionStart");
+  outputAdditionalContext(text, harness, eventName);
 }
 
 export async function injectCommand(opts: { harness?: string; event?: string }): Promise<void> {
-  // Legacy --event values from stale hooks installed before user-prompt/tool-failure
-  // were removed: silently no-op so old hook configs don't crash.
-  if (opts.event !== undefined && opts.event !== "session-start") {
-    process.exit(0);
+  const harness = opts.harness as InjectionHarness | undefined;
+  if (opts.event === "session-start" || opts.event === undefined) {
+    await handleEvent(harness, "SessionStart");
+    return;
   }
-
-  await handleSessionStart(opts);
+  if (opts.event === "user-prompt-submit") {
+    await handleEvent(harness, "UserPromptSubmit");
+    return;
+  }
+  // Legacy --event values from stale hooks: silently no-op.
+  process.exit(0);
 }
 
 export { formatContext, MEMORY_GUIDANCE };

@@ -7,10 +7,6 @@ describe("MEMORY_GUIDANCE", () => {
     expect(MEMORY_GUIDANCE.length).toBeGreaterThan(0);
   });
 
-  it("starts with the [Memory Guidance]: marker", () => {
-    expect(MEMORY_GUIDANCE.startsWith("[Memory Guidance]:")).toBe(true);
-  });
-
   it("references the core MCP tools", () => {
     expect(MEMORY_GUIDANCE).toContain("query_memory");
     expect(MEMORY_GUIDANCE).toContain("save_memory");
@@ -21,5 +17,13 @@ describe("MEMORY_GUIDANCE", () => {
     expect(MEMORY_GUIDANCE).toContain("preference");
     expect(MEMORY_GUIDANCE).toContain("decision");
     expect(MEMORY_GUIDANCE).toContain("learning");
+  });
+
+  it("covers both save and query guidance", () => {
+    expect(MEMORY_GUIDANCE).toContain("save_memory");
+    expect(MEMORY_GUIDANCE).toContain("query_memory");
+    expect(MEMORY_GUIDANCE.indexOf("save_memory")).toBeLessThan(
+      MEMORY_GUIDANCE.indexOf("query_memory")
+    );
   });
 });

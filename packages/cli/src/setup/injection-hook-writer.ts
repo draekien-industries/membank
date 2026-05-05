@@ -127,6 +127,10 @@ const writers: Record<string, HarnessInjectionWriter> = {
         Array.isArray(hooks.SessionStart) ? hooks.SessionStart : []
       ).flatMap(getHooksArray);
 
+      const userPromptSubmitInner = (
+        Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : []
+      ).flatMap(getHooksArray);
+
       return {
         status: "ready",
         configPath: cfgPath,
@@ -135,6 +139,11 @@ const writers: Record<string, HarnessInjectionWriter> = {
             event: "SessionStart",
             command: "npx -y @membank/cli inject --harness claude-code",
             existingCommand: extractInjectCommand(sessionStartInner) || null,
+          },
+          {
+            event: "UserPromptSubmit",
+            command: "npx -y @membank/cli inject --harness claude-code --event user-prompt-submit",
+            existingCommand: extractInjectCommand(userPromptSubmitInner) || null,
           },
         ],
       };
@@ -147,7 +156,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const newHooks: Record<string, unknown> = { ...hooks };
 
       // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
-      pruneNestedEvent(newHooks, "UserPromptSubmit");
       pruneNestedEvent(newHooks, "PostToolUseFailure");
 
       if (events.includes("SessionStart")) {
@@ -166,6 +174,23 @@ const writers: Record<string, HarnessInjectionWriter> = {
         ];
       }
 
+      if (events.includes("UserPromptSubmit")) {
+        const existing = Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : [];
+        newHooks.UserPromptSubmit = [
+          ...filterOutMembank(existing),
+          {
+            matcher: "",
+            hooks: [
+              {
+                type: "command",
+                command:
+                  "npx -y @membank/cli inject --harness claude-code --event user-prompt-submit",
+              },
+            ],
+          },
+        ];
+      }
+
       writeJsonAtomic(cfgPath, { ...cfg, hooks: newHooks });
       return { status: "written" };
     },
@@ -178,6 +203,9 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const hooks = (cfg.hooks as Record<string, unknown> | undefined) ?? {};
 
       const sessionStart = Array.isArray(hooks.sessionStart) ? hooks.sessionStart : [];
+      const userPromptSubmitted = Array.isArray(hooks.userPromptSubmitted)
+        ? hooks.userPromptSubmitted
+        : [];
 
       return {
         status: "ready",
@@ -187,6 +215,11 @@ const writers: Record<string, HarnessInjectionWriter> = {
             event: "sessionStart",
             command: "npx -y @membank/cli inject --harness copilot-cli",
             existingCommand: extractInjectCommand(sessionStart) || null,
+          },
+          {
+            event: "userPromptSubmitted",
+            command: "npx -y @membank/cli inject --harness copilot-cli --event user-prompt-submit",
+            existingCommand: extractInjectCommand(userPromptSubmitted) || null,
           },
         ],
       };
@@ -199,7 +232,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const newHooks: Record<string, unknown> = { ...hooks };
 
       // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
-      pruneFlatEvent(newHooks, "userPromptSubmitted");
       pruneFlatEvent(newHooks, "postToolUseFailure");
 
       if (events.includes("sessionStart")) {
@@ -209,6 +241,18 @@ const writers: Record<string, HarnessInjectionWriter> = {
           {
             type: "command",
             bash: "npx -y @membank/cli inject --harness copilot-cli",
+            timeoutSec: 30,
+          },
+        ];
+      }
+
+      if (events.includes("userPromptSubmitted")) {
+        const existing = Array.isArray(hooks.userPromptSubmitted) ? hooks.userPromptSubmitted : [];
+        newHooks.userPromptSubmitted = [
+          ...filterOutMembankFlat(existing),
+          {
+            type: "command",
+            bash: "npx -y @membank/cli inject --harness copilot-cli --event user-prompt-submit",
             timeoutSec: 30,
           },
         ];
@@ -233,6 +277,10 @@ const writers: Record<string, HarnessInjectionWriter> = {
         Array.isArray(hooks.SessionStart) ? hooks.SessionStart : []
       ).flatMap(getHooksArray);
 
+      const userPromptSubmitInner = (
+        Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : []
+      ).flatMap(getHooksArray);
+
       return {
         status: "ready",
         configPath: cfgPath,
@@ -241,6 +289,11 @@ const writers: Record<string, HarnessInjectionWriter> = {
             event: "SessionStart",
             command: "npx -y @membank/cli inject --harness codex",
             existingCommand: extractInjectCommand(sessionStartInner) || null,
+          },
+          {
+            event: "UserPromptSubmit",
+            command: "npx -y @membank/cli inject --harness codex --event user-prompt-submit",
+            existingCommand: extractInjectCommand(userPromptSubmitInner) || null,
           },
         ],
       };
@@ -253,7 +306,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const newHooks: Record<string, unknown> = { ...hooks };
 
       // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
-      pruneNestedEvent(newHooks, "UserPromptSubmit");
       pruneNestedEvent(newHooks, "PostToolUse");
 
       if (events.includes("SessionStart")) {
@@ -266,6 +318,23 @@ const writers: Record<string, HarnessInjectionWriter> = {
               {
                 type: "command",
                 command: "npx -y @membank/cli inject --harness codex",
+                timeout: 30,
+              },
+            ],
+          },
+        ];
+      }
+
+      if (events.includes("UserPromptSubmit")) {
+        const existing = Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : [];
+        newHooks.UserPromptSubmit = [
+          ...filterOutMembank(existing),
+          {
+            matcher: "",
+            hooks: [
+              {
+                type: "command",
+                command: "npx -y @membank/cli inject --harness codex --event user-prompt-submit",
                 timeout: 30,
               },
             ],
