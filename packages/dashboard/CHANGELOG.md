@@ -1,5 +1,11 @@
 # @membank/dashboard
 
+## 0.4.0
+
+### Minor Changes
+
+- c669408: Migrated MemoryDetail form to TanStack React Form with Zod validation, replacing manual per-field state and adding inline field error display via shadcn Field components.
+
 ## 0.3.1
 
 ### Patch Changes
