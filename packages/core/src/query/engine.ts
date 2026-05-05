@@ -1,9 +1,9 @@
 import type { DatabaseManager } from "../db/manager.js";
-import type { MemoryRow } from "../db/row-types.js";
 import { rowToMemory } from "../db/row-types.js";
 import type { EmbeddingService } from "../embedding/service.js";
 import type { MemoryRepository } from "../memory/repository.js";
-import type { Memory, MemoryType, QueryOptions } from "../types.js";
+import { QueryOptionsSchema } from "../schemas.js";
+import type { Memory, MemoryRow, MemoryType, QueryOptions } from "../types.js";
 
 interface QueryMemoryRow extends MemoryRow {
   cosine_sim: number;
@@ -29,7 +29,7 @@ export class QueryEngine {
   }
 
   async query(options: QueryOptions): Promise<Array<Memory & { score: number }>> {
-    const { query, type, projectHash, limit = 10 } = options;
+    const { query, type, projectHash, limit = 10 } = QueryOptionsSchema.parse(options);
 
     const queryEmbedding = await this.#embedding.embed(query);
     const queryBlob = Buffer.from(queryEmbedding.buffer);

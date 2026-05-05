@@ -1,4 +1,3 @@
-import type { MemoryType } from "@membank/core";
 import {
   DatabaseManager,
   EmbeddingService,
@@ -18,6 +17,15 @@ import {
   ListToolsRequestSchema,
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
+import { ZodError } from "zod";
+import {
+  DeleteMemoryArgsSchema,
+  MigrateArgsSchema,
+  PinMemoryArgsSchema,
+  QueryMemoryArgsSchema,
+  SaveMemoryArgsSchema,
+  UpdateMemoryArgsSchema,
+} from "./schemas.js";
 
 const SERVER_NAME = "membank";
 const SERVER_VERSION = "0.1.0";
@@ -44,6 +52,15 @@ export function initCore(options: ServerOptions = {}): CoreServices {
   const repo = new MemoryRepository(db, embedding, projects);
   const query = new QueryEngine(db, embedding, repo);
   return { db, embedding, repo, query, projects };
+}
+
+function parseArgs<T>(schema: { parse: (v: unknown) => T }, raw: unknown): T {
+  try {
+    return schema.parse(raw);
+  } catch (e) {
+    const msg = e instanceof ZodError ? (e.issues[0]?.message ?? e.message) : String(e);
+    throw new McpError(ErrorCode.InvalidParams, msg);
+  }
 }
 
 export function createServer(core: CoreServices): Server {
@@ -190,33 +207,14 @@ export function createServer(core: CoreServices): Server {
     }
 
     if (request.params.name === "save_memory") {
-      const args = request.params.arguments as Record<string, unknown> | undefined;
-      const content = args?.content;
-      const type = args?.type;
-
-      if (typeof content !== "string" || content.trim() === "") {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          "content is required and must be a non-empty string"
-        );
-      }
-
-      if (typeof type !== "string" || !(MEMORY_TYPE_VALUES as readonly string[]).includes(type)) {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          "type is required and must be one of: correction, preference, decision, learning, fact"
-        );
-      }
-
-      const tags = Array.isArray(args?.tags) ? (args.tags as string[]) : undefined;
-
-      const projectScope = args?.global === true ? undefined : await resolveProject();
+      const args = parseArgs(SaveMemoryArgsSchema, request.params.arguments);
+      const projectScope = args.global === true ? undefined : await resolveProject();
 
       try {
         const memory = await core.repo.save({
-          content,
-          type: type as MemoryType,
-          tags,
+          content: args.content,
+          type: args.type,
+          tags: args.tags,
           projectScope,
         });
 
@@ -230,28 +228,13 @@ export function createServer(core: CoreServices): Server {
     }
 
     if (request.params.name === "update_memory") {
-      const args = request.params.arguments as Record<string, unknown> | undefined;
-      const id = args?.id;
-      const content = args?.content;
-
-      if (typeof id !== "string" || id.trim() === "") {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          "id is required and must be a non-empty string"
-        );
-      }
-
-      if (typeof content !== "string" || content.trim() === "") {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          "content is required and must be a non-empty string"
-        );
-      }
-
-      const tags = Array.isArray(args?.tags) ? (args.tags as string[]) : undefined;
+      const args = parseArgs(UpdateMemoryArgsSchema, request.params.arguments);
 
       try {
-        const memory = await core.repo.update(id, { content, tags });
+        const memory = await core.repo.update(args.id, {
+          content: args.content,
+          tags: args.tags,
+        });
         return { content: [{ type: "text", text: JSON.stringify(memory) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -260,31 +243,25 @@ export function createServer(core: CoreServices): Server {
     }
 
     if (request.params.name === "delete_memory") {
-      const args = request.params.arguments as Record<string, unknown> | undefined;
-      const id = args?.id;
-
-      if (typeof id !== "string" || id.trim() === "") {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          "id is required and must be a non-empty string"
-        );
-      }
+      const args = parseArgs(DeleteMemoryArgsSchema, request.params.arguments);
 
       try {
         const exists =
           core.db.db
             .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
-            .get(id) !== undefined;
+            .get(args.id) !== undefined;
 
         if (!exists) {
           return {
-            content: [{ type: "text", text: `Memory not found: ${id}` }],
+            content: [{ type: "text", text: `Memory not found: ${args.id}` }],
             isError: true,
           };
         }
 
-        await core.repo.delete(id);
-        return { content: [{ type: "text", text: JSON.stringify({ success: true, id }) }] };
+        await core.repo.delete(args.id);
+        return {
+          content: [{ type: "text", text: JSON.stringify({ success: true, id: args.id }) }],
+        };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: message }], isError: true };
@@ -292,21 +269,14 @@ export function createServer(core: CoreServices): Server {
     }
 
     if (request.params.name === "query_memory") {
-      const args = request.params.arguments as Record<string, unknown> | undefined;
-      const queryText = args?.query;
-
-      if (typeof queryText !== "string" || queryText.trim() === "") {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          "query is required and must be a non-empty string"
-        );
-      }
-
-      const type = args?.type as MemoryType | undefined;
-      const limit = typeof args?.limit === "number" ? args.limit : 10;
+      const args = parseArgs(QueryMemoryArgsSchema, request.params.arguments);
 
       try {
-        const results = await core.query.query({ query: queryText, type, limit });
+        const results = await core.query.query({
+          query: args.query,
+          type: args.type,
+          limit: args.limit ?? 10,
+        });
 
         const serialised = results.map((r) => ({
           id: r.id,
@@ -328,25 +298,15 @@ export function createServer(core: CoreServices): Server {
     }
 
     if (request.params.name === "migrate") {
-      const args = request.params.arguments as Record<string, unknown> | undefined;
-      const mode = args?.mode;
+      const args = parseArgs(MigrateArgsSchema, request.params.arguments);
 
-      if (mode !== "list" && mode !== "run") {
-        throw new McpError(ErrorCode.InvalidParams, 'mode must be "list" or "run"');
-      }
-
-      if (mode === "list") {
+      if (args.mode === "list") {
         return {
           content: [{ type: "text", text: JSON.stringify(MIGRATIONS) }],
         };
       }
 
-      const migrationName = args?.name;
-      if (typeof migrationName !== "string" || migrationName.trim() === "") {
-        throw new McpError(ErrorCode.InvalidParams, "name is required for run mode");
-      }
-
-      if (migrationName === "scope-to-projects") {
+      if (args.name === "scope-to-projects") {
         try {
           const result = await runScopeToProjectsMigration(core.projects);
           if (result === null) {
@@ -371,25 +331,16 @@ export function createServer(core: CoreServices): Server {
 
       throw new McpError(
         ErrorCode.InvalidParams,
-        `Unknown migration: "${migrationName}". Available: ${MIGRATIONS.map((m) => m.name).join(", ")}`
+        `Unknown migration: "${args.name}". Available: ${MIGRATIONS.map((m) => m.name).join(", ")}`
       );
     }
 
     if (request.params.name === "pin_memory" || request.params.name === "unpin_memory") {
-      const args = request.params.arguments as Record<string, unknown> | undefined;
-      const id = args?.id;
-
-      if (typeof id !== "string" || id.trim() === "") {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          "id is required and must be a non-empty string"
-        );
-      }
-
+      const args = parseArgs(PinMemoryArgsSchema, request.params.arguments);
       const pinned = request.params.name === "pin_memory";
 
       try {
-        const memory = core.repo.setPin(id, pinned);
+        const memory = core.repo.setPin(args.id, pinned);
         return { content: [{ type: "text", text: JSON.stringify(memory) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

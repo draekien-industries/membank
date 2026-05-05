@@ -1,7 +1,7 @@
-import { MEMORY_TYPE_VALUES } from "@membank/core";
+import { MemoryTypeSchema } from "@membank/core";
 import { z } from "zod";
 
-export const MemoryTypeSchema = z.enum(MEMORY_TYPE_VALUES);
+export { MemoryTypeSchema, TagsJsonSchema as TagsRowSchema } from "@membank/core";
 
 export const SETUP_HARNESS_VALUES = ["claude-code", "copilot", "codex", "opencode"] as const;
 export const SetupHarnessSchema = z.enum(SETUP_HARNESS_VALUES);
@@ -14,8 +14,6 @@ export const MigrateModeSchema = z.enum(["list", "run"]);
 export const LimitSchema = z.coerce.number().int().positive();
 export const PortSchema = z.coerce.number().int().min(1).max(65535);
 export const OptionalNumberSchema = z.number().optional().catch(undefined);
-
-export const TagsRowSchema = z.array(z.string());
 
 export const MutableJsonObjectSchema = z.record(z.string(), z.unknown());
 export const MaybeJsonObjectSchema = z.record(z.string(), z.unknown()).optional().catch(undefined);

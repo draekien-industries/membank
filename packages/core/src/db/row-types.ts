@@ -1,32 +1,12 @@
-import type { Memory, MemoryType, Project } from "../types.js";
-
-export interface MemoryRow {
-  id: string;
-  content: string;
-  type: string;
-  tags: string;
-  source: string | null;
-  access_count: number;
-  pinned: number;
-  needs_review: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ProjectRow {
-  id: string;
-  name: string;
-  scope_hash: string;
-  created_at: string;
-  updated_at: string;
-}
+import { MemoryTypeSchema, TagsJsonSchema } from "../schemas.js";
+import type { Memory, MemoryRow, Project, ProjectRow } from "../types.js";
 
 export function rowToMemory(row: MemoryRow, projects: Project[]): Memory {
   return {
     id: row.id,
     content: row.content,
-    type: row.type as MemoryType,
-    tags: JSON.parse(row.tags) as string[],
+    type: MemoryTypeSchema.parse(row.type),
+    tags: TagsJsonSchema.parse(JSON.parse(row.tags)),
     projects,
     sourceHarness: row.source,
     accessCount: row.access_count,

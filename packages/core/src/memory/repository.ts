@@ -1,11 +1,16 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseManager } from "../db/manager.js";
-import type { MemoryRow } from "../db/row-types.js";
 import { rowToMemory } from "../db/row-types.js";
 import type { EmbeddingService } from "../embedding/service.js";
 import type { ProjectRepository } from "../project/repository.js";
-import type { Memory, MemoryType, SaveOptions } from "../types.js";
-import { MEMORY_TYPE_VALUES } from "../types.js";
+import {
+  MEMORY_TYPE_VALUES,
+  MemoryPatchSchema,
+  MemoryRowSchema,
+  MemoryTypeSchema,
+  SaveOptionsSchema,
+} from "../schemas.js";
+import type { Memory, MemoryPatch, MemoryRow, MemoryType, SaveOptions } from "../types.js";
 
 interface SimilarityRow extends MemoryRow {
   rowid: number;
@@ -28,7 +33,13 @@ export class MemoryRepository {
   }
 
   async save(options: SaveOptions): Promise<Memory> {
-    const { content, type, tags = [], projectScope, sourceHarness } = options;
+    const {
+      content,
+      type,
+      tags = [],
+      projectScope,
+      sourceHarness,
+    } = SaveOptionsSchema.parse(options);
 
     const embedding = await this.#embedding.embed(content);
     const embeddingBlob = Buffer.from(embedding.buffer);
@@ -68,9 +79,9 @@ export class MemoryRepository {
         .prepare(`UPDATE embeddings SET embedding = ? WHERE rowid = ?`)
         .run(embeddingBlob, top.rowid);
 
-      const updated = this.#db.db
-        .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
-        .get(top.id) as MemoryRow;
+      const updated = MemoryRowSchema.parse(
+        this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(top.id)
+      );
 
       const projectMap = this.#projects.getProjectsForMemories([top.id]);
       return rowToMemory(updated, projectMap.get(top.id) ?? []);
@@ -99,15 +110,17 @@ export class MemoryRepository {
       this.#projects.addAssociation(id, project.id);
     }
 
-    const row = this.#db.db
-      .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
-      .get(id) as MemoryRow;
+    const row = MemoryRowSchema.parse(
+      this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(id)
+    );
 
     const projectMap = this.#projects.getProjectsForMemories([id]);
     return rowToMemory(row, projectMap.get(id) ?? []);
   }
 
-  async update(id: string, patch: { content?: string; tags?: string[] }): Promise<Memory> {
+  async update(id: string, patch: MemoryPatch): Promise<Memory> {
+    const { content, tags } = MemoryPatchSchema.parse(patch);
+
     const existing = this.#db.db
       .prepare<[string], MemoryRow & { rowid: number }>(
         `SELECT m.rowid, m.* FROM memories m WHERE m.id = ?`
@@ -122,30 +135,30 @@ export class MemoryRepository {
     const sets: string[] = ["updated_at = ?"];
     const values: string[] = [now];
 
-    if (patch.content !== undefined) {
+    if (content !== undefined) {
       sets.push("content = ?");
-      values.push(patch.content);
+      values.push(content);
     }
 
-    if (patch.tags !== undefined) {
+    if (tags !== undefined) {
       sets.push("tags = ?");
-      values.push(JSON.stringify(patch.tags));
+      values.push(JSON.stringify(tags));
     }
 
     values.push(id);
     this.#db.db.prepare(`UPDATE memories SET ${sets.join(", ")} WHERE id = ?`).run(...values);
 
-    if (patch.content !== undefined) {
-      const embedding = await this.#embedding.embed(patch.content);
+    if (content !== undefined) {
+      const embedding = await this.#embedding.embed(content);
       const embeddingBlob = Buffer.from(embedding.buffer);
       this.#db.db
         .prepare(`UPDATE embeddings SET embedding = ? WHERE rowid = ?`)
         .run(embeddingBlob, existing.rowid);
     }
 
-    const updated = this.#db.db
-      .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
-      .get(id) as MemoryRow;
+    const updated = MemoryRowSchema.parse(
+      this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(id)
+    );
 
     const projectMap = this.#projects.getProjectsForMemories([id]);
     return rowToMemory(updated, projectMap.get(id) ?? []);
@@ -206,8 +219,9 @@ export class MemoryRepository {
       .all();
 
     for (const row of typeRows) {
-      if (row.type in byType) {
-        byType[row.type as MemoryType] = row.count;
+      const parsed = MemoryTypeSchema.safeParse(row.type);
+      if (parsed.success) {
+        byType[parsed.data] = row.count;
       }
     }
 
@@ -238,9 +252,9 @@ export class MemoryRepository {
       .prepare(`UPDATE memories SET pinned = ?, updated_at = ? WHERE id = ?`)
       .run(pinned ? 1 : 0, now, id);
 
-    const updated = this.#db.db
-      .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
-      .get(id) as MemoryRow;
+    const updated = MemoryRowSchema.parse(
+      this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(id)
+    );
 
     const projectMap = this.#projects.getProjectsForMemories([id]);
     return rowToMemory(updated, projectMap.get(id) ?? []);

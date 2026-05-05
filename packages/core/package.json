@@ -30,7 +30,8 @@
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
     "better-sqlite3": "^12.9.0",
-    "sqlite-vec": "^0.1.9"
+    "sqlite-vec": "^0.1.9",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

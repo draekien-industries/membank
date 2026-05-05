@@ -1,8 +1,7 @@
 import type { DatabaseManager } from "../db/manager.js";
-import type { MemoryRow } from "../db/row-types.js";
 import { rowToMemory } from "../db/row-types.js";
-import type { MemoryType, SessionContext } from "../types.js";
-import { MEMORY_TYPE_VALUES } from "../types.js";
+import { MEMORY_TYPE_VALUES, MemoryTypeSchema } from "../schemas.js";
+import type { MemoryRow, MemoryType, SessionContext } from "../types.js";
 
 interface TypeCountRow {
   type: string;
@@ -49,8 +48,9 @@ export class SessionContextBuilder {
       number
     >;
     for (const row of typeCounts) {
-      if (stats[row.type as MemoryType] !== undefined) {
-        stats[row.type as MemoryType] = row.count;
+      const parsed = MemoryTypeSchema.safeParse(row.type);
+      if (parsed.success) {
+        stats[parsed.data] = row.count;
       }
     }
 

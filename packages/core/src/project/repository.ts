@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseManager } from "../db/manager.js";
-import type { ProjectRow } from "../db/row-types.js";
 import { rowToProject } from "../db/row-types.js";
-import type { Project } from "../types.js";
+import { ProjectRowSchema } from "../schemas.js";
+import type { Project, ProjectRow } from "../types.js";
 
 interface ProjectMemoryRow extends ProjectRow {
   memory_id: string;
@@ -24,9 +24,11 @@ export class ProjectRepository {
       )
       .run(id, name, hash, now, now);
 
-    const row = this.#db.db
-      .prepare<[string], ProjectRow>(`SELECT * FROM projects WHERE scope_hash = ?`)
-      .get(hash) as ProjectRow;
+    const row = ProjectRowSchema.parse(
+      this.#db.db
+        .prepare<[string], unknown>(`SELECT * FROM projects WHERE scope_hash = ?`)
+        .get(hash)
+    );
 
     return rowToProject(row);
   }
