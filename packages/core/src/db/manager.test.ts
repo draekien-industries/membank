@@ -18,6 +18,7 @@ describe("DatabaseManager", () => {
       expect(tables).toContain("meta");
       expect(tables).toContain("projects");
       expect(tables).toContain("memory_projects");
+      expect(tables).toContain("memory_review_events");
 
       // embeddings is a virtual table; its shadow tables are visible in sqlite_master
       const allNames = mgr.db
@@ -30,7 +31,7 @@ describe("DatabaseManager", () => {
       mgr.close();
     });
 
-    it("memories table has the correct columns (no scope after migration 2)", () => {
+    it("memories table has the correct columns (no scope after migration 2, no needs_review after migration 3)", () => {
       const mgr = DatabaseManager.openInMemory();
 
       const cols = mgr.db
@@ -46,7 +47,6 @@ describe("DatabaseManager", () => {
         "source",
         "access_count",
         "pinned",
-        "needs_review",
         "created_at",
         "updated_at",
       ]) {
@@ -54,6 +54,7 @@ describe("DatabaseManager", () => {
       }
 
       expect(cols).not.toContain("scope");
+      expect(cols).not.toContain("needs_review");
 
       mgr.close();
     });
@@ -89,7 +90,7 @@ describe("DatabaseManager", () => {
   });
 
   describe("migrations", () => {
-    it("schema_version in meta is 2 after full init", () => {
+    it("schema_version in meta is 3 after full init", () => {
       const mgr = DatabaseManager.openInMemory();
 
       const row = mgr.db
@@ -97,7 +98,7 @@ describe("DatabaseManager", () => {
         .get();
 
       expect(row).not.toBeUndefined();
-      expect(row?.value).toBe("2");
+      expect(row?.value).toBe("3");
 
       mgr.close();
     });
@@ -115,8 +116,8 @@ describe("DatabaseManager", () => {
         .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
         .get();
 
-      expect(v1?.value).toBe("2");
-      expect(v2?.value).toBe("2");
+      expect(v1?.value).toBe("3");
+      expect(v2?.value).toBe("3");
 
       mgr1.close();
       mgr2.close();

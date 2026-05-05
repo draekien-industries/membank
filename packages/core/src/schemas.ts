@@ -22,6 +22,33 @@ export const ProjectSchema = z.object({
 });
 export type Project = z.infer<typeof ProjectSchema>;
 
+export const ReviewReasonSchema = z.enum(["similarity_dedup"]);
+export type ReviewReason = z.infer<typeof ReviewReasonSchema>;
+
+export const ReviewEventSchema = z.object({
+  id: z.string(),
+  memoryId: z.string(),
+  conflictingMemoryId: z.string().nullable(),
+  similarity: z.number(),
+  conflictContentSnapshot: z.string(),
+  reason: ReviewReasonSchema,
+  createdAt: z.string(),
+  resolvedAt: z.string().nullable(),
+});
+export type ReviewEvent = z.infer<typeof ReviewEventSchema>;
+
+export const ReviewEventRowSchema = z.object({
+  id: z.string(),
+  memory_id: z.string(),
+  conflicting_memory_id: z.string().nullable(),
+  similarity: z.number(),
+  conflict_content_snapshot: z.string(),
+  reason: ReviewReasonSchema,
+  created_at: z.string(),
+  resolved_at: z.string().nullable(),
+});
+export type ReviewEventRow = z.infer<typeof ReviewEventRowSchema>;
+
 export const MemorySchema = z.object({
   id: z.string(),
   content: z.string(),
@@ -31,7 +58,7 @@ export const MemorySchema = z.object({
   sourceHarness: z.string().nullable(),
   accessCount: z.number().int().nonnegative(),
   pinned: z.boolean(),
-  needsReview: z.boolean(),
+  reviewEvents: z.array(ReviewEventSchema),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -76,7 +103,6 @@ export const MemoryRowSchema = z.object({
   source: z.string().nullable(),
   access_count: z.number(),
   pinned: z.number(),
-  needs_review: z.number(),
   created_at: z.string(),
   updated_at: z.string(),
 });

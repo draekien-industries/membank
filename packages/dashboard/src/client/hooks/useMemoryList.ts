@@ -35,7 +35,7 @@ export function useMemoryList(selectedId: string | null) {
     let ms = allMemories;
     if (search.type) ms = ms.filter((m) => m.type === search.type);
     if (search.pinned) ms = ms.filter((m) => m.pinned);
-    if (search.needsReview) ms = ms.filter((m) => m.needsReview);
+    if (search.needsReview) ms = ms.filter((m) => m.reviewEvents.length > 0);
     if (search.search) {
       const q = search.search.toLowerCase();
       ms = ms.filter((m) => m.content.toLowerCase().includes(q));

@@ -70,7 +70,7 @@ describe("save_memory tool", () => {
       tags: string[];
       projects: { id: string; name: string; scopeHash: string }[];
       pinned: boolean;
-      needsReview: boolean;
+      reviewEvents: unknown[];
       createdAt: string;
       updatedAt: string;
     };

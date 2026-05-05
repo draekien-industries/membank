@@ -1,7 +1,7 @@
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { addMemoryProject, removeMemoryProject } from "@/lib/api";
+import { addMemoryProject, patchMemory, removeMemoryProject } from "@/lib/api";
 import { memoriesCollection, projectsCollection, queryClient } from "@/lib/collections";
 
 export function useMemoryDetail(id: string) {
@@ -16,9 +16,9 @@ export function useMemoryDetail(id: string) {
   const { data: allProjects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
 
   const handleApprove = () => {
-    memoriesCollection.update(id, (draft) => {
-      draft.needsReview = false;
-    });
+    void patchMemory(id, { needsReview: false }).then(() =>
+      queryClient.invalidateQueries({ queryKey: ["memories"] })
+    );
   };
 
   const handleAddProject = async (projectId: string): Promise<boolean> => {

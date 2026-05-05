@@ -7,28 +7,26 @@ interface InsertOpts {
   id: string;
   content: string;
   type: string;
-  needsReview?: boolean;
+  withReviewEvent?: boolean;
 }
 
 function insertMemory(db: DatabaseManager, opts: InsertOpts): void {
   const now = new Date().toISOString();
   db.db
     .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(
-      opts.id,
-      opts.content,
-      opts.type,
-      JSON.stringify([]),
-      null,
-      0,
-      0,
-      opts.needsReview === true ? 1 : 0,
-      now,
-      now
-    );
+    .run(opts.id, opts.content, opts.type, JSON.stringify([]), null, 0, 0, now, now);
+
+  if (opts.withReviewEvent) {
+    db.db
+      .prepare(
+        `INSERT INTO memory_review_events (id, memory_id, conflicting_memory_id, similarity, conflict_content_snapshot, reason, created_at)
+         VALUES (?, ?, NULL, ?, ?, ?, ?)`
+      )
+      .run(`evt-${opts.id}`, opts.id, 0.8, "snapshot", "similarity_dedup", now);
+  }
 }
 
 function captureStdout(fn: () => void): string {
@@ -77,15 +75,15 @@ describe("stats command integration — real in-memory SQLite", () => {
       id: "r1",
       content: "Needs review 1",
       type: "preference",
-      needsReview: true,
+      withReviewEvent: true,
     });
     insertMemory(db, {
       id: "r2",
       content: "Needs review 2",
       type: "correction",
-      needsReview: true,
+      withReviewEvent: true,
     });
-    insertMemory(db, { id: "ok1", content: "Fine memory", type: "fact", needsReview: false });
+    insertMemory(db, { id: "ok1", content: "Fine memory", type: "fact", withReviewEvent: false });
 
     const stats = repo.stats();
 
@@ -107,7 +105,12 @@ describe("stats command integration — real in-memory SQLite", () => {
 
   it("outputStats human mode prints type counts, total, and needs_review", () => {
     insertMemory(db, { id: "c1", content: "Correction", type: "correction" });
-    insertMemory(db, { id: "p1", content: "Preference", type: "preference", needsReview: true });
+    insertMemory(db, {
+      id: "p1",
+      content: "Preference",
+      type: "preference",
+      withReviewEvent: true,
+    });
 
     const stats = repo.stats();
     const formatter = new Formatter(false);
@@ -123,7 +126,7 @@ describe("stats command integration — real in-memory SQLite", () => {
 
   it("outputStats JSON mode returns object with byType, total, needsReview", () => {
     insertMemory(db, { id: "d1", content: "A decision", type: "decision" });
-    insertMemory(db, { id: "l1", content: "A learning", type: "learning", needsReview: true });
+    insertMemory(db, { id: "l1", content: "A learning", type: "learning", withReviewEvent: true });
 
     const stats = repo.stats();
     const formatter = new Formatter(true);

@@ -27,7 +27,6 @@ export const memoriesCollection = createCollection(
               tags: c.tags,
               type: c.type as MemoryType | undefined,
               pinned: c.pinned,
-              needsReview: c.needsReview,
             });
           })
         );

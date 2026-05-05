@@ -24,6 +24,17 @@ export interface Project {
   updatedAt: string;
 }
 
+export interface ReviewEvent {
+  id: string;
+  memoryId: string;
+  conflictingMemoryId: string | null;
+  similarity: number;
+  conflictContentSnapshot: string;
+  reason: string;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
 export interface Memory {
   id: string;
   content: string;
@@ -33,7 +44,7 @@ export interface Memory {
   sourceHarness: string | null;
   accessCount: number;
   pinned: boolean;
-  needsReview: boolean;
+  reviewEvents: ReviewEvent[];
   createdAt: string;
   updatedAt: string;
 }

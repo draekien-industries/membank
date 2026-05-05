@@ -1,4 +1,4 @@
-import type { Memory, MemoryType } from "@membank/core";
+import type { Memory, MemoryType, ReviewEvent } from "@membank/core";
 import chalk from "chalk";
 import Table from "cli-table3";
 
@@ -133,6 +133,45 @@ export class Formatter {
     }
 
     process.stdout.write(`\n${table.toString()}\n\n`);
+  }
+
+  outputReview(memories: Memory[]): void {
+    if (this.#isJson) {
+      process.stdout.write(`${JSON.stringify(memories)}\n`);
+      return;
+    }
+
+    if (memories.length === 0) {
+      process.stdout.write(`${chalk.dim("No memories flagged for review.")}\n`);
+      return;
+    }
+
+    for (const m of memories) {
+      process.stdout.write("\n");
+      process.stdout.write(`  ${colorType(m.type)}  ${chalk.dim(m.id)}\n`);
+      process.stdout.write(`  ${truncate(m.content, 80)}\n`);
+
+      for (const event of m.reviewEvents) {
+        this.#outputReviewEvent(event);
+      }
+    }
+    process.stdout.write("\n");
+  }
+
+  #outputReviewEvent(event: ReviewEvent): void {
+    const pct = `${Math.round(event.similarity * 100)}%`;
+    const conflictRef = event.conflictingMemoryId
+      ? chalk.dim(event.conflictingMemoryId)
+      : chalk.dim("(deleted)");
+    const ts = new Date(event.createdAt).toLocaleString();
+    process.stdout.write(
+      `    ${chalk.yellow("⚠")} ${pct} similarity  conflict: ${conflictRef}  ${chalk.dim(ts)}\n`
+    );
+    if (event.conflictContentSnapshot) {
+      process.stdout.write(
+        `      ${chalk.dim("snapshot:")} ${truncate(event.conflictContentSnapshot, 60)}\n`
+      );
+    }
   }
 
   error(msg: string): void {

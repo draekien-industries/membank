@@ -291,6 +291,7 @@ export function createServer(core: CoreServices): Server {
           tags: r.tags,
           projects: r.projects,
           pinned: r.pinned,
+          reviewEvents: r.reviewEvents,
           score: r.score,
         }));
 

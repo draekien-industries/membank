@@ -69,6 +69,26 @@ WHERE m.scope != 'global';
 ALTER TABLE memories DROP COLUMN scope;
 `,
   ],
+  [
+    3,
+    `
+CREATE TABLE IF NOT EXISTS memory_review_events (
+  id                        TEXT PRIMARY KEY,
+  memory_id                 TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+  conflicting_memory_id     TEXT REFERENCES memories(id) ON DELETE SET NULL,
+  similarity                REAL NOT NULL,
+  conflict_content_snapshot TEXT NOT NULL,
+  reason                    TEXT NOT NULL,
+  created_at                TEXT NOT NULL,
+  resolved_at               TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_review_events_memory_open
+  ON memory_review_events(memory_id) WHERE resolved_at IS NULL;
+
+ALTER TABLE memories DROP COLUMN needs_review;
+`,
+  ],
 ];
 
 export class DatabaseManager {

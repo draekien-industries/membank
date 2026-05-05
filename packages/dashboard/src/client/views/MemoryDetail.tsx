@@ -117,7 +117,7 @@ function MemoryDetailForm({
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
           <Badge variant={memory.type}>{memory.type}</Badge>
-          {memory.needsReview && (
+          {memory.reviewEvents.length > 0 && (
             <Badge
               variant="destructive"
               title="Flagged for review — possible duplicate or conflict with another memory"
@@ -246,6 +246,50 @@ function MemoryDetailForm({
           )}
         </div>
 
+        {memory.reviewEvents.length > 0 && (
+          <Collapsible defaultOpen className="group pt-2 border-t border-border">
+            <CollapsibleTrigger className="flex items-center gap-1 cursor-pointer text-[11px] uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors select-none w-full">
+              <span className="transition-transform group-data-[open]:rotate-90">›</span>
+              Review reasons
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-2 mt-2">
+              {memory.reviewEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="rounded border border-border p-2 space-y-1 text-[11px]"
+                >
+                  <div className="flex justify-between text-muted-foreground">
+                    <span className="font-medium text-destructive">
+                      {Math.round(event.similarity * 100)}% similarity match
+                    </span>
+                    <span>{new Date(event.createdAt).toLocaleString()}</span>
+                  </div>
+                  {event.conflictingMemoryId ? (
+                    <div className="text-muted-foreground">
+                      Conflicting memory:{" "}
+                      <span className="font-mono text-[10px]">{event.conflictingMemoryId}</span>
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground italic">Conflicting memory deleted</div>
+                  )}
+                  {event.conflictContentSnapshot && (
+                    <Collapsible>
+                      <CollapsibleTrigger className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                        Show conflicting content ›
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <p className="mt-1 text-foreground bg-muted rounded px-2 py-1 whitespace-pre-wrap">
+                          {event.conflictContentSnapshot}
+                        </p>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
+                </div>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+
         <Collapsible className="group pt-2 border-t border-border">
           <CollapsibleTrigger className="flex items-center gap-1 cursor-pointer text-[11px] uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors select-none w-full">
             <span className="transition-transform group-data-[open]:rotate-90">›</span>
@@ -286,7 +330,7 @@ function MemoryDetailForm({
             </Button>
           </>
         )}
-        {memory.needsReview && blocker.status !== "blocked" && (
+        {memory.reviewEvents.length > 0 && blocker.status !== "blocked" && (
           <Button
             variant="outline"
             size="sm"

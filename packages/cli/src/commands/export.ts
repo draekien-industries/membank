@@ -12,7 +12,6 @@ interface ExportRow {
   source: string | null;
   access_count: number;
   pinned: number;
-  needs_review: number;
   created_at: string;
   updated_at: string;
   embedding: Buffer | null;
@@ -26,7 +25,6 @@ export interface ExportRecord {
   sourceHarness: string | null;
   accessCount: number;
   pinned: boolean;
-  needsReview: boolean;
   createdAt: string;
   updatedAt: string;
   embedding: string | null;
@@ -57,7 +55,6 @@ export function exportCommand(
     sourceHarness: row.source,
     accessCount: row.access_count,
     pinned: row.pinned !== 0,
-    needsReview: row.needs_review !== 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     embedding: row.embedding !== null ? Buffer.from(row.embedding).toString("base64") : null,

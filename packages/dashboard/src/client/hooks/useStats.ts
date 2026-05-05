@@ -22,7 +22,7 @@ export function useStats(): Stats | null {
     for (const m of allMemories) {
       const t = m.type as MemoryType;
       if (t in byType) byType[t]++;
-      if (m.needsReview) needsReview++;
+      if (m.reviewEvents.length > 0) needsReview++;
     }
     return { byType, total: allMemories.length, needsReview };
   }, [allMemories, isLoading]);

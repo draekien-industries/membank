@@ -22,8 +22,8 @@ function insertMemory(db: DatabaseManager, opts: InsertOpts): void {
   const now = new Date().toISOString();
   db.db
     .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       opts.id,
@@ -33,7 +33,6 @@ function insertMemory(db: DatabaseManager, opts: InsertOpts): void {
       null,
       0,
       opts.pinned ? 1 : 0,
-      0,
       now,
       now
     );

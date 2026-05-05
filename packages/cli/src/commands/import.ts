@@ -48,8 +48,8 @@ export async function importCommand(
   }
 
   const insertMemory = db.db.prepare(
-    `INSERT OR REPLACE INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT OR REPLACE INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   const insertEmbedding = db.db.prepare(
@@ -66,7 +66,6 @@ export async function importCommand(
         rec.sourceHarness ?? null,
         rec.accessCount ?? 0,
         rec.pinned ? 1 : 0,
-        rec.needsReview ? 1 : 0,
         rec.createdAt ?? new Date().toISOString(),
         rec.updatedAt ?? new Date().toISOString()
       );

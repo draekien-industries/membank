@@ -13,7 +13,7 @@ function makeResult(overrides: Partial<QueryResult> = {}): QueryResult {
     sourceHarness: null,
     accessCount: 0,
     pinned: false,
-    needsReview: false,
+    reviewEvents: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...overrides,

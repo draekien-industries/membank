@@ -107,7 +107,7 @@ export const MemoryRow = forwardRef<HTMLLIElement, MemoryRowProps>(function Memo
           </div>
         )}
         <div className="flex items-center gap-1.5 ml-auto">
-          {memory.needsReview && (
+          {memory.reviewEvents.length > 0 && (
             <span title="Flagged for review — possible duplicate or conflict with another memory">
               <Warning weight="fill" className="size-3 text-[var(--type-correction)]" />
             </span>

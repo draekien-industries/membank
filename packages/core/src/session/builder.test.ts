@@ -12,15 +12,14 @@ function insertMemory(
     tags?: string[];
     source?: string | null;
     pinned?: boolean;
-    needsReview?: boolean;
   }
 ): string {
   const id = opts.id ?? randomUUID();
   const now = new Date().toISOString();
   db.db
     .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)`
     )
     .run(
       id,
@@ -29,7 +28,6 @@ function insertMemory(
       JSON.stringify(opts.tags ?? []),
       opts.source ?? null,
       opts.pinned ? 1 : 0,
-      opts.needsReview ? 1 : 0,
       now,
       now
     );
@@ -141,7 +139,7 @@ describe("SessionContextBuilder", () => {
     expect(mem.tags).toEqual(["a", "b"]);
     expect(typeof mem.pinned).toBe("boolean");
     expect(mem.pinned).toBe(true);
-    expect(typeof mem.needsReview).toBe("boolean");
+    expect(Array.isArray(mem.reviewEvents)).toBe(true);
     expect(typeof mem.accessCount).toBe("number");
     expect(mem.sourceHarness).toBe("claude");
     expect(mem.createdAt).toBeTruthy();

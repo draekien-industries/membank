@@ -15,8 +15,8 @@ function insertMemory(
   const now = new Date().toISOString();
   db.db
     .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
@@ -26,7 +26,6 @@ function insertMemory(
       null,
       0,
       opts?.pinned === true ? 1 : 0,
-      0,
       now,
       now
     );
@@ -107,7 +106,6 @@ describe("export command — real in-memory SQLite", () => {
     expect(Array.isArray(rec?.tags)).toBe(true);
     expect(typeof rec?.accessCount).toBe("number");
     expect(typeof rec?.pinned).toBe("boolean");
-    expect(typeof rec?.needsReview).toBe("boolean");
     expect(typeof rec?.createdAt).toBe("string");
     expect(typeof rec?.updatedAt).toBe("string");
   });
@@ -131,10 +129,10 @@ describe("export command — real in-memory SQLite", () => {
     const now = new Date().toISOString();
     db.db
       .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run("mem-noEmbed", "no embedding", "fact", "[]", null, 0, 0, 0, now, now);
+      .run("mem-noEmbed", "no embedding", "fact", "[]", null, 0, 0, now, now);
 
     const outputPath = tempPath("export-test-4.json");
     captureStdout(() => exportCommand(db, humanFormatter, { output: outputPath }));

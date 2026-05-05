@@ -37,12 +37,57 @@ interface MemoryRow {
   source: string | null;
   access_count: number;
   pinned: number;
-  needs_review: number;
   created_at: string;
   updated_at: string;
 }
 
-function parseRow(row: MemoryRow, projects: Project[] = []) {
+interface ReviewEventRow {
+  id: string;
+  memory_id: string;
+  conflicting_memory_id: string | null;
+  similarity: number;
+  conflict_content_snapshot: string;
+  reason: string;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+function parseReviewEvent(row: ReviewEventRow) {
+  return {
+    id: row.id,
+    memoryId: row.memory_id,
+    conflictingMemoryId: row.conflicting_memory_id,
+    similarity: row.similarity,
+    conflictContentSnapshot: row.conflict_content_snapshot,
+    reason: row.reason,
+    createdAt: row.created_at,
+    resolvedAt: row.resolved_at,
+  };
+}
+
+function getReviewEventsForMemories(db: DatabaseManager, ids: string[]) {
+  if (ids.length === 0) return new Map<string, ReturnType<typeof parseReviewEvent>[]>();
+  const placeholders = ids.map(() => "?").join(", ");
+  const rows = db.db
+    .prepare<string[], ReviewEventRow>(
+      `SELECT * FROM memory_review_events WHERE memory_id IN (${placeholders}) AND resolved_at IS NULL ORDER BY created_at DESC`
+    )
+    .all(...ids);
+  const map = new Map<string, ReturnType<typeof parseReviewEvent>[]>();
+  for (const row of rows) {
+    const event = parseReviewEvent(row);
+    const existing = map.get(event.memoryId) ?? [];
+    existing.push(event);
+    map.set(event.memoryId, existing);
+  }
+  return map;
+}
+
+function parseRow(
+  row: MemoryRow,
+  projects: Project[] = [],
+  reviewEvents: ReturnType<typeof parseReviewEvent>[] = []
+) {
   return {
     id: row.id,
     content: row.content,
@@ -52,7 +97,7 @@ function parseRow(row: MemoryRow, projects: Project[] = []) {
     sourceHarness: row.source,
     accessCount: row.access_count,
     pinned: row.pinned !== 0,
-    needsReview: row.needs_review !== 0,
+    reviewEvents,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -105,7 +150,9 @@ export function createApiApp(
       conditions.push("m.pinned = 1");
     }
     if (needsReview === "true") {
-      conditions.push("m.needs_review = 1");
+      conditions.push(
+        "EXISTS (SELECT 1 FROM memory_review_events e WHERE e.memory_id = m.id AND e.resolved_at IS NULL)"
+      );
     }
     if (projectId === "global") {
       conditions.push("m.id NOT IN (SELECT memory_id FROM memory_projects)");
@@ -121,9 +168,13 @@ export function createApiApp(
       )
       .all(...params);
 
-    const projectMap = projectRepo.getProjectsForMemories(rows.map((r) => r.id));
+    const ids = rows.map((r) => r.id);
+    const projectMap = projectRepo.getProjectsForMemories(ids);
+    const eventMap = getReviewEventsForMemories(db, ids);
 
-    let memories = rows.map((r) => parseRow(r, projectMap.get(r.id) ?? []));
+    let memories = rows.map((r) =>
+      parseRow(r, projectMap.get(r.id) ?? [], eventMap.get(r.id) ?? [])
+    );
 
     if (search) {
       const q = search.toLowerCase();
@@ -141,7 +192,8 @@ export function createApiApp(
     if (!row) return c.json({ error: "Not found" }, 404);
 
     const projectMap = projectRepo.getProjectsForMemories([id]);
-    return c.json(parseRow(row, projectMap.get(id) ?? []));
+    const eventMap = getReviewEventsForMemories(db, [id]);
+    return c.json(parseRow(row, projectMap.get(id) ?? [], eventMap.get(id) ?? []));
   });
 
   // Update memory
@@ -168,10 +220,6 @@ export function createApiApp(
       sets.push("pinned = ?");
       sqlParams.push(body.pinned ? 1 : 0);
     }
-    if (body.needsReview !== undefined) {
-      sets.push("needs_review = ?");
-      sqlParams.push(body.needsReview ? 1 : 0);
-    }
     if (body.type !== undefined) {
       sets.push("type = ?");
       sqlParams.push(body.type);
@@ -183,6 +231,10 @@ export function createApiApp(
       db.db.prepare(`UPDATE memories SET ${sets.join(", ")} WHERE id = ?`).run(...sqlParams);
     }
 
+    if (body.needsReview === false) {
+      repo.resolveReviewEvents(id);
+    }
+
     if (body.content !== undefined || body.tags !== undefined) {
       await repo.update(id, { content: body.content, tags: body.tags });
     }
@@ -192,7 +244,8 @@ export function createApiApp(
       .get(id) as MemoryRow;
 
     const projectMap = projectRepo.getProjectsForMemories([id]);
-    return c.json(parseRow(updated, projectMap.get(id) ?? []));
+    const eventMap = getReviewEventsForMemories(db, [id]);
+    return c.json(parseRow(updated, projectMap.get(id) ?? [], eventMap.get(id) ?? []));
   });
 
   // Delete memory
@@ -254,12 +307,16 @@ export function createApiApp(
     }
 
     const totals = db.db
-      .prepare<[], { total: number; needsReview: number }>(
-        "SELECT COUNT(*) as total, SUM(needs_review) as needsReview FROM memories"
-      )
-      .get() ?? { total: 0, needsReview: 0 };
+      .prepare<[], { total: number }>("SELECT COUNT(*) as total FROM memories")
+      .get() ?? { total: 0 };
 
-    return c.json({ byType, total: totals.total, needsReview: totals.needsReview ?? 0 });
+    const reviewRow = db.db
+      .prepare<[], { needsReview: number }>(
+        "SELECT COUNT(DISTINCT memory_id) as needsReview FROM memory_review_events WHERE resolved_at IS NULL"
+      )
+      .get() ?? { needsReview: 0 };
+
+    return c.json({ byType, total: totals.total, needsReview: reviewRow.needsReview });
   });
 
   return app;

@@ -19,7 +19,6 @@ interface InsertMemoryOptions {
   source?: string | null;
   accessCount?: number;
   pinned?: boolean;
-  needsReview?: boolean;
   createdAt?: string;
   updatedAt?: string;
   embedding: Float32Array;
@@ -29,8 +28,8 @@ function insertMemory(db: DatabaseManager, opts: InsertMemoryOptions): void {
   const now = new Date().toISOString();
   db.db
     .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       opts.id,
@@ -40,7 +39,6 @@ function insertMemory(db: DatabaseManager, opts: InsertMemoryOptions): void {
       opts.source ?? null,
       opts.accessCount ?? 0,
       opts.pinned ? 1 : 0,
-      opts.needsReview ? 1 : 0,
       opts.createdAt ?? now,
       opts.updatedAt ?? now
     );

@@ -49,7 +49,6 @@ function makeExportFile(overrides?: Partial<ExportFile>): ExportFile {
         sourceHarness: null,
         accessCount: 0,
         pinned: false,
-        needsReview: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         embedding: null,
@@ -137,7 +136,6 @@ describe("import command — real in-memory SQLite", () => {
           sourceHarness: null,
           accessCount: 0,
           pinned: false,
-          needsReview: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           embedding: embeddingB64,
@@ -329,10 +327,10 @@ describe("import command — real in-memory SQLite", () => {
     const now = new Date().toISOString();
     sourceDb.db
       .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run("rt-1", "Round trip content 1", "preference", '["a"]', null, 3, 1, 0, now, now);
+      .run("rt-1", "Round trip content 1", "preference", '["a"]', null, 3, 1, now, now);
     const zero = Buffer.from(new Float32Array(384).fill(0.2).buffer);
     sourceDb.db
       .prepare(
@@ -342,10 +340,10 @@ describe("import command — real in-memory SQLite", () => {
 
     sourceDb.db
       .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run("rt-2", "Round trip content 2", "decision", "[]", null, 0, 0, 0, now, now);
+      .run("rt-2", "Round trip content 2", "decision", "[]", null, 0, 0, now, now);
 
     // Export
     const exportPath = join(tmpdir(), "round-trip-export.json");
@@ -395,7 +393,7 @@ describe("import command — real in-memory SQLite", () => {
           sourceHarness: null,
           accessCount: 0,
           pinned: false,
-          needsReview: false,
+
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           embedding: null,
@@ -408,7 +406,7 @@ describe("import command — real in-memory SQLite", () => {
           sourceHarness: null,
           accessCount: 0,
           pinned: false,
-          needsReview: false,
+
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           embedding: null,

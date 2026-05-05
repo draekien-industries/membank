@@ -62,7 +62,7 @@ describe("MemoryRepository", () => {
     expect(memory.projects).toEqual([]);
     expect(memory.tags).toEqual([]);
     expect(memory.pinned).toBe(false);
-    expect(memory.needsReview).toBe(false);
+    expect(memory.reviewEvents).toEqual([]);
     expect(memory.accessCount).toBe(0);
   });
 
@@ -80,7 +80,7 @@ describe("MemoryRepository", () => {
     expect(Array.isArray(memory.tags)).toBe(true);
     expect(memory.tags).toEqual(["testing", "quality"]);
     expect(typeof memory.pinned).toBe("boolean");
-    expect(typeof memory.needsReview).toBe("boolean");
+    expect(Array.isArray(memory.reviewEvents)).toBe(true);
     expect(typeof memory.accessCount).toBe("number");
     expect(memory.projects).toHaveLength(1);
     expect(memory.projects[0]?.scopeHash).toBe("abc123");
@@ -123,13 +123,15 @@ describe("MemoryRepository", () => {
 
     expect(countRows(dbManager)).toBe(2);
     expect(second.id).not.toBe(first.id);
-    expect(second.needsReview).toBe(false);
+    expect(second.reviewEvents).toEqual([]);
 
-    // Existing record must now have needs_review = true
-    const existingRow = dbManager.db
-      .prepare<[string], { needs_review: number }>("SELECT needs_review FROM memories WHERE id = ?")
-      .get(first.id) as { needs_review: number };
-    expect(existingRow.needs_review).toBe(1);
+    // Existing record must now have a review event referencing the new memory
+    const events = repo.listReviewEvents(first.id, { unresolvedOnly: true });
+    expect(events).toHaveLength(1);
+    expect(events[0]?.conflictingMemoryId).toBe(second.id);
+    expect(events[0]?.reason).toBe("similarity_dedup");
+    expect(events[0]?.similarity).toBeGreaterThanOrEqual(0.75);
+    expect(events[0]?.conflictContentSnapshot).toBe("Similar memory");
   });
 
   it("save() inserts distinct record when similarity < 0.75", async () => {
@@ -141,7 +143,7 @@ describe("MemoryRepository", () => {
     const second = await repo.save({ content: "Memory B", type: "fact" });
 
     expect(countRows(dbManager)).toBe(2);
-    expect(second.needsReview).toBe(false);
+    expect(second.reviewEvents).toEqual([]);
   });
 
   it("update() updates content+tags, regenerates embedding, refreshes updated_at, preserves created_at and access_count", async () => {

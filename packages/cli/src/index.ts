@@ -15,6 +15,7 @@ import { listCommand } from "./commands/list.js";
 import { migrateCommand } from "./commands/migrate.js";
 import { pinCommand } from "./commands/pin.js";
 import { queryCommand } from "./commands/query.js";
+import { reviewCommand } from "./commands/review.js";
 import { statsCommand } from "./commands/stats.js";
 import { unpinCommand } from "./commands/unpin.js";
 import { Formatter } from "./formatter.js";
@@ -306,6 +307,21 @@ program
       if (results.some((r) => r.status === "error")) {
         process.exit(1);
       }
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+program
+  .command("review")
+  .description("list memories flagged for review, or resolve review events")
+  .option("--resolve <id>", "resolve all open review events for the given memory id")
+  .action(async (cmdOptions: { resolve?: string }) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    try {
+      await reviewCommand(cmdOptions, formatter);
     } catch (err) {
       formatter.error(err instanceof Error ? err.message : String(err));
       process.exit(2);

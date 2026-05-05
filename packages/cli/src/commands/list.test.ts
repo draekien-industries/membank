@@ -15,8 +15,8 @@ function insertMemory(db: DatabaseManager, opts: InsertOpts): void {
   const now = new Date().toISOString();
   db.db
     .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, needs_review, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       opts.id,
@@ -26,7 +26,6 @@ function insertMemory(db: DatabaseManager, opts: InsertOpts): void {
       null,
       0,
       opts.pinned === true ? 1 : 0,
-      0,
       now,
       now
     );
@@ -66,7 +65,6 @@ describe("list command integration — real in-memory SQLite", () => {
       source: string | null;
       access_count: number;
       pinned: number;
-      needs_review: number;
       created_at: string;
       updated_at: string;
     }[];
@@ -80,7 +78,7 @@ describe("list command integration — real in-memory SQLite", () => {
       sourceHarness: r.source,
       accessCount: r.access_count,
       pinned: r.pinned !== 0,
-      needsReview: r.needs_review !== 0,
+      reviewEvents: [],
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }));
@@ -110,7 +108,6 @@ describe("list command integration — real in-memory SQLite", () => {
       source: string | null;
       access_count: number;
       pinned: number;
-      needs_review: number;
       created_at: string;
       updated_at: string;
     }[];
@@ -143,7 +140,6 @@ describe("list command integration — real in-memory SQLite", () => {
       source: string | null;
       access_count: number;
       pinned: number;
-      needs_review: number;
       created_at: string;
       updated_at: string;
     }[];
@@ -157,7 +153,7 @@ describe("list command integration — real in-memory SQLite", () => {
       sourceHarness: r.source,
       accessCount: r.access_count,
       pinned: r.pinned !== 0,
-      needsReview: r.needs_review !== 0,
+      reviewEvents: [],
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }));
