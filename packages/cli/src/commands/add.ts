@@ -1,4 +1,4 @@
-import type { EmbeddingService, MemoryType } from "@membank/core";
+import type { EmbeddingService } from "@membank/core";
 import {
   DatabaseManager,
   EmbeddingService as EmbeddingServiceImpl,
@@ -8,6 +8,7 @@ import {
 } from "@membank/core";
 import ora from "ora";
 import type { Formatter } from "../formatter.js";
+import { MemoryTypeSchema } from "../schemas.js";
 
 interface AddCommandOptions {
   type: string;
@@ -36,7 +37,7 @@ export async function addCommand(
     const spinner = formatter.isJson ? null : ora("Saving memory…").start();
     const memory = await repo.save({
       content,
-      type: options.type as MemoryType,
+      type: MemoryTypeSchema.parse(options.type),
       tags,
       projectScope,
     });

@@ -287,7 +287,7 @@ describe("import command — real in-memory SQLite", () => {
 
     process.exit = origExit;
     expect(exitCode).toBe(1);
-    expect(stderrOutput).toContain("Invalid memory record at index 0");
+    expect(stderrOutput).toContain("Invalid export file:");
 
     const rows = db.db.prepare("SELECT COUNT(*) as n FROM memories").get() as { n: number };
     expect(rows.n).toBe(0);

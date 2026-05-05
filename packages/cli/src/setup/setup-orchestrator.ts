@@ -1,4 +1,5 @@
 import { createInterface } from "node:readline";
+import { SetupHarnessSchema } from "../schemas.js";
 import type { HarnessConfigWriter } from "./harness-config-writer.js";
 import { CommandError, SUPPORTED_HARNESSES } from "./harness-config-writer.js";
 import type { DetectedHarness } from "./harness-detector.js";
@@ -93,7 +94,7 @@ export class SetupOrchestrator {
 
     let detected: DetectedHarness[];
     if (harness !== undefined) {
-      detected = [{ name: harness as DetectedHarness["name"], configPath: "" }];
+      detected = [{ name: SetupHarnessSchema.parse(harness), configPath: "" }];
     } else {
       detected = this.#detector();
     }

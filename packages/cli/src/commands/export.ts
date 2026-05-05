@@ -2,6 +2,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseManager } from "@membank/core";
 import type { Formatter } from "../formatter.js";
+import { TagsRowSchema } from "../schemas.js";
 
 interface ExportRow {
   id: string;
@@ -52,7 +53,7 @@ export function exportCommand(
     id: row.id,
     content: row.content,
     type: row.type,
-    tags: JSON.parse(row.tags) as string[],
+    tags: TagsRowSchema.parse(JSON.parse(row.tags)),
     sourceHarness: row.source,
     accessCount: row.access_count,
     pinned: row.pinned !== 0,

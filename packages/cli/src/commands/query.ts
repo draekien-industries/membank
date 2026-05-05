@@ -1,4 +1,3 @@
-import type { MemoryType } from "@membank/core";
 import {
   DatabaseManager,
   EmbeddingService,
@@ -8,6 +7,7 @@ import {
 } from "@membank/core";
 import ora from "ora";
 import type { Formatter } from "../formatter.js";
+import { LimitSchema, MemoryTypeSchema } from "../schemas.js";
 
 interface QueryCommandOptions {
   type?: string;
@@ -25,12 +25,12 @@ export async function queryCommand(
     const repo = new MemoryRepository(db, embedding, new ProjectRepository(db));
     const engine = new QueryEngine(db, embedding, repo);
 
-    const limit = options.limit !== undefined ? Number.parseInt(options.limit, 10) : 10;
+    const limit = options.limit !== undefined ? LimitSchema.parse(options.limit) : 10;
 
     const spinner = formatter.isJson ? null : ora("Searching memories…").start();
     const results = await engine.query({
       query: queryText,
-      type: options.type as MemoryType | undefined,
+      type: options.type !== undefined ? MemoryTypeSchema.parse(options.type) : undefined,
       limit,
     });
     spinner?.succeed(`${results.length} result${results.length === 1 ? "" : "s"} found`);

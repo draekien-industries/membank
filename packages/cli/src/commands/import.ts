@@ -1,29 +1,8 @@
 import { readFileSync } from "node:fs";
 import type { DatabaseManager } from "@membank/core";
-import { MEMORY_TYPE_VALUES } from "@membank/core";
 import type { Formatter } from "../formatter.js";
 import type { PromptHelper } from "../prompt-helper.js";
-import type { ExportFile, ExportRecord } from "./export.js";
-
-const MEMORY_TYPES = new Set<string>(MEMORY_TYPE_VALUES);
-
-function isValidRecord(r: unknown): r is ExportRecord {
-  if (typeof r !== "object" || r === null) return false;
-  const rec = r as Record<string, unknown>;
-  return (
-    typeof rec.id === "string" &&
-    rec.id.length > 0 &&
-    typeof rec.content === "string" &&
-    typeof rec.type === "string" &&
-    MEMORY_TYPES.has(rec.type)
-  );
-}
-
-function isExportFile(parsed: unknown): parsed is ExportFile {
-  if (typeof parsed !== "object" || parsed === null) return false;
-  const obj = parsed as Record<string, unknown>;
-  return obj.version === 1 && Array.isArray(obj.memories);
-}
+import { ExportFileSchema } from "../schemas.js";
 
 export async function importCommand(
   filePath: string,
@@ -47,20 +26,15 @@ export async function importCommand(
     process.exit(1);
   }
 
-  if (!isExportFile(parsed)) {
-    formatter.error(`Invalid export file format: expected version 1 and memories array`);
-    process.exit(1);
-  }
-
-  const invalidIndex = parsed.memories.findIndex((r) => !isValidRecord(r));
-  if (invalidIndex !== -1) {
+  const parseResult = ExportFileSchema.safeParse(parsed);
+  if (!parseResult.success) {
     formatter.error(
-      `Invalid memory record at index ${invalidIndex}: must have id, content, and type`
+      `Invalid export file: ${parseResult.error.issues[0]?.message ?? "unknown error"}`
     );
     process.exit(1);
   }
 
-  const count = parsed.memories.length;
+  const count = parseResult.data.memories.length;
 
   if (formatter.isJson) {
     process.stdout.write(`${JSON.stringify({ found: count })}\n`);
@@ -83,7 +57,7 @@ export async function importCommand(
   );
 
   const runImport = db.db.transaction(() => {
-    for (const rec of parsed.memories) {
+    for (const rec of parseResult.data.memories) {
       insertMemory.run(
         rec.id,
         rec.content,

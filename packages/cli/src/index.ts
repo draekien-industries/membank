@@ -19,6 +19,7 @@ import { statsCommand } from "./commands/stats.js";
 import { unpinCommand } from "./commands/unpin.js";
 import { Formatter } from "./formatter.js";
 import { PromptHelper } from "./prompt-helper.js";
+import { MigrateModeSchema, SetupHarnessSchema } from "./schemas.js";
 import { HarnessConfigWriter, SUPPORTED_HARNESSES } from "./setup/harness-config-writer.js";
 import type { DetectedHarness } from "./setup/harness-detector.js";
 import { InjectionHookWriter } from "./setup/injection-hook-writer.js";
@@ -221,7 +222,8 @@ program
     const interactive = !formatter.isJson && !autoYes && cmdOptions.harness === undefined;
 
     if (cmdOptions.harness !== undefined) {
-      if (!SUPPORTED_HARNESSES.some((h) => h === cmdOptions.harness)) {
+      const harnessCheck = SetupHarnessSchema.safeParse(cmdOptions.harness);
+      if (!harnessCheck.success) {
         formatter.error(
           `Unknown harness: "${cmdOptions.harness}". Supported: ${SUPPORTED_HARNESSES.join(", ")}`
         );
@@ -253,7 +255,7 @@ program
           const found = detected.find((d) => d.name === name);
           return {
             value: (found ?? {
-              name: name as DetectedHarness["name"],
+              name,
               configPath: "",
             }) satisfies DetectedHarness,
             label: name,
@@ -308,14 +310,15 @@ program
   .command("migrate <mode> [name]")
   .description("list or run a named data migration (modes: list, run)")
   .action(async (mode: string, name: string | undefined) => {
-    if (mode !== "list" && mode !== "run") {
+    const modeResult = MigrateModeSchema.safeParse(mode);
+    if (!modeResult.success) {
       process.stderr.write(`Error: mode must be "list" or "run"\n`);
       process.exit(1);
     }
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
     const formatter = Formatter.create(globalOpts.json === true);
     try {
-      await migrateCommand(mode, name, formatter);
+      await migrateCommand(modeResult.data, name, formatter);
     } catch (err) {
       formatter.error(err instanceof Error ? err.message : String(err));
       process.exit(2);

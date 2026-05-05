@@ -1,14 +1,14 @@
 import type { Memory, SessionContext } from "@membank/core";
 import { DatabaseManager, resolveProject, SessionContextBuilder } from "@membank/core";
-
-const SUPPORTED_INJECTION_HARNESSES = ["claude-code", "copilot-cli", "codex", "opencode"] as const;
+import type { z } from "zod";
+import { InjectionHarnessSchema } from "../schemas.js";
 
 const MEMORY_GUIDANCE = [
   "Save (call save_memory) when: (1) user states a preference or makes a decision; (2) user corrects you; (3) you discover a working fix after a tool error; (4) you learn a non-obvious project fact. Type ∈ correction|preference|decision|learning|fact. When unsure, save.",
   "Query (call query_memory) before: answering anything that touches prior decisions, and before exploration tasks (file reads, searches, web lookups) where past corrections or preferences may apply. Skip when clearly irrelevant (e.g. trivial arithmetic). Soft guideline, not a hard rule.",
 ].join("\n");
 
-type InjectionHarness = (typeof SUPPORTED_INJECTION_HARNESSES)[number];
+type InjectionHarness = z.infer<typeof InjectionHarnessSchema>;
 
 function xmlEscape(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -91,7 +91,10 @@ async function handleEvent(
 }
 
 export async function injectCommand(opts: { harness?: string; event?: string }): Promise<void> {
-  const harness = opts.harness as InjectionHarness | undefined;
+  const harnessResult = InjectionHarnessSchema.safeParse(opts.harness);
+  const harness: InjectionHarness | undefined = harnessResult.success
+    ? harnessResult.data
+    : undefined;
   if (opts.event === "session-start" || opts.event === undefined) {
     await handleEvent(harness, "SessionStart");
     return;

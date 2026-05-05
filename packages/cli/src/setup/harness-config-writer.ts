@@ -1,7 +1,8 @@
-import { mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { MaybeJsonObjectSchema, SETUP_HARNESS_VALUES } from "../schemas.js";
 import { type CommandRunner, execFileNoThrow } from "../utils/execFileNoThrow.js";
+import { readJson, writeJsonAtomic } from "../utils/json.js";
+import type { HarnessName } from "./harness-detector.js";
 
 export type WriteResult = { status: "written" | "already-configured" };
 export type HarnessPreview = { configPath: string | null; cliCommand: string | null };
@@ -29,27 +30,8 @@ const defaultPathResolver: PathResolver = {
   cwd: () => process.cwd(),
 };
 
-function readJson(path: string): Record<string, unknown> {
-  try {
-    return JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
-function writeJsonAtomic(path: string, data: Record<string, unknown>): void {
-  mkdirSync(dirname(path), { recursive: true });
-  const tmp = join(mkdtempSync(join(tmpdir(), "membank-")), "cfg.json");
-  writeFileSync(tmp, JSON.stringify(data, null, 2));
-  renameSync(tmp, path);
-}
-
 function hasKey(container: unknown, key: string): boolean {
-  return (
-    container !== null &&
-    typeof container === "object" &&
-    key in (container as Record<string, unknown>)
-  );
+  return container !== null && typeof container === "object" && Object.hasOwn(container, key);
 }
 
 function assertCliFound(
@@ -134,7 +116,7 @@ const writers: Record<string, HarnessWriter> = {
       writeJsonAtomic(cfgPath, {
         ...cfg,
         mcpServers: {
-          ...(cfg.mcpServers as Record<string, unknown> | undefined),
+          ...MaybeJsonObjectSchema.parse(cfg.mcpServers),
           membank: { command: "npx", args: ["-y", "@membank/cli", "--mcp"] },
         },
       });
@@ -195,7 +177,7 @@ const writers: Record<string, HarnessWriter> = {
       writeJsonAtomic(cfgPath, {
         ...cfg,
         mcp: {
-          ...(cfg.mcp as Record<string, unknown> | undefined),
+          ...MaybeJsonObjectSchema.parse(cfg.mcp),
           // OpenCode requires type:"local" and command as an array.
           membank: { type: "local", command: ["npx", "-y", "@membank/cli", "--mcp"] },
         },
@@ -205,7 +187,7 @@ const writers: Record<string, HarnessWriter> = {
   },
 };
 
-export const SUPPORTED_HARNESSES = Object.keys(writers) as (keyof typeof writers)[];
+export const SUPPORTED_HARNESSES = SETUP_HARNESS_VALUES satisfies readonly HarnessName[];
 
 export class HarnessConfigWriter {
   readonly #resolver: PathResolver;

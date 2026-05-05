@@ -1,13 +1,7 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { MaybeJsonObjectSchema, OptionalNumberSchema } from "../schemas.js";
+import { readJson, writeJsonAtomic } from "../utils/json.js";
 
 export type HookPlan = {
   event: string;
@@ -33,25 +27,10 @@ const defaultPathResolver: InjectionPathResolver = {
   },
 };
 
-function readJson(path: string): Record<string, unknown> {
-  try {
-    return JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
-function writeJsonAtomic(path: string, data: Record<string, unknown>): void {
-  mkdirSync(dirname(path), { recursive: true });
-  const tmp = join(mkdtempSync(join(tmpdir(), "membank-hook-")), "cfg.json");
-  writeFileSync(tmp, JSON.stringify(data, null, 2));
-  renameSync(tmp, path);
-}
-
 function getHooksArray(group: unknown): unknown[] {
   if (typeof group !== "object" || group === null) return [];
-  const h = (group as { hooks?: unknown }).hooks;
-  return Array.isArray(h) ? h : [];
+  if (!("hooks" in group)) return [];
+  return Array.isArray(group.hooks) ? group.hooks : [];
 }
 
 function findMembankHookCommand(hooks: unknown[], pattern: string): string {
@@ -121,7 +100,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
     inspect(resolver) {
       const cfgPath = join(resolver.home(), ".claude", "settings.json");
       const cfg = readJson(cfgPath);
-      const hooks = (cfg.hooks as Record<string, unknown> | undefined) ?? {};
+      const hooks = MaybeJsonObjectSchema.parse(cfg.hooks) ?? {};
 
       const sessionStartInner = (
         Array.isArray(hooks.SessionStart) ? hooks.SessionStart : []
@@ -152,7 +131,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
     write(resolver, events) {
       const cfgPath = join(resolver.home(), ".claude", "settings.json");
       const cfg = readJson(cfgPath);
-      const hooks = (cfg.hooks as Record<string, unknown> | undefined) ?? {};
+      const hooks = MaybeJsonObjectSchema.parse(cfg.hooks) ?? {};
       const newHooks: Record<string, unknown> = { ...hooks };
 
       // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
@@ -200,7 +179,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
     inspect(resolver) {
       const cfgPath = join(resolver.home(), ".copilot", "settings.json");
       const cfg = readJson(cfgPath);
-      const hooks = (cfg.hooks as Record<string, unknown> | undefined) ?? {};
+      const hooks = MaybeJsonObjectSchema.parse(cfg.hooks) ?? {};
 
       const sessionStart = Array.isArray(hooks.sessionStart) ? hooks.sessionStart : [];
       const userPromptSubmitted = Array.isArray(hooks.userPromptSubmitted)
@@ -228,7 +207,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
     write(resolver, events) {
       const cfgPath = join(resolver.home(), ".copilot", "settings.json");
       const cfg = readJson(cfgPath);
-      const hooks = (cfg.hooks as Record<string, unknown> | undefined) ?? {};
+      const hooks = MaybeJsonObjectSchema.parse(cfg.hooks) ?? {};
       const newHooks: Record<string, unknown> = { ...hooks };
 
       // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
@@ -259,7 +238,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
       }
 
       writeJsonAtomic(cfgPath, {
-        version: (cfg.version as number | undefined) ?? 1,
+        version: OptionalNumberSchema.parse(cfg.version) ?? 1,
         ...cfg,
         hooks: newHooks,
       });
@@ -271,7 +250,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
     inspect(resolver) {
       const cfgPath = join(resolver.home(), ".codex", "hooks.json");
       const cfg = readJson(cfgPath);
-      const hooks = (cfg.hooks as Record<string, unknown> | undefined) ?? {};
+      const hooks = MaybeJsonObjectSchema.parse(cfg.hooks) ?? {};
 
       const sessionStartInner = (
         Array.isArray(hooks.SessionStart) ? hooks.SessionStart : []
@@ -302,7 +281,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
     write(resolver, events) {
       const cfgPath = join(resolver.home(), ".codex", "hooks.json");
       const cfg = readJson(cfgPath);
-      const hooks = (cfg.hooks as Record<string, unknown> | undefined) ?? {};
+      const hooks = MaybeJsonObjectSchema.parse(cfg.hooks) ?? {};
       const newHooks: Record<string, unknown> = { ...hooks };
 
       // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.

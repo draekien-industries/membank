@@ -1,4 +1,3 @@
-import type { MemoryType } from "@membank/core";
 import {
   DatabaseManager,
   EmbeddingService,
@@ -6,6 +5,7 @@ import {
   ProjectRepository,
 } from "@membank/core";
 import type { Formatter } from "../formatter.js";
+import { MemoryTypeSchema } from "../schemas.js";
 
 interface ListCommandOptions {
   type?: string;
@@ -22,7 +22,7 @@ export async function listCommand(
     const repo = new MemoryRepository(db, embedding, new ProjectRepository(db));
 
     const memories = repo.list({
-      type: options.type as MemoryType | undefined,
+      type: options.type !== undefined ? MemoryTypeSchema.parse(options.type) : undefined,
       pinned: options.pinned,
     });
 
