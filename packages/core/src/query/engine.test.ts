@@ -90,20 +90,18 @@ describe("QueryEngine", () => {
     expect(results).toEqual([]);
   });
 
-  it("returns results ordered by score DESC (correction+pinned beats fact)", async () => {
+  it("returns results ordered by score DESC (correction beats fact via type weight)", async () => {
     // Both memories get cosine_sim = 1.0 (same vector as query)
     insertMemory(dbManager, {
       id: "fact-1",
       content: "Some fact",
       type: "fact",
-      pinned: false,
       embedding: unitVec(0),
     });
     insertMemory(dbManager, {
       id: "correction-1",
       content: "A correction",
       type: "correction",
-      pinned: true,
       embedding: unitVec(0),
     });
 
@@ -249,7 +247,7 @@ describe("QueryEngine", () => {
     expect(results[0]?.score).toBeGreaterThan(results[1]?.score ?? 0);
   });
 
-  it("pinned memory ranks above unpinned memory of same type at identical similarity", async () => {
+  it("pinned memory is excluded by default", async () => {
     insertMemory(dbManager, {
       id: "unpinned-1",
       content: "Unpinned fact",
@@ -268,6 +266,30 @@ describe("QueryEngine", () => {
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
     const results = await engine.query({ query: "test" });
+
+    expect(results.length).toBe(1);
+    expect(results[0]?.id).toBe("unpinned-1");
+  });
+
+  it("includePinned=true returns pinned memories and they rank above unpinned at identical similarity", async () => {
+    insertMemory(dbManager, {
+      id: "unpinned-1",
+      content: "Unpinned fact",
+      type: "fact",
+      pinned: false,
+      embedding: unitVec(0),
+    });
+    insertMemory(dbManager, {
+      id: "pinned-1",
+      content: "Pinned fact",
+      type: "fact",
+      pinned: true,
+      embedding: unitVec(0),
+    });
+
+    vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
+
+    const results = await engine.query({ query: "test", includePinned: true });
 
     expect(results.length).toBe(2);
     expect(results[0]?.id).toBe("pinned-1");

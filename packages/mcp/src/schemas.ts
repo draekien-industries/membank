@@ -22,6 +22,7 @@ export const QueryMemoryArgsSchema = z.object({
   query: z.string().min(1),
   type: MemoryTypeSchema.optional(),
   limit: z.number().int().positive().optional(),
+  includePinned: z.boolean().optional(),
 });
 
 export const MigrateArgsSchema = z.discriminatedUnion("mode", [

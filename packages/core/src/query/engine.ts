@@ -29,7 +29,13 @@ export class QueryEngine {
   }
 
   async query(options: QueryOptions): Promise<Array<Memory & { score: number }>> {
-    const { query, type, projectHash, limit = 10 } = QueryOptionsSchema.parse(options);
+    const {
+      query,
+      type,
+      projectHash,
+      limit = 10,
+      includePinned,
+    } = QueryOptionsSchema.parse(options);
 
     const queryEmbedding = await this.#embedding.embed(query);
     const queryBlob = Buffer.from(queryEmbedding.buffer);
@@ -37,6 +43,10 @@ export class QueryEngine {
     const whereClauses: string[] = [];
     const params: unknown[] = [queryBlob];
     let joinClause = "";
+
+    if (!includePinned) {
+      whereClauses.push("m.pinned = 0");
+    }
 
     if (type !== undefined) {
       whereClauses.push("m.type = ?");

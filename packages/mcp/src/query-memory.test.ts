@@ -212,4 +212,55 @@ describe("query_memory tool", () => {
       session.client.callTool({ name: "query_memory", arguments: {} })
     ).rejects.toThrow();
   });
+
+  it("pinned memories are excluded from results by default", async () => {
+    const session = await startInProcess();
+    cleanup = session.cleanup;
+
+    const saved = await session.core.repo.save({
+      content: "always use strict TypeScript",
+      type: "preference",
+    });
+    session.core.repo.setPin(saved.id, true);
+
+    const result = await session.client.callTool({
+      name: "query_memory",
+      arguments: { query: "TypeScript strict mode" },
+    });
+
+    if ("toolResult" in result) throw new Error("unreachable");
+    const [block] = result.content;
+    const parsed = JSON.parse((block as { type: string; text: string }).text) as Array<{
+      id: string;
+      pinned: boolean;
+    }>;
+
+    expect(parsed.every((r) => !r.pinned)).toBe(true);
+    expect(parsed.some((r) => r.id === saved.id)).toBe(false);
+  });
+
+  it("includePinned=true returns pinned memories", async () => {
+    const session = await startInProcess();
+    cleanup = session.cleanup;
+
+    const saved = await session.core.repo.save({
+      content: "always use strict TypeScript",
+      type: "preference",
+    });
+    session.core.repo.setPin(saved.id, true);
+
+    const result = await session.client.callTool({
+      name: "query_memory",
+      arguments: { query: "TypeScript strict mode", includePinned: true },
+    });
+
+    if ("toolResult" in result) throw new Error("unreachable");
+    const [block] = result.content;
+    const parsed = JSON.parse((block as { type: string; text: string }).text) as Array<{
+      id: string;
+      pinned: boolean;
+    }>;
+
+    expect(parsed.some((r) => r.id === saved.id)).toBe(true);
+  });
 });

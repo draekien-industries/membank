@@ -44,16 +44,22 @@ program
   .description("search memories by semantic similarity")
   .option("--type <type>", "filter by memory type (correction|preference|decision|learning|fact)")
   .option("--limit <n>", "maximum number of results", "10")
-  .action(async (queryText: string, cmdOptions: { type?: string; limit?: string }) => {
-    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
-    const formatter = Formatter.create(globalOpts.json === true);
-    try {
-      await queryCommand(queryText, cmdOptions, formatter);
-    } catch (err) {
-      formatter.error(err instanceof Error ? err.message : String(err));
-      process.exit(2);
+  .option("--include-pinned", "include pinned memories in results (excluded by default)")
+  .action(
+    async (
+      queryText: string,
+      cmdOptions: { type?: string; limit?: string; includePinned?: boolean }
+    ) => {
+      const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+      const formatter = Formatter.create(globalOpts.json === true);
+      try {
+        await queryCommand(queryText, cmdOptions, formatter);
+      } catch (err) {
+        formatter.error(err instanceof Error ? err.message : String(err));
+        process.exit(2);
+      }
     }
-  });
+  );
 
 program
   .command("list")

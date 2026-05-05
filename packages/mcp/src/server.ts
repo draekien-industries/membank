@@ -144,6 +144,11 @@ export function createServer(core: CoreServices): Server {
               description: "Filter by memory type",
             },
             limit: { type: "number", description: "Maximum results to return (default 10)" },
+            includePinned: {
+              type: "boolean",
+              description:
+                "Include pinned memories in results. Pinned memories are already injected into session context, so excluded by default to avoid duplicates.",
+            },
           },
           required: ["query"],
         },
@@ -276,6 +281,7 @@ export function createServer(core: CoreServices): Server {
           query: args.query,
           type: args.type,
           limit: args.limit ?? 10,
+          includePinned: args.includePinned,
         });
 
         const serialised = results.map((r) => ({

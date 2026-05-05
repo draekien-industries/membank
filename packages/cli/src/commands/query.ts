@@ -12,6 +12,7 @@ import { LimitSchema, MemoryTypeSchema } from "../schemas.js";
 interface QueryCommandOptions {
   type?: string;
   limit?: string;
+  includePinned?: boolean;
 }
 
 export async function queryCommand(
@@ -32,6 +33,7 @@ export async function queryCommand(
       query: queryText,
       type: options.type !== undefined ? MemoryTypeSchema.parse(options.type) : undefined,
       limit,
+      includePinned: options.includePinned,
     });
     spinner?.succeed(`${results.length} result${results.length === 1 ? "" : "s"} found`);
 

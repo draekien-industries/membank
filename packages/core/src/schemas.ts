@@ -42,6 +42,7 @@ export const QueryOptionsSchema = z.object({
   type: MemoryTypeSchema.optional(),
   projectHash: z.string().optional(),
   limit: z.number().int().positive().optional(),
+  includePinned: z.boolean().optional(),
 });
 export type QueryOptions = z.infer<typeof QueryOptionsSchema>;
 

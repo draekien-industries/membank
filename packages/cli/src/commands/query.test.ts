@@ -14,6 +14,7 @@ interface InsertOpts {
   content: string;
   type: string;
   tags?: string[];
+  pinned?: boolean;
   embedding: Float32Array;
 }
 
@@ -31,7 +32,7 @@ function insertMemory(db: DatabaseManager, opts: InsertOpts): void {
       JSON.stringify(opts.tags ?? []),
       null,
       0,
-      0,
+      opts.pinned ? 1 : 0,
       0,
       now,
       now
@@ -200,6 +201,46 @@ describe("query command integration — real in-memory SQLite", () => {
 
     expect(results.length).toBe(1);
     expect(typeof results[0]?.score).toBe("number");
+  });
+
+  it("pinned memories are excluded by default", async () => {
+    insertMemory(db, {
+      id: "pinned-1",
+      content: "Pinned preference",
+      type: "preference",
+      pinned: true,
+      embedding: unitVec(0),
+    });
+    insertMemory(db, {
+      id: "unpinned-1",
+      content: "Unpinned preference",
+      type: "preference",
+      pinned: false,
+      embedding: unitVec(0),
+    });
+
+    vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
+
+    const results = await engine.query({ query: "preference" });
+
+    expect(results.some((r) => r.id === "pinned-1")).toBe(false);
+    expect(results.some((r) => r.id === "unpinned-1")).toBe(true);
+  });
+
+  it("includePinned=true returns pinned memories", async () => {
+    insertMemory(db, {
+      id: "pinned-2",
+      content: "Pinned learning",
+      type: "learning",
+      pinned: true,
+      embedding: unitVec(0),
+    });
+
+    vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
+
+    const results = await engine.query({ query: "learning", includePinned: true });
+
+    expect(results.some((r) => r.id === "pinned-2")).toBe(true);
   });
 
   it("non-TTY stdout means Formatter.create() is in JSON mode", () => {
