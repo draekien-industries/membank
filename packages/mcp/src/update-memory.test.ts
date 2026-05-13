@@ -127,12 +127,42 @@ describe("update_memory tool", () => {
     ).rejects.toThrow();
   });
 
-  it("missing content returns a structured MCP error", async () => {
+  it("reclassifies type without requiring content", async () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    await expect(
-      session.client.callTool({ name: "update_memory", arguments: { id: "some-id" } })
-    ).rejects.toThrow();
+    const saved = await session.core.repo.save({
+      content: "always use semicolons",
+      type: "preference",
+    });
+
+    const result = await session.client.callTool({
+      name: "update_memory",
+      arguments: { id: saved.id, type: "correction" },
+    });
+
+    const memory = parseText<{ id: string; type: string; content: string }>(result);
+    expect(memory.id).toBe(saved.id);
+    expect(memory.type).toBe("correction");
+    expect(memory.content).toBe("always use semicolons");
+  });
+
+  it("updates type and content together", async () => {
+    const session = await startInProcess();
+    cleanup = session.cleanup;
+
+    const saved = await session.core.repo.save({
+      content: "old content",
+      type: "fact",
+    });
+
+    const result = await session.client.callTool({
+      name: "update_memory",
+      arguments: { id: saved.id, type: "learning", content: "new content" },
+    });
+
+    const memory = parseText<{ type: string; content: string }>(result);
+    expect(memory.type).toBe("learning");
+    expect(memory.content).toBe("new content");
   });
 });

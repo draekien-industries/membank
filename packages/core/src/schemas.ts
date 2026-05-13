@@ -85,6 +85,7 @@ export type SaveOptions = z.infer<typeof SaveOptionsSchema>;
 export const MemoryPatchSchema = z.object({
   content: z.string().min(1).optional(),
   tags: z.array(z.string()).optional(),
+  type: MemoryTypeSchema.optional(),
 });
 export type MemoryPatch = z.infer<typeof MemoryPatchSchema>;
 

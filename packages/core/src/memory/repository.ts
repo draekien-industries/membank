@@ -136,7 +136,7 @@ export class MemoryRepository {
   }
 
   async update(id: string, patch: MemoryPatch): Promise<Memory> {
-    const { content, tags } = MemoryPatchSchema.parse(patch);
+    const { content, tags, type } = MemoryPatchSchema.parse(patch);
 
     const existing = this.#db.db
       .prepare<[string], MemoryRow & { rowid: number }>(
@@ -160,6 +160,11 @@ export class MemoryRepository {
     if (tags !== undefined) {
       sets.push("tags = ?");
       values.push(JSON.stringify(tags));
+    }
+
+    if (type !== undefined) {
+      sets.push("type = ?");
+      values.push(type);
     }
 
     values.push(id);
