@@ -35,6 +35,16 @@ Options:
 
 Supported harnesses: `claude-code`, `copilot`, `codex`, `opencode` (see `membank setup` for harness-specific setup instructions)
 
+### `membank setup upgrade`
+
+Migrate existing harness configs from the old `npx @membank/cli --mcp` pattern to the standalone `npx @membank/mcp` binary:
+
+```bash
+membank setup upgrade
+```
+
+Run this once after upgrading to align all configured harnesses with the new standalone MCP package.
+
 ## Commands
 
 ### `membank query <text>`
@@ -167,31 +177,33 @@ membank inject --harness claude-code --event session-stop
 
 Options: `--harness <name>` (claude-code|copilot-cli|codex|opencode), `--event <event>` (session-start|user-prompt-submit|session-stop)
 
-### `membank dashboard`
+### `membank dashboard` (deprecated)
 
-Start the web dashboard for browsing and managing memories.
+The dashboard is now a standalone package. Run it directly:
 
 ```bash
-membank dashboard
+npx @membank/dashboard
 ```
 
-Opens http://localhost:3847 by default. Features: full-text search, filtering by type/scope/pin status, edit memory metadata, view dedup reviews, and storage statistics.
+See [`@membank/dashboard`](../dashboard/README.md) for options.
 
 ## Global flags
 
 ```
 --json     Output machine-readable JSON
 --yes, -y  Skip confirmation prompts
---mcp      Start MCP stdio server (used by harness config)
+--mcp      Start MCP stdio server (deprecated — use npx @membank/mcp)
 ```
 
 ## MCP server mode
 
+The preferred way to run the MCP server is via the standalone package:
+
 ```bash
-membank --mcp
+npx @membank/mcp
 ```
 
-Starts the stdio MCP server. This is what harnesses connect to — `setup` writes this command into harness configs automatically.
+`membank setup` writes this command into harness configs automatically. The legacy `membank --mcp` flag still works but emits a deprecation warning. Run `membank setup upgrade` to migrate existing harness configs.
 
 ## Session hooks
 

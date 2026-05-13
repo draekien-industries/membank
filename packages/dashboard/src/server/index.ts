@@ -145,7 +145,11 @@ export function createApiApp(
   return app;
 }
 
-export async function startDashboard(opts?: { port?: number }): Promise<void> {
+export async function startDashboard(opts?: {
+  port?: number;
+  open?: boolean;
+  onReady?: (port: number) => void;
+}): Promise<void> {
   const port = await findFreePort(opts?.port ?? PREFERRED_PORT);
 
   const db = DatabaseManager.open();
@@ -177,12 +181,14 @@ export async function startDashboard(opts?: { port?: number }): Promise<void> {
     process.exit(0);
   });
 
-  serve({ fetch: app.fetch, port });
+  await new Promise<void>((resolve) => {
+    serve({ fetch: app.fetch, port }, () => {
+      opts?.onReady?.(port);
+      resolve();
+    });
+  });
 
-  process.stdout.write(`\n  Membank dashboard  →  http://localhost:${port}\n`);
-  process.stdout.write(`  Press Ctrl+C to stop\n\n`);
-
-  await open(`http://localhost:${port}`);
+  if (opts?.open) await open(`http://localhost:${port}`);
 
   await new Promise<never>(() => {});
 }

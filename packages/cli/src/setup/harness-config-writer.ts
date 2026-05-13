@@ -44,7 +44,11 @@ function assertCliFound(
   }
 }
 
-const MEMBANK_NPX_ARGS = ["npx", "-y", "@membank/cli", "--mcp"] as const;
+function jsonContainsStalePattern(value: unknown): boolean {
+  return JSON.stringify(value).includes("@membank/cli");
+}
+
+const MEMBANK_NPX_ARGS = ["npx", "-y", "@membank/mcp"] as const;
 
 interface HarnessWriter {
   preview(resolver: PathResolver): HarnessPreview;
@@ -53,6 +57,7 @@ interface HarnessWriter {
     run: CommandRunner,
     opts: { overwrite?: boolean }
   ): Promise<WriteResult>;
+  isStale(resolver: PathResolver, run: CommandRunner): Promise<boolean>;
 }
 
 const writers: Record<string, HarnessWriter> = {
@@ -60,7 +65,7 @@ const writers: Record<string, HarnessWriter> = {
     preview(resolver) {
       return {
         configPath: join(resolver.home(), ".claude.json"),
-        cliCommand: "claude mcp add --scope user membank -- npx -y @membank/cli --mcp",
+        cliCommand: "claude mcp add --scope user membank -- npx -y @membank/mcp",
       };
     },
     async write(resolver, run, { overwrite = false } = {}) {
@@ -97,6 +102,10 @@ const writers: Record<string, HarnessWriter> = {
       }
       return { status: "written" };
     },
+    async isStale(resolver) {
+      const cfg = readJson(join(resolver.home(), ".claude.json"));
+      return hasKey(cfg.mcpServers, "membank") && jsonContainsStalePattern(cfg.mcpServers);
+    },
   },
 
   copilot: {
@@ -117,10 +126,14 @@ const writers: Record<string, HarnessWriter> = {
         ...cfg,
         mcpServers: {
           ...MaybeJsonObjectSchema.parse(cfg.mcpServers),
-          membank: { command: "npx", args: ["-y", "@membank/cli", "--mcp"] },
+          membank: { command: "npx", args: ["-y", "@membank/mcp"] },
         },
       });
       return { status: "written" };
+    },
+    async isStale(resolver) {
+      const cfg = readJson(join(resolver.home(), ".copilot", "mcp-config.json"));
+      return hasKey(cfg.mcpServers, "membank") && jsonContainsStalePattern(cfg.mcpServers);
     },
   },
 
@@ -128,7 +141,7 @@ const writers: Record<string, HarnessWriter> = {
     preview(_resolver) {
       return {
         configPath: null,
-        cliCommand: "codex mcp add membank -- npx -y @membank/cli --mcp",
+        cliCommand: "codex mcp add membank -- npx -y @membank/mcp",
       };
     },
     async write(_resolver, run, { overwrite = false } = {}) {
@@ -158,6 +171,14 @@ const writers: Record<string, HarnessWriter> = {
       }
       return { status: "written" };
     },
+    async isStale(_resolver, run) {
+      const list = await run("codex", ["mcp", "list"]);
+      return (
+        list.exitCode === 0 &&
+        list.stdout.includes("membank") &&
+        list.stdout.includes("@membank/cli")
+      );
+    },
   },
 
   opencode: {
@@ -179,10 +200,14 @@ const writers: Record<string, HarnessWriter> = {
         mcp: {
           ...MaybeJsonObjectSchema.parse(cfg.mcp),
           // OpenCode requires type:"local" and command as an array.
-          membank: { type: "local", command: ["npx", "-y", "@membank/cli", "--mcp"] },
+          membank: { type: "local", command: ["npx", "-y", "@membank/mcp"] },
         },
       });
       return { status: "written" };
+    },
+    async isStale(resolver) {
+      const cfg = readJson(join(resolver.home(), ".config", "opencode", "opencode.json"));
+      return hasKey(cfg.mcp, "membank") && jsonContainsStalePattern(cfg.mcp);
     },
   },
 };
@@ -211,5 +236,15 @@ export class HarnessConfigWriter {
     const writer = writers[harness];
     if (!writer) throw new Error(`Unknown harness: ${harness}`);
     return writer.write(this.#resolver, this.#run, { overwrite });
+  }
+
+  async isStale(harness: string): Promise<boolean> {
+    const writer = writers[harness];
+    if (!writer) return false;
+    try {
+      return await writer.isStale(this.#resolver, this.#run);
+    } catch {
+      return false;
+    }
   }
 }

@@ -14,7 +14,23 @@ Web UI for browsing, searching, and managing memories. Provides a full-featured 
 
 ## Quick start
 
-Start the dashboard from the monorepo root:
+### Standalone (recommended for end users)
+
+```bash
+npx @membank/dashboard
+```
+
+Options:
+
+```
+--port <port>   Port to listen on (default: 3847, fallback to random)
+--version       Print version and exit
+--help          Show help
+```
+
+### Development (monorepo)
+
+Start from the monorepo root:
 
 ```bash
 pnpm dev

@@ -7,7 +7,6 @@ import chalk from "chalk";
 import { Command } from "commander";
 import { addCommand } from "./commands/add.js";
 import { configGetCommand, configSetCommand, configShowCommand } from "./commands/config.js";
-import { dashboardCommand } from "./commands/dashboard.js";
 import { deleteCommand } from "./commands/delete.js";
 import { exportCommand } from "./commands/export.js";
 import { importCommand } from "./commands/import.js";
@@ -34,6 +33,9 @@ import { ModelDownloader } from "./setup/model-downloader.js";
 import { SetupOrchestrator } from "./setup/setup-orchestrator.js";
 
 if (process.argv.includes("--mcp")) {
+  process.stderr.write(
+    "[membank] Deprecation: `membank --mcp` is deprecated. Use: npx @membank/mcp\n"
+  );
   await startServer();
 }
 
@@ -222,103 +224,146 @@ program
     }
   });
 
-program
+const setupCmd = program
   .command("setup")
   .description("detect installed harnesses and write MCP config for each")
   .option("--yes", "skip all confirmation prompts")
   .option("--dry-run", "print planned changes without writing any file")
-  .option("--harness <name>", "target only the named harness (skip detection)")
-  .action(async (cmdOptions: { yes?: boolean; dryRun?: boolean; harness?: string }) => {
-    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
-    const autoYes = cmdOptions.yes === true || globalOpts.yes === true;
-    const formatter = Formatter.create(globalOpts.json === true);
-    const interactive = !formatter.isJson && !autoYes && cmdOptions.harness === undefined;
+  .option("--harness <name>", "target only the named harness (skip detection)");
 
-    if (cmdOptions.harness !== undefined) {
-      const harnessCheck = SetupHarnessSchema.safeParse(cmdOptions.harness);
-      if (!harnessCheck.success) {
-        formatter.error(
-          `Unknown harness: "${cmdOptions.harness}". Supported: ${SUPPORTED_HARNESSES.join(", ")}`
-        );
-        process.exit(1);
-      }
-    }
-
-    if (!formatter.isJson) {
-      intro(chalk.bold("  membank  setup  "));
-    }
-
-    function decoratedOut(msg: string): void {
-      const decorated = msg
-        .replace(/✓/g, chalk.green("✓"))
-        .replace(/✗/g, chalk.red("✗"))
-        .replace(/⚠/g, chalk.yellow("⚠"));
-      const styled = /^Step \d/.test(msg) ? `\n${chalk.bold(decorated)}` : decorated;
-      process.stdout.write(`${styled}\n`);
-    }
-
+setupCmd
+  .command("upgrade")
+  .description("upgrade harness configs from membank --mcp to standalone membank-mcp")
+  .action(async () => {
+    const globalOpts = program.opts<{ json?: boolean }>();
+    const isJson = globalOpts.json === true;
     const writer = new HarnessConfigWriter();
-    const hookWriter = new InjectionHookWriter();
-    const promptHelper = new PromptHelper(autoYes);
 
-    let harnessSelector: ((detected: DetectedHarness[]) => Promise<DetectedHarness[]>) | undefined;
-    if (interactive) {
-      harnessSelector = async (detected: DetectedHarness[]) => {
-        const options = SUPPORTED_HARNESSES.map((name) => {
-          const found = detected.find((d) => d.name === name);
-          return {
-            value: (found ?? {
-              name,
-              configPath: "",
-            }) satisfies DetectedHarness,
-            label: name,
-            hint: found !== undefined ? found.configPath : "(not detected)",
-          };
-        });
-        const selected = await multiselect<DetectedHarness>({
-          message: "Which harnesses to configure?",
-          options,
-          initialValues: detected,
-        });
-        if (isCancel(selected)) {
-          cancel("Setup cancelled.");
-          process.exit(0);
-        }
-        return selected;
-      };
+    const stale: string[] = [];
+    for (const harness of SUPPORTED_HARNESSES) {
+      if (await writer.isStale(harness)) stale.push(harness);
     }
 
-    const orchestrator = new SetupOrchestrator({
-      writer,
-      hookWriter,
-      prompter: (question) => promptHelper.confirm(question),
-      harnessSelector,
-      modelDownloader: new ModelDownloader(),
-      out: formatter.isJson ? undefined : decoratedOut,
-      synthesisOptIn: true,
-    });
-    try {
-      const results = await orchestrator.run({
-        yes: autoYes,
-        dryRun: cmdOptions.dryRun,
-        harness: cmdOptions.harness,
-        json: formatter.isJson,
-      });
-      if (!formatter.isJson && !cmdOptions.dryRun && results.length > 0) {
-        note(
-          'Start a new session to activate injection\nRun  membank query "test"  to verify',
-          "Next steps"
-        );
-        outro(`${chalk.green("✓")} Setup complete`);
+    if (stale.length === 0) {
+      if (isJson) {
+        process.stdout.write(`${JSON.stringify({ upgraded: [] })}\n`);
+      } else {
+        process.stdout.write("All harness configs are already up to date.\n");
       }
-      if (results.some((r) => r.status === "error")) {
-        process.exit(1);
-      }
-    } catch (err) {
-      formatter.error(err instanceof Error ? err.message : String(err));
-      process.exit(2);
+      return;
     }
+
+    const upgraded: string[] = [];
+    const errors: string[] = [];
+    for (const harness of stale) {
+      try {
+        await writer.write(harness, { overwrite: true });
+        upgraded.push(harness);
+        if (!isJson) process.stdout.write(`  ${chalk.green("✓")} ${harness}\n`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`${harness}: ${msg}`);
+        if (!isJson) process.stderr.write(`  ${chalk.red("✗")} ${harness}: ${msg}\n`);
+      }
+    }
+
+    if (isJson) {
+      process.stdout.write(`${JSON.stringify({ upgraded, errors })}\n`);
+    }
+    if (errors.length > 0) process.exit(1);
   });
+
+setupCmd.action(async (cmdOptions: { yes?: boolean; dryRun?: boolean; harness?: string }) => {
+  const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+  const autoYes = cmdOptions.yes === true || globalOpts.yes === true;
+  const formatter = Formatter.create(globalOpts.json === true);
+  const interactive = !formatter.isJson && !autoYes && cmdOptions.harness === undefined;
+
+  if (cmdOptions.harness !== undefined) {
+    const harnessCheck = SetupHarnessSchema.safeParse(cmdOptions.harness);
+    if (!harnessCheck.success) {
+      formatter.error(
+        `Unknown harness: "${cmdOptions.harness}". Supported: ${SUPPORTED_HARNESSES.join(", ")}`
+      );
+      process.exit(1);
+    }
+  }
+
+  if (!formatter.isJson) {
+    intro(chalk.bold("  membank  setup  "));
+  }
+
+  function decoratedOut(msg: string): void {
+    const decorated = msg
+      .replace(/✓/g, chalk.green("✓"))
+      .replace(/✗/g, chalk.red("✗"))
+      .replace(/⚠/g, chalk.yellow("⚠"));
+    const styled = /^Step \d/.test(msg) ? `\n${chalk.bold(decorated)}` : decorated;
+    process.stdout.write(`${styled}\n`);
+  }
+
+  const writer = new HarnessConfigWriter();
+  const hookWriter = new InjectionHookWriter();
+  const promptHelper = new PromptHelper(autoYes);
+
+  let harnessSelector: ((detected: DetectedHarness[]) => Promise<DetectedHarness[]>) | undefined;
+  if (interactive) {
+    harnessSelector = async (detected: DetectedHarness[]) => {
+      const options = SUPPORTED_HARNESSES.map((name) => {
+        const found = detected.find((d) => d.name === name);
+        return {
+          value: (found ?? {
+            name,
+            configPath: "",
+          }) satisfies DetectedHarness,
+          label: name,
+          hint: found !== undefined ? found.configPath : "(not detected)",
+        };
+      });
+      const selected = await multiselect<DetectedHarness>({
+        message: "Which harnesses to configure?",
+        options,
+        initialValues: detected,
+      });
+      if (isCancel(selected)) {
+        cancel("Setup cancelled.");
+        process.exit(0);
+      }
+      return selected;
+    };
+  }
+
+  const orchestrator = new SetupOrchestrator({
+    writer,
+    hookWriter,
+    prompter: (question) => promptHelper.confirm(question),
+    harnessSelector,
+    modelDownloader: new ModelDownloader(),
+    out: formatter.isJson ? undefined : decoratedOut,
+    synthesisOptIn: true,
+  });
+  try {
+    const results = await orchestrator.run({
+      yes: autoYes,
+      dryRun: cmdOptions.dryRun,
+      harness: cmdOptions.harness,
+      json: formatter.isJson,
+    });
+    if (!formatter.isJson && !cmdOptions.dryRun && results.length > 0) {
+      note(
+        'Start a new session to activate injection\nRun  membank query "test"  to verify',
+        "Next steps"
+      );
+      outro(`${chalk.green("✓")} Setup complete`);
+    }
+    if (results.some((r) => r.status === "error")) {
+      process.exit(1);
+    }
+  } catch (err) {
+    formatter.error(err instanceof Error ? err.message : String(err));
+    process.exit(2);
+  }
+});
 
 program
   .command("review")
@@ -356,15 +401,13 @@ program
 
 program
   .command("dashboard")
-  .description("open the memory management dashboard in the browser")
-  .option("--port <port>", "port to listen on (default: 3847, fallback to random)")
-  .action(async (cmdOptions: { port?: string }) => {
-    try {
-      await dashboardCommand(cmdOptions);
-    } catch (err) {
-      process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
-      process.exit(2);
-    }
+  .description("(deprecated) open the memory management dashboard")
+  .allowUnknownOption()
+  .action(() => {
+    process.stderr.write(
+      "The dashboard is now a standalone package.\nRun: npx @membank/dashboard\n"
+    );
+    process.exit(1);
   });
 
 const configCmd = program.command("config").description("manage membank configuration");

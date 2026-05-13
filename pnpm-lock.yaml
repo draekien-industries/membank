@@ -38,9 +38,6 @@ importers:
       '@membank/core':
         specifier: workspace:*
         version: link:../core
-      '@membank/dashboard':
-        specifier: workspace:*
-        version: link:../dashboard
       '@membank/mcp':
         specifier: workspace:*
         version: link:../mcp
@@ -142,6 +139,9 @@ importers:
       '@tanstack/router-plugin':
         specifier: ^1.167.28
         version: 1.167.28(@tanstack/react-router@1.168.25(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(vite@6.4.2(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
+      chalk:
+        specifier: ^5.6.2
+        version: 5.6.2
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -151,6 +151,9 @@ importers:
       cmdk:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      commander:
+        specifier: ^14.0.3
+        version: 14.0.3
       hono:
         specifier: ^4.12.18
         version: 4.12.18
@@ -160,6 +163,9 @@ importers:
       open:
         specifier: ^10.1.0
         version: 10.2.0
+      ora:
+        specifier: ^9.4.0
+        version: 9.4.0
       react:
         specifier: ^19.0.0
         version: 19.2.5
@@ -224,6 +230,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
+      commander:
+        specifier: ^14.0.3
+        version: 14.0.3
       zod:
         specifier: ^4.4.3
         version: 4.4.3

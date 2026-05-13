@@ -6,13 +6,13 @@ LLM memory management system. Stores user preferences, corrections, decisions, a
 
 ```
 packages/
-  core/       @membank/core   — DB, embeddings, query engine, dedup logic
-  mcp/        @membank/mcp    — stdio MCP server (5 tools exposed to LLMs)
-  cli/        @membank/cli    — CLI + npx entrypoint, also starts MCP server
-  dashboard/  @membank/dashboard — web UI
+  core/       @membank/core      — DB, embeddings, query engine, dedup logic
+  mcp/        @membank/mcp       — stdio MCP server (5 tools exposed to LLMs) + standalone membank-mcp bin
+  cli/        @membank/cli       — CLI + npx entrypoint
+  dashboard/  @membank/dashboard — web UI + standalone membank-dashboard bin
 ```
 
-`core` has no workspace deps. `mcp` depends on `core`. `cli` depends on `core` and `mcp`. Build order is enforced by Turborepo. After you make a change, run `pnpm build` to rebuild in the correct order.
+`core` has no workspace deps. `mcp` depends on `core`. `cli` depends on `core` and `mcp`. `dashboard` is independent of `cli`. Build order is enforced by Turborepo. After you make a change, run `pnpm build` to rebuild in the correct order.
 
 ## Key commands
 
@@ -64,9 +64,13 @@ Types (enum): `correction` > `preference` > `decision` > `learning` > `fact`
 
 ## CLI commands
 
-`query`, `add`, `list`, `pin`, `unpin`, `delete`, `stats`, `export`, `import`, `setup`
+`query`, `add`, `list`, `pin`, `unpin`, `delete`, `stats`, `export`, `import`, `setup`, `review`, `migrate`, `config`, `synthesize`, `inject`
 
 `setup` auto-detects installed harnesses and writes MCP config. `--harness <name>` to target specific. `--yes` / `--json` for non-interactive use.
+
+`setup upgrade` migrates existing harness configs from the old `npx @membank/cli --mcp` pattern to the standalone `npx @membank/mcp`.
+
+`dashboard` is deprecated — users should run `npx @membank/dashboard` directly. `--mcp` flag still works but emits a deprecation warning; prefer `npx @membank/mcp`.
 
 ## Conventions
 
