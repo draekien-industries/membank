@@ -8,7 +8,8 @@ LLM memory management system. Stores your corrections, preferences, decisions, a
 - Embeddings run locally via `bge-small-en-v1.5` — no data leaves your machine
 - Dedup via cosine similarity: >0.92 = auto-overwrite, 0.75–0.92 = flagged for review
 - Project scope derived from `git remote get-url origin` hash, fallback to cwd hash
-- Session injection: pinned global + pinned project memories prepended to every context window
+- Session injection: stats + all pinned global memories + all pinned project memories prepended to every context window
+- Optional background synthesis engine compresses memories into a rolling summary, replacing pinned memory injection when enabled
 
 ## Requirements
 
@@ -21,7 +22,7 @@ LLM memory management system. Stores your corrections, preferences, decisions, a
 npx @membank/cli setup
 ```
 
-`setup` auto-detects your installed LLM harness and writes the MCP server config. Use `--harness <name>` to target a specific harness, `--yes` to skip prompts, `--json` for machine-readable output.
+`setup` auto-detects your installed LLM harness and writes the MCP server config and injection hooks. Use `--harness <name>` to target a specific harness, `--yes` to skip prompts, `--json` for machine-readable output.
 
 Supported harnesses: `claude-code`, `copilot`, `codex`, `opencode`.
 
@@ -31,39 +32,50 @@ After setup, restart your harness. Membank will start injecting memories into ev
 
 ```bash
 membank query "preferred test framework"   # semantic search
-membank add                                # interactive add
+membank add --type <type> <content>        # save a new memory
 membank list                               # list all memories
 membank pin <id>                           # pin (always injected)
 membank unpin <id>
 membank delete <id>
+membank review                             # list memories flagged for dedup review
+membank review --resolve <id>             # dismiss review events for a memory
 membank stats                              # storage and usage stats
-membank export > memories.json
-membank import < memories.json
+membank export                             # export to JSON file (--output <path> to specify)
+membank import <file>                      # import from JSON export file
+membank migrate list                       # list available data migrations
+membank migrate run <name>                 # run a named migration
+membank dashboard                          # open the web UI in your browser
+membank config get <key>                   # print a config value
+membank config set <key> <value>           # set a config value
+membank config show                        # print the full config
+membank synthesize show                    # display current synthesis for a scope
+membank synthesize status                  # show all scopes with synthesis status
 membank setup                              # configure MCP server + injection hooks
 membank inject                             # output session context (called by hooks)
 membank inject --harness claude-code       # format output for a specific harness
-membank inject --scope <scope>             # override project scope (default: auto from git)
+membank inject --event user-prompt-submit  # inject on prompt submit event
+membank inject --event session-stop        # inject on session stop event
 ```
 
 ### Injection hooks
 
-`setup` configures MCP servers for all supported harnesses. For Claude Code specifically, it also installs a SessionStart hook that injects pinned memories at the beginning of each session.
+`setup` configures MCP servers and injection hooks for all supported harnesses. Hooks fire at session start, on each user prompt, and at session end to keep pinned memories (or synthesis) in context throughout the session.
 
 Supported harnesses and their hook mechanisms:
 
 | Harness | MCP config location | Session hooks |
 |---------|------------------|---------------|
-| `claude-code` | Managed by `claude mcp` | SessionStart hook injects pinned memories |
+| `claude-code` | Managed by `claude mcp` | SessionStart, UserPromptSubmit, Stop |
 | `copilot` | `~/.copilot/mcp-config.json` | MCP server only |
-| `codex` | Managed by `codex mcp` | MCP server only |
-| `opencode` | `~/.config/opencode/opencode.json` | MCP server only |
+| `codex` | Managed by `codex mcp` | SessionStart, UserPromptSubmit, Stop |
+| `opencode` | `~/.config/opencode/opencode.json` | session.start plugin |
 
 ## Web dashboard
 
 Access memories via a local web UI with browsing, searching, filtering, and editing:
 
 ```bash
-pnpm dev
+membank dashboard
 # Opens http://localhost:3847
 ```
 
@@ -79,15 +91,43 @@ See [`packages/dashboard/README.md`](packages/dashboard/README.md) for API docs 
 
 ## MCP tools
 
-When running as an MCP server, five tools are exposed to the LLM:
+When running as an MCP server, the following tools are exposed to the LLM:
 
 | Tool | Description |
 |------|-------------|
-| `query_memory` | Semantic search across stored memories |
-| `save_memory` | Store a new memory with type, tags, and scope |
-| `update_memory` | Update content or metadata on an existing memory |
+| `query_memory` | Semantic search across stored memories. Supports `global` flag to query across all projects. |
+| `save_memory` | Store a new memory with type, tags, and scope. Supports `global` flag to save outside project scope. |
+| `update_memory` | Update content, type (reclassification), or tags on an existing memory |
 | `delete_memory` | Remove a memory by ID |
 | `list_memory_types` | List available memory types and their priority order |
+| `pin_memory` | Pin a memory so it is always injected into session context |
+| `unpin_memory` | Unpin a memory to remove it from guaranteed session injection |
+| `get_memory_summary` | Aggregate stats: total memories, counts by type, pinned count, review queue size |
+| `list_flagged_memories` | List memories with unresolved dedup review events (similarity 0.75–0.92) |
+| `resolve_review` | Dismiss all open review events for a memory after reviewing it |
+| `migrate` | List or run named data migrations (`mode: "list"` or `mode: "run"`) |
+
+## Memory synthesis (optional)
+
+The synthesis engine runs in the background and compresses memories into a rolling summary per scope. When a synthesis is available, it replaces pinned memory injection in the session context.
+
+Enable by creating `~/.membank/config.json`:
+
+```json
+{
+  "synthesis": {
+    "enabled": true
+  }
+}
+```
+
+View synthesis state via:
+
+```bash
+membank synthesize show              # current synthesis for global scope
+membank synthesize show --scope <s>  # synthesis for a specific project scope
+membank synthesize status            # all scopes and their synthesis state
+```
 
 ## Storage
 
@@ -95,8 +135,9 @@ All data lives at `~/.membank/`:
 
 ```
 ~/.membank/
-  memory.db        # SQLite database (memories + vectors)
+  memory.db        # SQLite database (memories + vectors + synthesis)
   models/          # cached embedding model (~30 MB, downloaded on first run)
+  config.json      # optional config (synthesis settings, etc.)
 ```
 
 ## Packages
