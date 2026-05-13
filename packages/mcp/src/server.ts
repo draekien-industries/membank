@@ -196,6 +196,12 @@ export function createServer(core: CoreServices): Server {
           required: ["id"],
         },
       },
+      {
+        name: "get_memory_summary",
+        description:
+          "Returns aggregate stats for session orientation: total memories, counts by type, pinned count, and review queue size.",
+        inputSchema: { type: "object", properties: {}, required: [] },
+      },
     ],
   }));
 
@@ -349,6 +355,15 @@ export function createServer(core: CoreServices): Server {
       try {
         const memory = core.repo.setPin(args.id, pinned);
         return { content: [{ type: "text", text: JSON.stringify(memory) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true };
+      }
+    }
+
+    if (request.params.name === "get_memory_summary") {
+      try {
+        return { content: [{ type: "text", text: JSON.stringify(core.repo.stats()) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: message }], isError: true };

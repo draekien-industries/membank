@@ -299,7 +299,12 @@ export class MemoryRepository {
     return map;
   }
 
-  stats(): { byType: Record<MemoryType, number>; total: number; needsReview: number } {
+  stats(): {
+    byType: Record<MemoryType, number>;
+    total: number;
+    pinned: number;
+    needsReview: number;
+  } {
     const byType = Object.fromEntries(MEMORY_TYPE_VALUES.map((t) => [t, 0])) as Record<
       MemoryType,
       number
@@ -318,9 +323,11 @@ export class MemoryRepository {
       }
     }
 
-    const totals = this.#db.db
-      .prepare<[], { total: number }>(`SELECT COUNT(*) as total FROM memories`)
-      .get() ?? { total: 0 };
+    const aggregates = this.#db.db
+      .prepare<[], { total: number; pinned: number | null }>(
+        `SELECT COUNT(*) as total, SUM(pinned) as pinned FROM memories`
+      )
+      .get() ?? { total: 0, pinned: 0 };
 
     const reviewRow = this.#db.db
       .prepare<[], { needsReview: number }>(
@@ -330,7 +337,8 @@ export class MemoryRepository {
 
     return {
       byType,
-      total: totals.total,
+      total: aggregates.total,
+      pinned: aggregates.pinned ?? 0,
       needsReview: reviewRow.needsReview,
     };
   }
