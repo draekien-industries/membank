@@ -125,22 +125,20 @@ core/src/synthesis/
 
 ## 4. Migration strategy — phased per context
 
-One PR per phase. Each phase is self-contained: moves code, updates internal consumers, ships a changeset, passes existing tests unchanged. **No phase touches public DB / CLI / MCP / HTTP surfaces.**
+All phases land directly on `refactor/codebase-restructure`. Each phase is self-contained: moves code, updates internal consumers, commits, passes existing tests unchanged. **No phase touches public DB / CLI / MCP / HTTP surfaces.**
 
-### Phase 0 — scaffolding & guardrails (1 PR, S)
+### Phase 0 — scaffolding & guardrails (S)
 
 - Add an architecture lint rule (Biome `noRestrictedImports` or a simple custom script) enforcing the dependency direction inside core: `domain/` cannot import from `application/` or `infrastructure/`; `application/` cannot import from `infrastructure/`.
 - Add a second guard: presentation packages (`cli`, `mcp`, `dashboard`) may only import from `@membank/core` root or `@membank/core/<context>` — never from `@membank/core/.../infrastructure/...`.
 - Document the per-context shape in `packages/core/CLAUDE.md` (new file or appended).
 - No code moves yet.
 
-**Changeset**: `@membank/core` patch — "Added architectural guard rails for the upcoming core-restructure work."
-
-### Phase 1 — Memory + Persistence (1 PR, M)
+### Phase 1 — Memory + Persistence (M)
 
 Split `memory/repository.ts` into the layered shape described in §3.3. Move `db/` row-type helpers to `persistence/infrastructure/`. Memory context's `infrastructure/` depends on Persistence's exported handle.
 
-Order inside the PR:
+Order:
 1. Create new files; copy logic in stages, leaving old `repository.ts` exporting the same class names.
 2. Switch `index.ts` re-exports to point at new files.
 3. Delete old files.
@@ -148,21 +146,15 @@ Order inside the PR:
 
 **Tests**: existing `memory/repository.test.ts` splits into pure unit tests (dedup-policy) and integration tests (sqlite-memory-repository.test.ts). All tests stay green.
 
-**Changeset**: `@membank/core` minor — "Reorganized Memory and Persistence into domain/application/infrastructure layers; no behavioural change."
-
-### Phase 2 — Query + Embedding (1 PR, S)
+### Phase 2 — Query + Embedding (S)
 
 Apply the same shape to `query/` and `embedding/`. Query context defines a `MemoryRepository` port (or re-uses Memory's) and an `Embedder` port. Cosine-scoring policy moves to `query/domain/scoring.ts`.
 
-**Changeset**: `@membank/core` minor — "Reorganized Query and Embedding contexts; cosine scoring policy isolated to pure domain module."
-
-### Phase 3 — Project + SessionInjection + Configuration (1 PR, S)
+### Phase 3 — Project + SessionInjection + Configuration (S)
 
 Same treatment for the smaller contexts. SessionInjection's pinned-memory-bundle builder becomes a pure application use-case over Memory + Project repositories.
 
-**Changeset**: `@membank/core` patch — "Reorganized Project, SessionInjection and Configuration contexts."
-
-### Phase 4 — Synthesis consolidation (1 PR, L)
+### Phase 4 — Synthesis consolidation (L)
 
 The big one. Move `packages/mcp/src/synthesis/` into `packages/core/src/synthesis/`:
 
@@ -175,11 +167,7 @@ The big one. Move `packages/mcp/src/synthesis/` into `packages/core/src/synthesi
 
 **Locked surface check**: the MCP server still triggers synthesis on the same events with the same debounce. Add an end-to-end test asserting that an MCP `save_memory` call still marks the scope dirty for synthesis.
 
-**Changeset**:
-- `@membank/core` minor — "Consolidated synthesis engine and Claude Agent SDK integration into core."
-- `@membank/mcp` patch — "Synthesis logic moved into @membank/core; MCP server now delegates."
-
-### Phase 5 — Dashboard server as thin adapter (1 PR, M)
+### Phase 5 — Dashboard server as thin adapter (M)
 
 Today's `packages/dashboard/src/server/index.ts` contains:
 - Raw SQL queries (`SELECT m.* FROM memories m WHERE …`).
@@ -196,11 +184,7 @@ All of this duplicates or extends what already exists in core repositories. Migr
 
 **Locked surface check**: snapshot each `/api/*` response shape before and after; diff must be empty.
 
-**Changeset**:
-- `@membank/dashboard` patch — "Dashboard server reduced to thin HTTP adapter; all data operations delegated to @membank/core use-cases."
-- `@membank/core` patch — "Added use-cases backing the dashboard HTTP API."
-
-### Phase 6 — CLI command audit (1 PR, S)
+### Phase 6 — CLI command audit (S)
 
 Walk `packages/cli/src/commands/*.ts`. Each command should be:
 ```ts
@@ -212,35 +196,32 @@ export async function runFooCommand(args: FooArgs, deps: Deps): Promise<void> {
 
 Move any inline business logic (e.g. anything in `inject.ts`, `import.ts`, `export.ts` that isn't pure formatting/IO) into core use-cases. Most commands are already thin — this phase is largely an audit.
 
-**Changeset**: `@membank/cli` patch — "CLI commands audited; remaining business logic moved into @membank/core."
-
-### Phase 7 — Cleanup & guard rail enforcement (1 PR, XS)
+### Phase 7 — Cleanup & guard rail enforcement (XS)
 
 - Tighten the architectural lint rule from Phase 0 (it may have started as warnings; flip to errors).
 - Delete the deprecated `scope/` folder (already marked deprecated in `core/UBIQUITOUS_LANGUAGE.md`) if no consumers remain.
 - Verify all `@membank/core` exports flow through `packages/core/src/index.ts` and that nothing reaches into `infrastructure/` from outside.
 
-**Changeset**: `@membank/core` patch — "Removed deprecated Scope module and enforced architectural boundaries via lint."
-
 ---
 
 ## 5. Per-phase execution rules
 
-Every phase PR must:
+Every phase must:
 
 1. Pass `pnpm typecheck`, `pnpm lint`, `pnpm test` on every package — not just the touched one.
 2. Run the dashboard end-to-end against the new server build to confirm the React client still works (Phase 5 specifically).
 3. For Phase 4, run the MCP server against Claude Code and confirm `save_memory` → synthesis trigger still fires.
-4. Ship a changeset describing user-visible impact (which is "none, internal restructure"). Use past tense.
-5. Conventional commit on the merge: `refactor(core): <phase summary>`.
-6. Run `/simplify` per the CLAUDE.md implementation checklist.
+4. Commit with a conventional commit: `refactor(core): <phase summary>`.
+5. Run `/simplify` per the CLAUDE.md implementation checklist.
+
+A single changeset covering the full restructure ships at the end (before the branch is merged to `main`), not per phase.
 
 ## 6. Risks & mitigations
 
 - **Circular imports** between contexts (e.g. Memory needs Project, SessionInjection needs both). Mitigation: ports are defined where they're *consumed*, adapters are *injected*. Composition lives in `index.ts` per context.
 - **`@anthropic-ai/claude-agent-sdk` in core** could complicate browser/edge use of core in the future. Mitigation: keep it as an `optionalDependencies` candidate if synthesis becomes opt-in; today it's required, so a regular dep is correct.
 - **Hidden CLI / MCP behavioural changes** during dashboard server rewrite. Mitigation: snapshot tests on `/api/*` response bodies before Phase 5 starts.
-- **Phase 4 conflict with in-flight synthesis work.** Mitigation: Phase 4 must merge from a quiescent main; coordinate with any feature branch touching `packages/mcp/src/synthesis/`.
+- **Phase 4 conflict with in-flight synthesis work.** Mitigation: complete all synthesis-touching phases sequentially; do not run phases 3 and 4 concurrently.
 - **Architecture-lint false positives** for legitimate cross-layer imports (e.g. an application file importing a domain type by value). Mitigation: rule allows imports of types/values from `domain/` into `application/` and `infrastructure/`. Only blocks the reverse direction.
 
 ## 7. Out of scope
@@ -253,8 +234,9 @@ Every phase PR must:
 
 ## 8. Definition of done
 
-- All seven phases merged.
+- All seven phases committed on `refactor/codebase-restructure`.
 - `pnpm test` green across all packages.
 - Architectural lint enforced as error.
 - `packages/cli/`, `packages/mcp/`, `packages/dashboard/` contain no SQL strings, no `better-sqlite3` imports, no `@anthropic-ai/claude-agent-sdk` imports, no `@huggingface/transformers` imports.
 - A reviewer reading any `application/<use-case>.ts` can understand the business rule without opening `infrastructure/`.
+- A single changeset created before merging to `main` covering all affected packages.
