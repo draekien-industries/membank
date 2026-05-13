@@ -1,7 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { DatabaseManager } from "../db/manager.js";
-import type { Synthesis } from "../schemas.js";
-import { SynthesisSchema } from "../schemas.js";
+import type { DatabaseManager } from "../../db/manager.js";
+import type { Synthesis } from "../../schemas.js";
+import { SynthesisSchema } from "../../schemas.js";
+import type { DirtyScope } from "../domain/synthesis-job.js";
+import type { SynthesisRepository } from "../ports.js";
 
 interface SynthesisRow {
   id: string;
@@ -31,7 +33,7 @@ function rowToSynthesis(row: SynthesisRow): Synthesis {
 
 const STALENESS_DAYS = 30;
 
-export class SynthesisRepository {
+class SqliteSynthesisRepository implements SynthesisRepository {
   readonly #db: DatabaseManager;
 
   constructor(db: DatabaseManager) {
@@ -95,7 +97,6 @@ export class SynthesisRepository {
     } else {
       // Create a placeholder row so in_flight_since is tracked before the first synthesis
       const id = randomUUID();
-      const placeholder = "pending";
       const future = new Date(Date.now() + STALENESS_DAYS * 24 * 60 * 60 * 1000).toISOString();
       this.#db.db
         .prepare(
@@ -104,7 +105,7 @@ export class SynthesisRepository {
               in_flight_since, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
-        .run(id, scope, placeholder, "", now, future, now, now, now);
+        .run(id, scope, "pending", "", now, future, now, now, now);
     }
   }
 
@@ -153,10 +154,10 @@ export class SynthesisRepository {
       .digest("hex");
   }
 
-  getExpiredOrDirtyScopes(): { scope: string; reason: "expired" | "dirty" | "missing" }[] {
+  getExpiredOrDirtyScopes(): DirtyScope[] {
     const allScopes = this.getAllActiveScopes();
     const now = new Date().toISOString();
-    const results: { scope: string; reason: "expired" | "dirty" | "missing" }[] = [];
+    const results: DirtyScope[] = [];
 
     for (const scope of allScopes) {
       const row = this.#db.db
@@ -195,4 +196,8 @@ export class SynthesisRepository {
     const now = new Date().toISOString();
     this.#db.db.prepare("DELETE FROM syntheses WHERE expires_at < ?").run(now);
   }
+}
+
+export function createSynthesisRepository(db: DatabaseManager): SynthesisRepository {
+  return new SqliteSynthesisRepository(db);
 }

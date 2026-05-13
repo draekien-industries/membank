@@ -1,0 +1,3 @@
+export const DEFAULT_DEBOUNCE_MS = 45_000;
+export const MAX_BACKOFF_MULTIPLIER = 5;
+export const IN_FLIGHT_TIMEOUT_MS = 120_000;

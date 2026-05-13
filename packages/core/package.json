@@ -28,6 +28,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.131",
     "@huggingface/transformers": "^4.2.0",
     "better-sqlite3": "^12.9.0",
     "sqlite-vec": "^0.1.9",

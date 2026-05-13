@@ -1,28 +1,11 @@
 import { createSdkMcpServer, query, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
+import type { AgentRunner, SynthesisConfig, SynthesisTools } from "../ports.js";
 
 const SYNTHESIS_SYSTEM_PROMPT =
   "You are a memory synthesizer. Your job is to read the user's stored memories and produce a concise, well-structured summary of what's most important to remember about this user — their preferences, corrections, decisions, and key facts. Pinned memories are higher fidelity and should be weighted more heavily. Exclude transient or ephemeral details. Output plain text suitable for injection into an LLM context window. Be concise — target 200-400 words.";
 
-export interface SynthesisConfig {
-  enabled: boolean;
-  maxTokensPerRun?: number;
-  debounceMs?: number;
-  stalenessDays?: number;
-  inFlightTimeoutMs?: number;
-}
-
-export interface SynthesisTools {
-  queryMemory: (args: {
-    query: string;
-    limit?: number;
-    global?: boolean;
-    projectHash?: string;
-  }) => Promise<string>;
-  getMemorySummary: () => Promise<string>;
-}
-
-export class SynthesisAgentLoop {
+class ClaudeAgentRunner implements AgentRunner {
   readonly #tools: SynthesisTools;
 
   constructor(tools: SynthesisTools, _config: SynthesisConfig) {
@@ -118,4 +101,11 @@ export class SynthesisAgentLoop {
 
     return finalResult;
   }
+}
+
+export function createSynthesisAgentRunner(
+  tools: SynthesisTools,
+  config: SynthesisConfig
+): AgentRunner {
+  return new ClaudeAgentRunner(tools, config);
 }

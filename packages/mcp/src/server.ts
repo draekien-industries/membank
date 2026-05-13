@@ -1,10 +1,19 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Embedder, MemoryRepository, ProjectRepository, Querier } from "@membank/core";
+import type {
+  Embedder,
+  MemoryRepository,
+  ProjectRepository,
+  Querier,
+  SynthesisConfig,
+  SynthesisTools,
+} from "@membank/core";
 import {
   createMemoryRepository,
   createProjectRepository,
+  createSynthesisAgentRunner,
+  createSynthesisRepository,
   DatabaseManager,
   EmbeddingService,
   isSynthesisEnabled,
@@ -15,7 +24,7 @@ import {
   QueryEngine,
   resolveProject,
   runScopeToProjectsMigration,
-  SynthesisRepository,
+  SynthesisEngine,
   saveMemory,
   updateMemory,
 } from "@membank/core";
@@ -36,8 +45,6 @@ import {
   SaveMemoryArgsSchema,
   UpdateMemoryArgsSchema,
 } from "./schemas.js";
-import type { SynthesisConfig, SynthesisTools } from "./synthesis/index.js";
-import { SynthesisAgentLoop, SynthesisEngine } from "./synthesis/index.js";
 
 const SERVER_NAME = "membank";
 const SERVER_VERSION = "0.1.0";
@@ -105,9 +112,9 @@ export function initCore(options: ServerOptions = {}): CoreServices {
   let synthEngine: SynthesisEngine | undefined;
 
   if (synthConfig.enabled) {
-    const synthRepo = new SynthesisRepository(db);
-    const agentLoop = new SynthesisAgentLoop(buildSynthesisTools(repo, query), synthConfig);
-    synthEngine = new SynthesisEngine(db, synthRepo, synthConfig, agentLoop);
+    const synthRepo = createSynthesisRepository(db);
+    const agentRunner = createSynthesisAgentRunner(buildSynthesisTools(repo, query), synthConfig);
+    synthEngine = new SynthesisEngine(synthRepo, synthConfig, agentRunner);
   }
 
   return { db, embedding, repo, query, projects, synthEngine };

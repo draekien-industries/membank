@@ -1,7 +1,8 @@
-import { DatabaseManager, SynthesisRepository } from "@membank/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { SynthesisAgentLoop, SynthesisConfig } from "./agent-loop.js";
-import { SynthesisEngine } from "./engine.js";
+import { DatabaseManager } from "../db/manager.js";
+import { SynthesisEngine } from "./application/engine.js";
+import { createSynthesisRepository } from "./infrastructure/sqlite-synthesis-repository.js";
+import type { AgentRunner, SynthesisConfig, SynthesisRepository } from "./ports.js";
 
 function makeConfig(overrides?: Partial<SynthesisConfig>): SynthesisConfig {
   return {
@@ -12,23 +13,23 @@ function makeConfig(overrides?: Partial<SynthesisConfig>): SynthesisConfig {
   };
 }
 
-function makeAgentLoop(result = "synthesized content"): SynthesisAgentLoop {
+function makeAgentRunner(result = "synthesized content"): AgentRunner {
   return {
     run: vi.fn().mockResolvedValue(result),
-  } as unknown as SynthesisAgentLoop;
+  } as unknown as AgentRunner;
 }
 
 describe("SynthesisEngine", () => {
   let db: DatabaseManager;
   let synthRepo: SynthesisRepository;
-  let agentLoop: SynthesisAgentLoop;
+  let agentRunner: AgentRunner;
   let engine: SynthesisEngine;
 
   beforeEach(() => {
     db = DatabaseManager.openInMemory();
-    synthRepo = new SynthesisRepository(db);
-    agentLoop = makeAgentLoop();
-    engine = new SynthesisEngine(db, synthRepo, makeConfig(), agentLoop);
+    synthRepo = createSynthesisRepository(db);
+    agentRunner = makeAgentRunner();
+    engine = new SynthesisEngine(synthRepo, makeConfig(), agentRunner);
   });
 
   afterEach(async () => {
@@ -47,48 +48,37 @@ describe("SynthesisEngine", () => {
     await engine.init();
     await engine.shutdown();
 
-    // Both 'global' and 'abcdef0123456789' should have been synthesized (missing → queued)
     const globalSynth = synthRepo.getSynthesis("global");
     const projSynth = synthRepo.getSynthesis("abcdef0123456789");
 
     expect(globalSynth?.content).toBe("synthesized content");
     expect(projSynth?.content).toBe("synthesized content");
-    expect(vi.mocked(agentLoop.run)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(agentRunner.run)).toHaveBeenCalledTimes(2);
   });
 
   it("markDirty() adds scope to dirty set so it gets processed next cycle", async () => {
-    // Use a fresh engine that starts with no dirty scopes (empty DB), then add one
-    const freshLoop = makeAgentLoop();
-    const freshEngine = new SynthesisEngine(
-      db,
-      synthRepo,
-      makeConfig({ debounceMs: 50 }),
-      freshLoop
-    );
+    const freshRunner = makeAgentRunner();
+    const freshEngine = new SynthesisEngine(synthRepo, makeConfig({ debounceMs: 50 }), freshRunner);
 
-    // init() will run the first pass (global is missing → queued)
     await freshEngine.init();
 
-    // Clear mock to isolate the markDirty call
-    vi.mocked(freshLoop.run).mockClear();
+    vi.mocked(freshRunner.run).mockClear();
 
     freshEngine.markDirty("extra-scope");
 
-    // Wait for the next debounce cycle to fire and complete
     await new Promise<void>((resolve) => setTimeout(resolve, 100));
     await freshEngine.shutdown();
 
-    expect(vi.mocked(freshLoop.run)).toHaveBeenCalledWith("extra-scope", "extra-scope");
+    expect(vi.mocked(freshRunner.run)).toHaveBeenCalledWith("extra-scope", "extra-scope");
   });
 
   it("multiple markDirty() calls for the same scope result in one synthesis per cycle", async () => {
     await engine.init();
     await engine.shutdown();
 
-    // reset call count from init
-    vi.mocked(agentLoop.run).mockClear();
+    vi.mocked(agentRunner.run).mockClear();
 
-    const engine2 = new SynthesisEngine(db, synthRepo, makeConfig({ debounceMs: 50 }), agentLoop);
+    const engine2 = new SynthesisEngine(synthRepo, makeConfig({ debounceMs: 50 }), agentRunner);
 
     engine2.markDirty("global");
     engine2.markDirty("global");
@@ -97,7 +87,7 @@ describe("SynthesisEngine", () => {
     await engine2.init();
     await engine2.shutdown();
 
-    const callsForGlobal = vi.mocked(agentLoop.run).mock.calls.filter(([s]) => s === "global");
+    const callsForGlobal = vi.mocked(agentRunner.run).mock.calls.filter(([s]) => s === "global");
     expect(callsForGlobal.length).toBe(1);
   });
 
@@ -105,56 +95,53 @@ describe("SynthesisEngine", () => {
     synthRepo.markInFlight("global");
 
     const engine2 = new SynthesisEngine(
-      db,
       synthRepo,
       makeConfig({ debounceMs: 50, inFlightTimeoutMs: 120_000 }),
-      agentLoop
+      agentRunner
     );
 
     engine2.markDirty("global");
     await engine2.init();
     await engine2.shutdown();
 
-    expect(vi.mocked(agentLoop.run)).not.toHaveBeenCalledWith("global", undefined);
+    expect(vi.mocked(agentRunner.run)).not.toHaveBeenCalledWith("global", undefined);
   });
 
   it("in-flight guard: allows resynthesis if in_flight_since is stale", async () => {
     synthRepo.saveSynthesis("global", "old content", "oldhash");
 
-    // Manually set in_flight_since to 3 minutes ago (beyond timeout)
     const staleTime = new Date(Date.now() - 3 * 60 * 1000).toISOString();
     db.db.prepare("UPDATE syntheses SET in_flight_since = ? WHERE scope = 'global'").run(staleTime);
 
     const engine2 = new SynthesisEngine(
-      db,
       synthRepo,
       makeConfig({ debounceMs: 50, inFlightTimeoutMs: 120_000 }),
-      agentLoop
+      agentRunner
     );
 
     engine2.markDirty("global");
     await engine2.init();
     await engine2.shutdown();
 
-    expect(vi.mocked(agentLoop.run)).toHaveBeenCalledWith("global", undefined);
+    expect(vi.mocked(agentRunner.run)).toHaveBeenCalledWith("global", undefined);
   });
 
-  it("engine does not crash when agentLoop.run() throws", async () => {
-    vi.mocked(agentLoop.run).mockRejectedValue(new Error("agent failed"));
+  it("engine does not crash when agentRunner.run() throws", async () => {
+    vi.mocked(agentRunner.run).mockRejectedValue(new Error("agent failed"));
 
-    const errorEngine = new SynthesisEngine(db, synthRepo, makeConfig(), agentLoop);
+    const errorEngine = new SynthesisEngine(synthRepo, makeConfig(), agentRunner);
     errorEngine.markDirty("global");
 
     await expect(errorEngine.init()).resolves.not.toThrow();
     await errorEngine.shutdown();
   });
 
-  it("error in agent loop clears in_flight_since on the synthesis row", async () => {
-    vi.mocked(agentLoop.run).mockRejectedValue(new Error("agent failed"));
+  it("error in agent runner clears in_flight_since on the synthesis row", async () => {
+    vi.mocked(agentRunner.run).mockRejectedValue(new Error("agent failed"));
 
     synthRepo.saveSynthesis("global", "content", "hash");
 
-    const errorEngine = new SynthesisEngine(db, synthRepo, makeConfig(), agentLoop);
+    const errorEngine = new SynthesisEngine(synthRepo, makeConfig(), agentRunner);
     errorEngine.markDirty("global");
 
     await errorEngine.init();
