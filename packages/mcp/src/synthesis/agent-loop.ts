@@ -80,12 +80,14 @@ export class SynthesisAgentLoop {
 
     const startTime = Date.now();
 
-    const env: Record<string, string> = { ...process.env } as Record<string, string>;
+    const env = Object.fromEntries(
+      Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)
+    );
 
     const agentQuery = query({
       prompt,
       options: {
-        model: "claude-haiku-4-5",
+        model: "claude-haiku-4-5-20251001",
         maxTurns: MAX_TURNS,
         systemPrompt: SYNTHESIS_SYSTEM_PROMPT,
         mcpServers: { "membank-synthesis-tools": mcpServer },
@@ -102,7 +104,11 @@ export class SynthesisAgentLoop {
         if (message.subtype === "success") {
           finalResult = message.result;
         } else {
-          throw new Error(`Synthesis agent failed: ${message.subtype}`);
+          const details =
+            "errors" in message && Array.isArray(message.errors)
+              ? `: ${message.errors.join("; ")}`
+              : "";
+          throw new Error(`Synthesis agent failed: ${message.subtype}${details}`);
         }
       }
     }
