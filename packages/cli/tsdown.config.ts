@@ -10,7 +10,6 @@ export default defineConfig({
     neverBundle: [
       "@membank/core",
       "@membank/mcp",
-      "@membank/dashboard",
       "better-sqlite3",
       "sqlite-vec",
       "@huggingface/transformers",

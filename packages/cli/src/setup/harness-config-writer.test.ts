@@ -137,11 +137,10 @@ describe("claude-code", () => {
     await expect(writer2.write("claude-code")).rejects.toThrow("claude CLI not found");
   });
 
-  it("passes @membank/cli --mcp as the stdio command args", async () => {
+  it("passes @membank/mcp as the stdio command args", async () => {
     await writer.write("claude-code");
     const call = (run as ReturnType<typeof vi.fn>).mock.calls[0] as [string, string[]];
-    expect(call[1]).toContain("@membank/cli");
-    expect(call[1]).toContain("--mcp");
+    expect(call[1]).toContain("@membank/mcp");
   });
 });
 
@@ -169,7 +168,7 @@ describe("copilot", () => {
       args: string[];
     };
     expect(entry.command).toBe("npx");
-    expect(entry.args).toContain("@membank/cli");
+    expect(entry.args).toContain("@membank/mcp");
   });
 
   it("returns already-configured when mcpServers.membank present in ~/.copilot/mcp-config.json", async () => {
@@ -284,8 +283,7 @@ describe("opencode", () => {
     };
     expect(entry.type).toBe("local");
     expect(entry.command).toContain("npx");
-    expect(entry.command).toContain("@membank/cli");
-    expect(entry.command).toContain("--mcp");
+    expect(entry.command).toContain("@membank/mcp");
   });
 
   it("writes to ~/.config/opencode/opencode.json (not config.json)", async () => {
@@ -320,7 +318,7 @@ describe("opencode", () => {
     const entry = (readJson(opencodePath(dir)).mcp as Record<string, unknown>).membank as {
       command: string[];
     };
-    expect(entry.command).toContain("@membank/cli");
+    expect(entry.command).toContain("@membank/mcp");
   });
 
   it("does not invoke the command runner (file-based write)", async () => {

@@ -7,6 +7,9 @@
     "url": "git+https://github.com/draekien-industries/membank.git",
     "directory": "packages/dashboard"
   },
+  "bin": {
+    "membank-dashboard": "./dist/bin.mjs"
+  },
   "exports": {
     ".": {
       "import": {
@@ -47,6 +50,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "commander": "^14.0.3",
     "hono": "^4.12.18",
     "next-themes": "^0.4.6",
     "open": "^10.1.0",

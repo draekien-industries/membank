@@ -1,2 +1,1 @@
-// Dashboard stub — to be implemented
-export {};
+export { startDashboard } from "./server/index.js";

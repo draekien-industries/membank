@@ -38,9 +38,6 @@ importers:
       '@membank/core':
         specifier: workspace:*
         version: link:../core
-      '@membank/dashboard':
-        specifier: workspace:*
-        version: link:../dashboard
       '@membank/mcp':
         specifier: workspace:*
         version: link:../mcp
@@ -151,6 +148,9 @@ importers:
       cmdk:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      commander:
+        specifier: ^14.0.3
+        version: 14.0.3
       hono:
         specifier: ^4.12.18
         version: 4.12.18
@@ -224,6 +224,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.4.3)
+      commander:
+        specifier: ^14.0.3
+        version: 14.0.3
       zod:
         specifier: ^4.4.3
         version: 4.4.3
