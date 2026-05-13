@@ -13,11 +13,9 @@ export async function deleteCommand(
   formatter: Formatter,
   prompt: PromptHelper
 ): Promise<void> {
-  const row = db.db
-    .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
-    .get(id);
+  const repo = createMemoryRepository(db, createProjectRepository(db));
 
-  if (row === undefined) {
+  if (repo.findById(id) === undefined) {
     formatter.error(`Memory not found: ${id}`);
     process.exit(1);
   }
@@ -27,7 +25,6 @@ export async function deleteCommand(
     return;
   }
 
-  const repo = createMemoryRepository(db, createProjectRepository(db));
   repo.delete(id);
 
   process.stdout.write(`${chalk.green("✓")} Deleted memory: ${chalk.dim(id)}\n`);

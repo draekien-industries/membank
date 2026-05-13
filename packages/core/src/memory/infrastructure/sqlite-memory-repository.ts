@@ -9,12 +9,14 @@ import {
   MemoryRowSchema,
   MemoryTypeSchema,
   ReviewEventRowSchema,
+  TagsJsonSchema,
 } from "../../schemas.js";
 import type { Memory, MemoryPatch, MemoryType } from "../domain/memory.js";
 import type { ReviewEvent } from "../domain/review-event.js";
 import type {
   CreateMemoryOpts,
   CreateReviewEventOpts,
+  MemoryExportRecord,
   MemoryRepository,
   SimilarMemoryResult,
   StatsResult,
@@ -406,6 +408,67 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
   incrementAccessCount(id: string): void {
     this.#db.db.prepare(`UPDATE memories SET access_count = access_count + 1 WHERE id = ?`).run(id);
+  }
+
+  exportAll(): MemoryExportRecord[] {
+    interface ExportRow extends MemoryRow {
+      embedding: Buffer | null;
+    }
+    const rows = this.#db.db
+      .prepare<[], ExportRow>(
+        `SELECT m.*, e.embedding FROM memories m LEFT JOIN embeddings e ON e.rowid = m.rowid ORDER BY m.created_at DESC`
+      )
+      .all();
+    return rows.map((row) => ({
+      id: row.id,
+      content: row.content,
+      type: MemoryTypeSchema.parse(row.type),
+      tags: TagsJsonSchema.parse(JSON.parse(row.tags)),
+      sourceHarness: row.source,
+      accessCount: row.access_count,
+      pinned: row.pinned !== 0,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      embedding:
+        row.embedding !== null
+          ? new Float32Array(
+              row.embedding.buffer,
+              row.embedding.byteOffset,
+              row.embedding.byteLength / 4
+            )
+          : null,
+    }));
+  }
+
+  importAll(records: MemoryExportRecord[]): void {
+    const insertMemory = this.#db.db.prepare(
+      `INSERT OR REPLACE INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    const insertEmbedding = this.#db.db.prepare(
+      `INSERT OR REPLACE INTO embeddings (rowid, embedding) SELECT m.rowid, ? FROM memories m WHERE m.id = ?`
+    );
+    this.#db.db.transaction(() => {
+      for (const rec of records) {
+        insertMemory.run(
+          rec.id,
+          rec.content,
+          rec.type,
+          JSON.stringify(rec.tags),
+          rec.sourceHarness,
+          rec.accessCount,
+          rec.pinned ? 1 : 0,
+          rec.createdAt,
+          rec.updatedAt
+        );
+        if (rec.embedding !== null) {
+          insertEmbedding.run(
+            Buffer.from(rec.embedding.buffer, rec.embedding.byteOffset, rec.embedding.byteLength),
+            rec.id
+          );
+        }
+      }
+    })();
   }
 
   #getEventsForMemories(

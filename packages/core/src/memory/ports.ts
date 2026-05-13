@@ -14,6 +14,19 @@ export interface StatsResult {
   pinBudgetChars: number;
 }
 
+export interface MemoryExportRecord {
+  id: string;
+  content: string;
+  type: MemoryType;
+  tags: string[];
+  sourceHarness: string | null;
+  accessCount: number;
+  pinned: boolean;
+  createdAt: string;
+  updatedAt: string;
+  embedding: Float32Array | null;
+}
+
 export interface CreateMemoryOpts {
   id: string;
   content: string;
@@ -59,6 +72,8 @@ export interface MemoryRepository {
   resolveReviewEvents(memoryId: string): void;
   setPin(id: string, pinned: boolean): Memory;
   incrementAccessCount(id: string): void;
+  exportAll(): MemoryExportRecord[];
+  importAll(records: MemoryExportRecord[]): void;
 }
 
 export interface Embedder {

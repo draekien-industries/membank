@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import type { DatabaseManager } from "@membank/core";
+import type { DatabaseManager, MemoryExportRecord } from "@membank/core";
+import { createMemoryRepository, createProjectRepository } from "@membank/core";
 import type { Formatter } from "../formatter.js";
 import type { PromptHelper } from "../prompt-helper.js";
 import { ExportFileSchema } from "../schemas.js";
@@ -47,37 +48,25 @@ export async function importCommand(
     return;
   }
 
-  const insertMemory = db.db.prepare(
-    `INSERT OR REPLACE INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  );
+  const records: MemoryExportRecord[] = parseResult.data.memories.map((rec) => ({
+    id: rec.id,
+    content: rec.content,
+    type: rec.type,
+    tags: rec.tags,
+    sourceHarness: rec.sourceHarness ?? null,
+    accessCount: rec.accessCount ?? 0,
+    pinned: rec.pinned ?? false,
+    createdAt: rec.createdAt ?? new Date().toISOString(),
+    updatedAt: rec.updatedAt ?? new Date().toISOString(),
+    embedding: (() => {
+      if (rec.embedding == null) return null;
+      const buf = Buffer.from(rec.embedding, "base64");
+      return new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
+    })(),
+  }));
 
-  const insertEmbedding = db.db.prepare(
-    `INSERT OR REPLACE INTO embeddings (rowid, embedding) SELECT m.rowid, ? FROM memories m WHERE m.id = ?`
-  );
-
-  const runImport = db.db.transaction(() => {
-    for (const rec of parseResult.data.memories) {
-      insertMemory.run(
-        rec.id,
-        rec.content,
-        rec.type,
-        JSON.stringify(rec.tags ?? []),
-        rec.sourceHarness ?? null,
-        rec.accessCount ?? 0,
-        rec.pinned ? 1 : 0,
-        rec.createdAt ?? new Date().toISOString(),
-        rec.updatedAt ?? new Date().toISOString()
-      );
-
-      if (rec.embedding !== null && rec.embedding !== undefined) {
-        const buf = Buffer.from(rec.embedding, "base64");
-        insertEmbedding.run(buf, rec.id);
-      }
-    }
-  });
-
-  runImport();
+  const repo = createMemoryRepository(db, createProjectRepository(db));
+  repo.importAll(records);
 
   if (formatter.isJson) {
     process.stdout.write(`${JSON.stringify({ imported: count })}\n`);

@@ -32,6 +32,8 @@ function makeFakeRepo(): MemoryRepository & { deleteCalls: string[] } {
     resolveReviewEvents: () => {},
     setPin: vi.fn(),
     incrementAccessCount: () => {},
+    exportAll: () => [],
+    importAll: () => {},
   };
 }
 

@@ -2,10 +2,10 @@ import type { Memory, SessionContext } from "@membank/core";
 import {
   createMemoryRepository,
   createProjectRepository,
+  createSynthesisRepository,
   DatabaseManager,
   resolveProject,
   SessionContextBuilder,
-  SynthesisRepository,
 } from "@membank/core";
 import type { z } from "zod";
 import { InjectionHarnessSchema } from "../schemas.js";
@@ -89,7 +89,7 @@ async function buildText(): Promise<string> {
     const projects = createProjectRepository(db);
     const repo = createMemoryRepository(db, projects);
     const builder = new SessionContextBuilder(repo);
-    const synthRepo = new SynthesisRepository(db);
+    const synthRepo = createSynthesisRepository(db);
 
     const globalRow = synthRepo.getSynthesis("global");
     const projectRow = synthRepo.getSynthesis(resolved.hash);

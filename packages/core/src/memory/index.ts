@@ -11,6 +11,7 @@ export type {
   CreateMemoryOpts,
   CreateReviewEventOpts,
   Embedder,
+  MemoryExportRecord,
   MemoryRepository,
   SimilarMemoryResult,
   StatsResult,

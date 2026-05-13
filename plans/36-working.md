@@ -50,30 +50,30 @@ Branch: `refactor/codebase-restructure`
 
 > Partial state: `core/src/synthesis/repository.ts` already exists (flat). `mcp/src/synthesis/{agent-loop.ts,engine.ts}` still need to move to core.
 
-- [ ] `@anthropic-ai/claude-agent-sdk` added to `@membank/core` deps via `pnpm add`
-- [ ] `core/src/synthesis/domain/synthesis-job.ts` — job state machine, dirty-scope tracking
-- [ ] `core/src/synthesis/domain/debounce-policy.ts` — `DEFAULT_DEBOUNCE_MS`, `MAX_BACKOFF_MULTIPLIER`, `IN_FLIGHT_TIMEOUT_MS`
-- [ ] `core/src/synthesis/application/run-synthesis.ts`
-- [ ] `core/src/synthesis/application/engine.ts` — move from `mcp/src/synthesis/engine.ts`; debounce loop, in-flight tracking, failure backoff
-- [ ] `core/src/synthesis/infrastructure/sqlite-synthesis-repository.ts` — rename from existing `core/src/synthesis/repository.ts`
-- [ ] `core/src/synthesis/infrastructure/claude-agent-runner.ts` — move from `mcp/src/synthesis/agent-loop.ts`; refactored behind `AgentRunner` port
-- [ ] `core/src/synthesis/ports.ts` — `AgentRunner` interface
-- [ ] `core/src/synthesis/index.ts`
-- [ ] `packages/mcp/src/index.ts` + `server.ts` updated to import synthesis from `@membank/core`
-- [ ] `packages/mcp/src/synthesis/` directory deleted
-- [ ] `@anthropic-ai/claude-agent-sdk` kept external in `core/tsdown.config.ts`
-- [ ] Synthesis tests moved to `core/src/synthesis/` with updated imports
-- [ ] E2E test: MCP `save_memory` call still marks scope dirty for synthesis
+- [x] `@anthropic-ai/claude-agent-sdk` added to `@membank/core` deps via `pnpm add`
+- [x] `core/src/synthesis/domain/synthesis-job.ts` — job state machine, dirty-scope tracking
+- [x] `core/src/synthesis/domain/debounce-policy.ts` — `DEFAULT_DEBOUNCE_MS`, `MAX_BACKOFF_MULTIPLIER`, `IN_FLIGHT_TIMEOUT_MS`
+- [x] `core/src/synthesis/application/run-synthesis.ts`
+- [x] `core/src/synthesis/application/engine.ts` — move from `mcp/src/synthesis/engine.ts`; debounce loop, in-flight tracking, failure backoff
+- [x] `core/src/synthesis/infrastructure/sqlite-synthesis-repository.ts` — rename from existing `core/src/synthesis/repository.ts`
+- [x] `core/src/synthesis/infrastructure/claude-agent-runner.ts` — move from `mcp/src/synthesis/agent-loop.ts`; refactored behind `AgentRunner` port
+- [x] `core/src/synthesis/ports.ts` — `AgentRunner` interface
+- [x] `core/src/synthesis/index.ts`
+- [x] `packages/mcp/src/index.ts` + `server.ts` updated to import synthesis from `@membank/core`
+- [x] `packages/mcp/src/synthesis/` directory deleted
+- [x] `@anthropic-ai/claude-agent-sdk` kept external in `core/tsdown.config.ts`
+- [x] Synthesis tests moved to `core/src/synthesis/` with updated imports
+- [x] E2E test: MCP `save_memory` call still marks scope dirty for synthesis
 
 ## Phase 5 — Dashboard Server as Thin Adapter
 
-- [ ] API response shapes snapshotted before changes (baseline for diff)
-- [ ] Every per-route SQL in `dashboard/src/server/index.ts` extracted into core use-cases
-- [ ] Missing use-cases added to appropriate `core/src/<context>/application/` folders
-- [ ] Each Hono handler rewritten to: parse → call use-case → return JSON (3–5 lines)
-- [ ] Custom `parseRow` / `parseReviewEvent` parsers in dashboard server deleted
-- [ ] Snapshot diff of `/api/*` response shapes is empty
-- [ ] Dashboard React client verified working against new server build
+- [x] API response shapes snapshotted before changes (baseline for diff)
+- [x] Every per-route SQL in `dashboard/src/server/index.ts` extracted into core use-cases
+- [x] Missing use-cases added to appropriate `core/src/<context>/application/` folders
+- [x] Each Hono handler rewritten to: parse → call use-case → return JSON (3–5 lines)
+- [x] Custom `parseRow` / `parseReviewEvent` parsers in dashboard server deleted
+- [x] Snapshot diff of `/api/*` response shapes is empty
+- [x] Dashboard React client verified working against new server build
 
 ## Phase 6 — CLI Command Audit
 

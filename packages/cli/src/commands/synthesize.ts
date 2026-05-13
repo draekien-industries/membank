@@ -1,27 +1,6 @@
-import { createProjectRepository, DatabaseManager } from "@membank/core";
+import { createProjectRepository, createSynthesisRepository, DatabaseManager } from "@membank/core";
 import { runSynthesis } from "@membank/mcp";
 import type { Formatter } from "../formatter.js";
-
-interface SynthesisRow {
-  id: string;
-  scope: string;
-  content: string;
-  source_memory_hash: string | null;
-  synthesized_at: string | null;
-  expires_at: string | null;
-  in_flight_since: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-function hasSynthesesTable(db: DatabaseManager): boolean {
-  const row = db.db
-    .prepare<[], { name: string }>(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='syntheses'"
-    )
-    .get();
-  return row !== undefined;
-}
 
 export async function synthesizeRunCommand(
   opts: { scope?: string },
@@ -42,17 +21,7 @@ export async function synthesizeRunCommand(
 export function synthesizeShowCommand(opts: { scope?: string }, formatter: Formatter): void {
   const db = DatabaseManager.open();
   try {
-    if (!hasSynthesesTable(db)) {
-      if (formatter.isJson) {
-        process.stdout.write(`${JSON.stringify(null)}\n`);
-      } else {
-        process.stdout.write("No synthesis data available.\n");
-      }
-      return;
-    }
-
     const scope = opts.scope ?? "global";
-
     let resolvedScope = scope;
     if (scope !== "global" && !/^[0-9a-f]{16}$/.test(scope)) {
       const project = createProjectRepository(db).getByName(scope);
@@ -61,13 +30,9 @@ export function synthesizeShowCommand(opts: { scope?: string }, formatter: Forma
       }
     }
 
-    const row = db.db
-      .prepare<[string], SynthesisRow>(
-        "SELECT * FROM syntheses WHERE scope = ? ORDER BY synthesized_at DESC LIMIT 1"
-      )
-      .get(resolvedScope);
+    const synthesis = createSynthesisRepository(db).getSynthesis(resolvedScope);
 
-    if (row === undefined) {
+    if (synthesis === undefined) {
       if (formatter.isJson) {
         process.stdout.write(`${JSON.stringify(null)}\n`);
       } else {
@@ -77,21 +42,17 @@ export function synthesizeShowCommand(opts: { scope?: string }, formatter: Forma
     }
 
     if (formatter.isJson) {
-      process.stdout.write(`${JSON.stringify(row)}\n`);
+      process.stdout.write(`${JSON.stringify(synthesis)}\n`);
     } else {
-      process.stdout.write(`\nScope: ${row.scope}\n`);
-      if (row.synthesized_at !== null) {
-        process.stdout.write(`Synthesized: ${new Date(row.synthesized_at).toLocaleString()}\n`);
-      }
-      if (row.expires_at !== null) {
-        process.stdout.write(`Expires: ${new Date(row.expires_at).toLocaleString()}\n`);
-      }
-      if (row.in_flight_since !== null) {
+      process.stdout.write(`\nScope: ${synthesis.scope}\n`);
+      process.stdout.write(`Synthesized: ${new Date(synthesis.synthesizedAt).toLocaleString()}\n`);
+      process.stdout.write(`Expires: ${new Date(synthesis.expiresAt).toLocaleString()}\n`);
+      if (synthesis.inFlightSince !== null) {
         process.stdout.write(
-          `In-flight since: ${new Date(row.in_flight_since).toLocaleString()}\n`
+          `In-flight since: ${new Date(synthesis.inFlightSince).toLocaleString()}\n`
         );
       }
-      process.stdout.write(`\n${row.content}\n\n`);
+      process.stdout.write(`\n${synthesis.content}\n\n`);
     }
   } finally {
     db.close();
@@ -101,42 +62,26 @@ export function synthesizeShowCommand(opts: { scope?: string }, formatter: Forma
 export function synthesizeStatusCommand(formatter: Formatter): void {
   const db = DatabaseManager.open();
   try {
-    if (!hasSynthesesTable(db)) {
-      if (formatter.isJson) {
-        process.stdout.write(`${JSON.stringify([])}\n`);
-      } else {
-        process.stdout.write("No synthesis data available.\n");
-      }
-      return;
-    }
-
-    const rows = db.db
-      .prepare<[], SynthesisRow & { project_name: string | null }>(
-        `SELECT s.*, p.name AS project_name
-         FROM syntheses s
-         LEFT JOIN projects p ON p.scope_hash = s.scope
-         ORDER BY COALESCE(p.name, s.scope)`
-      )
-      .all();
+    const syntheses = createSynthesisRepository(db).listAll();
+    const projectRepo = createProjectRepository(db);
 
     if (formatter.isJson) {
-      process.stdout.write(`${JSON.stringify(rows)}\n`);
+      process.stdout.write(`${JSON.stringify(syntheses)}\n`);
       return;
     }
 
-    if (rows.length === 0) {
+    if (syntheses.length === 0) {
       process.stdout.write("No syntheses found.\n");
       return;
     }
 
     process.stdout.write("\n");
-    for (const row of rows) {
-      const displayScope = row.project_name ?? row.scope;
-      const inFlight = row.in_flight_since !== null ? " [in-flight]" : "";
-      const synthesized =
-        row.synthesized_at !== null ? new Date(row.synthesized_at).toLocaleString() : "(never)";
-      const expires =
-        row.expires_at !== null ? new Date(row.expires_at).toLocaleString() : "(none)";
+    for (const s of syntheses) {
+      const project = s.scope !== "global" ? projectRepo.getByHash(s.scope) : undefined;
+      const displayScope = project?.name ?? s.scope;
+      const inFlight = s.inFlightSince !== null ? " [in-flight]" : "";
+      const synthesized = new Date(s.synthesizedAt).toLocaleString();
+      const expires = new Date(s.expiresAt).toLocaleString();
       process.stdout.write(`  ${displayScope}${inFlight}\n`);
       process.stdout.write(`    synthesized_at: ${synthesized}\n`);
       process.stdout.write(`    expires_at:     ${expires}\n`);

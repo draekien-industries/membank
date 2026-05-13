@@ -26,6 +26,7 @@ export interface AgentRunner {
 export interface SynthesisRepository {
   saveSynthesis(scope: string, content: string, sourceHash: string): Synthesis;
   getSynthesis(scope: string): Synthesis | undefined;
+  listAll(): Synthesis[];
   markInFlight(scope: string): void;
   clearInFlight(scope: string): void;
   clearStaleInFlight(thresholdMs: number): void;

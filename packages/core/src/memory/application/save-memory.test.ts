@@ -76,6 +76,8 @@ function makeFakeRepo(
     resolveReviewEvents: () => {},
     setPin: () => makeMemory(),
     incrementAccessCount: () => {},
+    exportAll: () => [],
+    importAll: () => {},
   };
 }
 

@@ -84,6 +84,13 @@ class SqliteSynthesisRepository implements SynthesisRepository {
     return row !== undefined ? rowToSynthesis(row) : undefined;
   }
 
+  listAll(): Synthesis[] {
+    const rows = this.#db.db
+      .prepare<[], SynthesisRow>("SELECT * FROM syntheses ORDER BY scope")
+      .all();
+    return rows.map(rowToSynthesis);
+  }
+
   markInFlight(scope: string): void {
     const now = new Date().toISOString();
     const existing = this.#db.db
