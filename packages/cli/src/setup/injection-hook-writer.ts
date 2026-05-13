@@ -110,6 +110,8 @@ const writers: Record<string, HarnessInjectionWriter> = {
         Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : []
       ).flatMap(getHooksArray);
 
+      const stopInner = (Array.isArray(hooks.Stop) ? hooks.Stop : []).flatMap(getHooksArray);
+
       return {
         status: "ready",
         configPath: cfgPath,
@@ -123,6 +125,11 @@ const writers: Record<string, HarnessInjectionWriter> = {
             event: "UserPromptSubmit",
             command: "npx -y @membank/cli inject --harness claude-code --event user-prompt-submit",
             existingCommand: extractInjectCommand(userPromptSubmitInner) || null,
+          },
+          {
+            event: "Stop",
+            command: "npx -y @membank/cli inject --harness claude-code --event session-stop",
+            existingCommand: extractInjectCommand(stopInner) || null,
           },
         ],
       };
@@ -170,6 +177,22 @@ const writers: Record<string, HarnessInjectionWriter> = {
         ];
       }
 
+      if (events.includes("Stop")) {
+        const existing = Array.isArray(hooks.Stop) ? hooks.Stop : [];
+        newHooks.Stop = [
+          ...filterOutMembank(existing),
+          {
+            matcher: "",
+            hooks: [
+              {
+                type: "command",
+                command: "npx -y @membank/cli inject --harness claude-code --event session-stop",
+              },
+            ],
+          },
+        ];
+      }
+
       writeJsonAtomic(cfgPath, { ...cfg, hooks: newHooks });
       return { status: "written" };
     },
@@ -185,6 +208,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const userPromptSubmitted = Array.isArray(hooks.userPromptSubmitted)
         ? hooks.userPromptSubmitted
         : [];
+      const sessionEnd = Array.isArray(hooks.sessionEnd) ? hooks.sessionEnd : [];
 
       return {
         status: "ready",
@@ -199,6 +223,11 @@ const writers: Record<string, HarnessInjectionWriter> = {
             event: "userPromptSubmitted",
             command: "npx -y @membank/cli inject --harness copilot-cli --event user-prompt-submit",
             existingCommand: extractInjectCommand(userPromptSubmitted) || null,
+          },
+          {
+            event: "sessionEnd",
+            command: "npx -y @membank/cli inject --harness copilot-cli --event session-stop",
+            existingCommand: extractInjectCommand(sessionEnd) || null,
           },
         ],
       };
@@ -237,6 +266,18 @@ const writers: Record<string, HarnessInjectionWriter> = {
         ];
       }
 
+      if (events.includes("sessionEnd")) {
+        const existing = Array.isArray(hooks.sessionEnd) ? hooks.sessionEnd : [];
+        newHooks.sessionEnd = [
+          ...filterOutMembankFlat(existing),
+          {
+            type: "command",
+            bash: "npx -y @membank/cli inject --harness copilot-cli --event session-stop",
+            timeoutSec: 30,
+          },
+        ];
+      }
+
       writeJsonAtomic(cfgPath, {
         version: OptionalNumberSchema.parse(cfg.version) ?? 1,
         ...cfg,
@@ -260,6 +301,8 @@ const writers: Record<string, HarnessInjectionWriter> = {
         Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : []
       ).flatMap(getHooksArray);
 
+      const stopInner = (Array.isArray(hooks.Stop) ? hooks.Stop : []).flatMap(getHooksArray);
+
       return {
         status: "ready",
         configPath: cfgPath,
@@ -273,6 +316,11 @@ const writers: Record<string, HarnessInjectionWriter> = {
             event: "UserPromptSubmit",
             command: "npx -y @membank/cli inject --harness codex --event user-prompt-submit",
             existingCommand: extractInjectCommand(userPromptSubmitInner) || null,
+          },
+          {
+            event: "Stop",
+            command: "npx -y @membank/cli inject --harness codex --event session-stop",
+            existingCommand: extractInjectCommand(stopInner) || null,
           },
         ],
       };
@@ -314,6 +362,23 @@ const writers: Record<string, HarnessInjectionWriter> = {
               {
                 type: "command",
                 command: "npx -y @membank/cli inject --harness codex --event user-prompt-submit",
+                timeout: 30,
+              },
+            ],
+          },
+        ];
+      }
+
+      if (events.includes("Stop")) {
+        const existing = Array.isArray(hooks.Stop) ? hooks.Stop : [];
+        newHooks.Stop = [
+          ...filterOutMembank(existing),
+          {
+            matcher: "",
+            hooks: [
+              {
+                type: "command",
+                command: "npx -y @membank/cli inject --harness codex --event session-stop",
                 timeout: 30,
               },
             ],

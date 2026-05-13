@@ -1,5 +1,44 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MEMORY_GUIDANCE } from "./inject.js";
+
+vi.mock("@membank/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@membank/core")>();
+  return {
+    ...actual,
+    resolveProject: vi.fn().mockResolvedValue({ hash: "test-hash" }),
+    DatabaseManager: {
+      open: vi.fn().mockReturnValue({ close: vi.fn() }),
+    },
+    SessionContextBuilder: vi.fn().mockImplementation(() => ({
+      getSessionContext: vi.fn().mockReturnValue({
+        stats: {},
+        pinnedGlobal: [],
+        pinnedProject: [],
+      }),
+    })),
+  };
+});
+
+describe("injectCommand — session-stop routing", () => {
+  it.each([
+    "session-stop",
+    "stop",
+  ])("accepts --event %s and writes output without error", async (event) => {
+    const { injectCommand } = await import("./inject.js");
+    const written: string[] = [];
+    const origWrite = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (chunk: string | Uint8Array) => {
+      written.push(typeof chunk === "string" ? chunk : String(chunk));
+      return true;
+    };
+    try {
+      await injectCommand({ event });
+    } finally {
+      process.stdout.write = origWrite;
+    }
+    expect(written.length).toBeGreaterThan(0);
+  });
+});
 
 describe("MEMORY_GUIDANCE", () => {
   it("is a non-empty string", () => {

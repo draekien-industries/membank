@@ -103,6 +103,10 @@ export async function injectCommand(opts: { harness?: string; event?: string }):
     await handleEvent(harness, "UserPromptSubmit");
     return;
   }
+  if (opts.event === "session-stop" || opts.event === "stop") {
+    await handleEvent(harness, "Stop");
+    return;
+  }
   // Legacy --event values from stale hooks: silently no-op.
   process.exit(0);
 }
