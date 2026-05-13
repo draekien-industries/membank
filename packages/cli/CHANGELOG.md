@@ -1,5 +1,16 @@
 # @membank/cli
 
+## 0.11.1
+
+### Patch Changes
+
+- 6425890: Fixed synthesis generating empty content when a human-readable project name (e.g. `parasol`) was passed as the scope — project names are now resolved to their scope hash before querying memories and storing the synthesis. The synthesis agent also now correctly filters memories by the target project instead of always using the current directory's project. The `synthesize status` command now shows project names instead of raw scope hashes.
+- Updated dependencies [a8b26f2]
+- Updated dependencies [6425890]
+  - @membank/mcp@0.12.1
+  - @membank/core@0.9.3
+  - @membank/dashboard@0.5.4
+
 ## 0.11.0
 
 ### Minor Changes

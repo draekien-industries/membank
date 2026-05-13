@@ -1,5 +1,14 @@
 # @membank/mcp
 
+## 0.12.1
+
+### Patch Changes
+
+- a8b26f2: remove turn limit on agent loop
+- 6425890: Fixed synthesis generating empty content when a human-readable project name (e.g. `parasol`) was passed as the scope — project names are now resolved to their scope hash before querying memories and storing the synthesis. The synthesis agent also now correctly filters memories by the target project instead of always using the current directory's project. The `synthesize status` command now shows project names instead of raw scope hashes.
+- Updated dependencies [6425890]
+  - @membank/core@0.9.3
+
 ## 0.12.0
 
 ### Minor Changes
