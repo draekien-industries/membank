@@ -292,6 +292,9 @@ export function createServer(core: CoreServices): Server {
           projects: r.projects,
           pinned: r.pinned,
           reviewEvents: r.reviewEvents,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+          sourceHarness: r.sourceHarness,
           score: r.score,
         }));
 
