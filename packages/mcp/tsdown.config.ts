@@ -5,5 +5,9 @@ export default defineConfig({
   format: ["esm"],
   dts: true,
   clean: true,
-  external: ["@membank/core", "@modelcontextprotocol/sdk"],
+  minify: true,
+  sourcemap: false,
+  deps: {
+    neverBundle: ["@membank/core", "@modelcontextprotocol/sdk", "zod"],
+  },
 });

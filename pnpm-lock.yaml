@@ -218,9 +218,6 @@ importers:
 
   packages/mcp:
     dependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.2.131
-        version: 0.2.131(zod@4.4.3)
       '@membank/core':
         specifier: workspace:*
         version: link:../core

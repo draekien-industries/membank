@@ -11,7 +11,8 @@
     "membank": "./dist/index.mjs"
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.map"
   ],
   "scripts": {
     "build": "tsdown",

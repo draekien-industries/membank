@@ -5,10 +5,15 @@ export default defineConfig({
   format: ["esm", "cjs"],
   dts: true,
   clean: true,
-  external: [
-    "better-sqlite3",
-    "sqlite-vec",
-    "@huggingface/transformers",
-    "@anthropic-ai/claude-agent-sdk",
-  ],
+  minify: true,
+  sourcemap: false,
+  deps: {
+    neverBundle: [
+      "better-sqlite3",
+      "sqlite-vec",
+      "@huggingface/transformers",
+      "@anthropic-ai/claude-agent-sdk",
+      "zod",
+    ],
+  },
 });
