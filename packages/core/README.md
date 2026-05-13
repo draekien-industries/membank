@@ -28,11 +28,12 @@ Default location can be overridden via `DatabaseManager.open(customPath)`.
 ### Initialize
 
 ```typescript
-import { DatabaseManager, EmbeddingService, MemoryRepository, QueryEngine } from '@membank/core'
+import { DatabaseManager, EmbeddingService, MemoryRepository, ProjectRepository, QueryEngine } from '@membank/core'
 
 const db = DatabaseManager.open()
 const embedding = new EmbeddingService()
-const repo = new MemoryRepository(db, embedding)
+const projects = new ProjectRepository(db)
+const repo = new MemoryRepository(db, embedding, projects)
 const engine = new QueryEngine(db, embedding, repo)
 ```
 
@@ -64,8 +65,8 @@ for (const { content, score } of results) {
 ```typescript
 import { SessionContextBuilder } from '@membank/core'
 
-const builder = new SessionContextBuilder(db, repo)
-const { stats, pinnedGlobal, pinnedProject } = await builder.getSessionContext(projectScope)
+const builder = new SessionContextBuilder(db)
+const { stats, pinnedGlobal, pinnedProject } = builder.getSessionContext(projectHash)
 ```
 
 ## Memory types
@@ -104,9 +105,10 @@ score = 0.40 × type_weight
 Each memory is tagged with a scope derived from the project's git remote URL (SHA256, first 16 chars). Falls back to a hash of the current working directory if git is unavailable. Global memories use `"global"` as scope.
 
 ```typescript
-import { resolveScope } from '@membank/core'
+import { resolveProject, resolveScope } from '@membank/core'
 
-const scope = await resolveScope()
+const { hash, name } = await resolveProject()  // preferred: returns hash + repo name
+const scopeHash = await resolveScope()          // returns hash string only
 ```
 
 ## Embeddings
@@ -149,6 +151,15 @@ query(options: QueryOptions): Promise<Array<Memory & { score: number }>>
 ### `SessionContextBuilder`
 
 ```typescript
-getSessionContext(projectScope: string): Promise<SessionContext>
+new SessionContextBuilder(db: DatabaseManager)
+getSessionContext(projectHash: string, synthesis?: string): SessionContext
+```
+
+### `listMemoryTypes`
+
+Standalone function (not a class method):
+
+```typescript
+import { listMemoryTypes } from '@membank/core'
 listMemoryTypes(): MemoryType[]
 ```

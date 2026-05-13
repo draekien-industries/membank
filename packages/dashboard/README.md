@@ -44,21 +44,27 @@ src/
     index.ts         # Hono app with /api routes and static file serving
     dev.ts           # dev server launcher
   client/
-    index.tsx        # app entry point
+    main.tsx         # app entry point
     index.css        # Tailwind + global styles
     routes/
-      index.tsx      # root (redirects to /memories)
+      __root.tsx                # root layout
+      index.tsx                 # redirects to /memories
+      memories.tsx              # memories layout
       memories.index.tsx        # list view
       memories.$id.tsx          # detail view
+    views/
+      MemoryList.tsx   # list view logic
+      MemoryDetail.tsx # detail view logic
     components/
-      MemoryRow.tsx  # single memory row with inline edit
-      StatsBar.tsx   # memory count + dedup queue
-      ThemeToggle.tsx
-      ui/            # shadcn + base-ui components
+      MemoryRow.tsx    # single memory row with inline edit
+      MemoryLogo.tsx   # logo component
+      StatsBar.tsx     # memory count + dedup queue
+      ui/              # shadcn + base-ui components
     lib/
-      api.ts         # client-side API client (fetch wrappers)
-      types.ts       # shared TypeScript types
-      utils.ts       # classname helpers (clsx/tailwind-merge)
+      api.ts           # client-side API client (fetch wrappers)
+      types.ts         # shared TypeScript types
+      utils.ts         # classname helpers (clsx/tailwind-merge)
+      collections.ts   # TanStack DB collection definitions
 ```
 
 ## API endpoints
@@ -126,8 +132,13 @@ pnpm clean            # rm dist
 - **Runtime** — Node.js 24+
 - **Server** — Hono 4 + @hono/node-server
 - **Client** — React 19 + TanStack Router + TanStack DB
-- **Styling** — Tailwind CSS 4 + shadcn components
+- **Forms** — @tanstack/react-form
+- **Hotkeys** — @tanstack/react-hotkeys
+- **Styling** — Tailwind CSS 4 + shadcn + base-ui components
 - **Icons** — @phosphor-icons/react
+- **Charts** — recharts
+- **Toasts** — sonner
+- **Themes** — next-themes
 - **Build** — Vite 6 (client) + tsdown (server)
 - **Database** — @membank/core (SQLite via better-sqlite3)
 
@@ -139,8 +150,8 @@ The dashboard connects to the shared SQLite database at `~/.membank/memory.db` v
 
 - **Client-side routing** — TanStack Router with file-based routes in `src/client/routes/`
 - **API calls** — `src/client/lib/api.ts` wraps fetch with error handling and JSON parsing
-- **State management** — TanStack DB (replicated, reactive) + TanStack Query (async cache)
-- **Styles** — Tailwind v4 with custom CSS variables for theme colors; dark mode via `prefers-color-scheme`
+- **State management** — TanStack DB (replicated, reactive) with TanStack Query Core
+- **Styles** — Tailwind v4 with custom CSS variables for theme colors; dark mode via next-themes
 - **UI components** — shadcn + base-ui primitives, no external component library deps
 
 ## Port selection

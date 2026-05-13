@@ -46,7 +46,7 @@ membank query "how to run pnpm in one package"
 membank query "auth decisions" --type decision --limit 5
 ```
 
-Options: `--type <type>`, `--limit <n>` (default 10)
+Options: `--type <type>`, `--limit <n>` (default 10), `--include-pinned`
 
 ### `membank add <content>`
 
@@ -57,7 +57,7 @@ membank add "Use --filter flag for scoped pnpm commands" --type preference --tag
 ```
 
 Required: `--type <type>`  
-Options: `--tags <a,b,c>`, `--scope <scope>`
+Options: `--tags <a,b,c>`, `--global`
 
 ### `membank list`
 
@@ -117,13 +117,55 @@ membank import membank-export-2025-01-01.json
 membank import membank-export-2025-01-01.json --yes
 ```
 
+### `membank review`
+
+List memories flagged for deduplication review, or dismiss review events.
+
+```bash
+membank review
+membank review --resolve <id>
+```
+
+### `membank migrate <mode> [name]`
+
+List or run named data migrations.
+
+```bash
+membank migrate list
+membank migrate run <name>
+```
+
+### `membank config`
+
+Read and write config values.
+
+```bash
+membank config get <key>
+membank config set <key> <value>
+membank config show
+```
+
+### `membank synthesize`
+
+View memory synthesis state.
+
+```bash
+membank synthesize show              # current synthesis for global scope
+membank synthesize show --scope <s>  # synthesis for a specific project scope
+membank synthesize status            # all scopes and their synthesis state
+```
+
 ### `membank inject`
 
 Output session context formatted for a harness. Called automatically by session hooks — you don't normally run this directly.
 
 ```bash
-membank inject --harness claude-code --scope <project-scope>
+membank inject --harness claude-code
+membank inject --harness claude-code --event user-prompt-submit
+membank inject --harness claude-code --event session-stop
 ```
+
+Options: `--harness <name>` (claude-code|copilot-cli|codex|opencode), `--event <event>` (session-start|user-prompt-submit|session-stop)
 
 ### `membank dashboard`
 
@@ -153,9 +195,12 @@ Starts the stdio MCP server. This is what harnesses connect to — `setup` write
 
 ## Session hooks
 
-`setup` installs a hook for Claude Code that injects memories at the start of each session:
+`setup` installs hooks for each supported harness:
 
-**SessionStart** — calls `membank inject` to prepend pinned memories into the LLM context at the beginning of every session.
+- **claude-code** — SessionStart, UserPromptSubmit, Stop hooks in `~/.claude/settings.json`
+- **copilot** — MCP server config only (no session hooks)
+- **codex** — SessionStart, UserPromptSubmit, Stop hooks in `~/.codex/hooks.json`
+- **opencode** — `session.start` plugin at `~/.config/opencode/plugins/membank.js`
 
 ## Requirements
 
