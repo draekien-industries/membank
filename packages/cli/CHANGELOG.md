@@ -1,5 +1,19 @@
 # @membank/cli
 
+## 0.11.0
+
+### Minor Changes
+
+- 5ca75cb: Add `membank synthesize run` command to trigger a one-shot synthesis from the CLI, and export `runSynthesis` and `buildSynthesisTools` from `@membank/mcp` for use outside the MCP server.
+
+### Patch Changes
+
+- Updated dependencies [5ca75cb]
+- Updated dependencies [e4f8cfd]
+  - @membank/mcp@0.12.0
+  - @membank/core@0.9.2
+  - @membank/dashboard@0.5.3
+
 ## 0.10.2
 
 ### Patch Changes
