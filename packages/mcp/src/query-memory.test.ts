@@ -79,6 +79,9 @@ describe("query_memory tool", () => {
       tags: string[];
       projects: { id: string; name: string; scopeHash: string }[];
       pinned: boolean;
+      createdAt: string;
+      updatedAt: string;
+      sourceHarness: string | null;
       score: number;
     }>;
 
@@ -91,6 +94,9 @@ describe("query_memory tool", () => {
       expect(item).toHaveProperty("projects");
       expect(item).toHaveProperty("pinned");
       expect(item).toHaveProperty("score");
+      expect(item.createdAt).toBeTruthy();
+      expect(item.updatedAt).toBeTruthy();
+      expect(item.sourceHarness === null || typeof item.sourceHarness === "string").toBe(true);
     }
 
     // Results must be sorted descending by score

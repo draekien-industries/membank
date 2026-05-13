@@ -2,6 +2,11 @@ packages:
   - "packages/*"
   - "tools/*"
 
+minimumReleaseAge: 10080 # 7 days in minutes — blocks newly published packages
+minimumReleaseAgeExclude:
+  - "@membank/*"
+trustPolicy: no-downgrade # blocks packages whose trust level regressed vs prior versions
+
 onlyBuiltDependencies:
   - "@biomejs/biome"
   - better-sqlite3
