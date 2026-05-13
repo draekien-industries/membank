@@ -77,7 +77,7 @@ export class QueryEngine {
       .filter((row) => row.cosine_sim > 0)
       .map((row) => {
         const memory = rowToMemory(row, []);
-        const score = this.#computeScore(memory, now);
+        const score = this.#computeScore(memory, row.cosine_sim, now);
         return { ...memory, score };
       });
 
@@ -92,13 +92,19 @@ export class QueryEngine {
     return results;
   }
 
-  #computeScore(memory: Memory, now: number): number {
+  #computeScore(memory: Memory, cosine_sim: number, now: number): number {
     const typeWeight = TYPE_WEIGHTS[memory.type];
     const accessCountNorm = memory.accessCount / (memory.accessCount + 10);
     const daysSinceUpdate = (now - new Date(memory.updatedAt).getTime()) / 86400000;
     const recencyNorm = 1 / (1 + daysSinceUpdate);
     const pinned = memory.pinned ? 1.0 : 0.0;
 
-    return typeWeight * 0.4 + accessCountNorm * 0.3 + recencyNorm * 0.2 + pinned * 0.1;
+    return (
+      cosine_sim * 0.4 +
+      typeWeight * 0.25 +
+      accessCountNorm * 0.2 +
+      recencyNorm * 0.1 +
+      pinned * 0.05
+    );
   }
 }

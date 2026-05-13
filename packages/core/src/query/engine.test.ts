@@ -113,6 +113,34 @@ describe("QueryEngine", () => {
     expect(results[0]?.score).toBeGreaterThan(results[1]?.score ?? 0);
   });
 
+  it("high cosine_sim fact ranks above low cosine_sim correction", async () => {
+    const lowSimVec = new Float32Array(384).fill(0);
+    lowSimVec[1] = Math.sqrt(0.99);
+    lowSimVec[0] = Math.sqrt(0.01);
+
+    insertMemory(dbManager, {
+      id: "fact-high-sim",
+      content: "A very relevant fact",
+      type: "fact",
+      embedding: unitVec(0),
+    });
+    insertMemory(dbManager, {
+      id: "correction-low-sim",
+      content: "A less relevant correction",
+      type: "correction",
+      embedding: lowSimVec,
+    });
+
+    vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
+
+    const results = await engine.query({ query: "test" });
+
+    expect(results.length).toBe(2);
+    expect(results[0]?.id).toBe("fact-high-sim");
+    expect(results[1]?.id).toBe("correction-low-sim");
+    expect(results[0]?.score).toBeGreaterThan(results[1]?.score ?? 0);
+  });
+
   it("type filter returns only memories of the specified type", async () => {
     insertMemory(dbManager, {
       id: "correction-1",
