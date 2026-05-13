@@ -111,6 +111,12 @@ When running as an MCP server, the following tools are exposed to the LLM:
 
 The synthesis engine runs in the background and compresses memories into a rolling summary per scope. When a synthesis is available, it replaces pinned memory injection in the session context.
 
+Synthesis calls Claude Haiku via your locally installed `claude` CLI. Any of the following auth methods work:
+
+- `claude auth login` — uses your existing Claude Code session (Pro/Max subscribers)
+- `CLAUDE_CODE_OAUTH_TOKEN` — run `claude setup-token` to generate one
+- `ANTHROPIC_API_KEY` — direct API billing via Anthropic Console
+
 Enable by creating `~/.membank/config.json`:
 
 ```json
