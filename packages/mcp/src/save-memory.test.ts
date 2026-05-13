@@ -1,3 +1,4 @@
+import { saveMemory } from "@membank/core";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
 import { afterEach, describe, expect, it } from "vitest";
@@ -190,11 +191,10 @@ describe("save_memory tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    await session.core.repo.save({
-      content: "always use TypeScript strict mode for all projects",
-      type: "preference",
-      // no projectScope = global memory
-    });
+    await saveMemory(
+      { content: "always use TypeScript strict mode for all projects", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     await session.client.callTool({
       name: "save_memory",

@@ -1,3 +1,4 @@
+import { saveMemory } from "@membank/core";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
 import { afterEach, describe, expect, it } from "vitest";
@@ -66,10 +67,10 @@ describe("delete_memory tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    const saved = await session.core.repo.save({
-      content: "temporary preference",
-      type: "preference",
-    });
+    const saved = await saveMemory(
+      { content: "temporary preference", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     const result = await session.client.callTool({
       name: "delete_memory",

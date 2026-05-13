@@ -1,9 +1,4 @@
-import {
-  type DatabaseManager,
-  EmbeddingService,
-  MemoryRepository,
-  ProjectRepository,
-} from "@membank/core";
+import { createMemoryRepository, type DatabaseManager, ProjectRepository } from "@membank/core";
 import chalk from "chalk";
 import type { Formatter } from "../formatter.js";
 import type { PromptHelper } from "../prompt-helper.js";
@@ -28,9 +23,8 @@ export async function deleteCommand(
     return;
   }
 
-  const embedding = new EmbeddingService();
-  const repo = new MemoryRepository(db, embedding, new ProjectRepository(db));
-  await repo.delete(id);
+  const repo = createMemoryRepository(db, new ProjectRepository(db));
+  repo.delete(id);
 
   process.stdout.write(`${chalk.green("✓")} Deleted memory: ${chalk.dim(id)}\n`);
 }

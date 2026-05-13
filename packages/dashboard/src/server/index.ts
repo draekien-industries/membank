@@ -3,12 +3,13 @@ import { createServer } from "node:net";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import type { MemoryType, Project } from "@membank/core";
+import type { MemoryRepository, MemoryType, Project } from "@membank/core";
 import {
+  createMemoryRepository,
   DatabaseManager,
   EmbeddingService,
-  MemoryRepository,
   ProjectRepository,
+  updateMemory,
 } from "@membank/core";
 import { Hono } from "hono";
 import open from "open";
@@ -131,7 +132,8 @@ async function findFreePort(preferred: number): Promise<number> {
 export function createApiApp(
   db: DatabaseManager,
   repo: MemoryRepository,
-  projectRepo: ProjectRepository
+  projectRepo: ProjectRepository,
+  embedder: EmbeddingService
 ): Hono {
   const app = new Hono();
 
@@ -236,7 +238,7 @@ export function createApiApp(
     }
 
     if (body.content !== undefined || body.tags !== undefined) {
-      await repo.update(id, { content: body.content, tags: body.tags });
+      await updateMemory(id, { content: body.content, tags: body.tags }, { repo, embedder });
     }
 
     const updated = db.db
@@ -249,8 +251,8 @@ export function createApiApp(
   });
 
   // Delete memory
-  app.delete("/api/memories/:id", async (c) => {
-    await repo.delete(c.req.param("id"));
+  app.delete("/api/memories/:id", (c) => {
+    repo.delete(c.req.param("id"));
     return c.json({ ok: true });
   });
 
@@ -328,9 +330,9 @@ export async function startDashboard(opts?: { port?: number }): Promise<void> {
   const db = DatabaseManager.open();
   const embedding = new EmbeddingService();
   const projects = new ProjectRepository(db);
-  const repo = new MemoryRepository(db, embedding, projects);
+  const repo = createMemoryRepository(db, projects);
 
-  const app = createApiApp(db, repo, projects);
+  const app = createApiApp(db, repo, projects, embedding);
 
   // Static file serving + SPA fallback
   const __dir = dirname(fileURLToPath(import.meta.url));

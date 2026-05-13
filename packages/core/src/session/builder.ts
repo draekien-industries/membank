@@ -1,5 +1,5 @@
 import type { DatabaseManager } from "../db/manager.js";
-import { rowToMemory } from "../db/row-types.js";
+import { rowToMemory } from "../persistence/infrastructure/row-types.js";
 import { MEMORY_TYPE_VALUES, MemoryTypeSchema } from "../schemas.js";
 import type { MemoryRow, MemoryType, SessionContext } from "../types.js";
 

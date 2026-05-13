@@ -1,3 +1,4 @@
+import { saveMemory } from "@membank/core";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
 import { afterEach, describe, expect, it } from "vitest";
@@ -53,14 +54,14 @@ describe("query_memory tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    await session.core.repo.save({
-      content: "prefer dark mode in all editors",
-      type: "preference",
-    });
-    await session.core.repo.save({
-      content: "always use TypeScript strict mode",
-      type: "preference",
-    });
+    await saveMemory(
+      { content: "prefer dark mode in all editors", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
+    await saveMemory(
+      { content: "always use TypeScript strict mode", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     const result = await session.client.callTool({
       name: "query_memory",
@@ -112,11 +113,14 @@ describe("query_memory tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    await session.core.repo.save({ content: "use tabs for indentation", type: "preference" });
-    await session.core.repo.save({
-      content: "decided to use tabs for indentation style",
-      type: "decision",
-    });
+    await saveMemory(
+      { content: "use tabs for indentation", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
+    await saveMemory(
+      { content: "decided to use tabs for indentation style", type: "decision" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     const result = await session.client.callTool({
       name: "query_memory",
@@ -139,15 +143,18 @@ describe("query_memory tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    await session.core.repo.save({
-      content: "project uses ESLint for linting",
-      type: "fact",
-      projectScope: { hash: "abcdef0123456789", name: "project-abc" },
-    });
-    await session.core.repo.save({
-      content: "global linting preference is Biome",
-      type: "fact",
-    });
+    await saveMemory(
+      {
+        content: "project uses ESLint for linting",
+        type: "fact",
+        projectScope: { hash: "abcdef0123456789", name: "project-abc" },
+      },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
+    await saveMemory(
+      { content: "global linting preference is Biome", type: "fact" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     const result = await session.client.callTool({
       name: "query_memory",
@@ -168,16 +175,22 @@ describe("query_memory tool", () => {
     cleanup = session.cleanup;
 
     // resolveProject() in tests resolves to the git remote or cwd hash — use a distinct hash for isolation
-    await session.core.repo.save({
-      content: "project-x uses webpack for bundling",
-      type: "fact",
-      projectScope: { hash: "1234567890abcdef", name: "project-x" },
-    });
-    await session.core.repo.save({
-      content: "project-y uses vite for bundling",
-      type: "fact",
-      projectScope: { hash: "fedcba0987654321", name: "project-y" },
-    });
+    await saveMemory(
+      {
+        content: "project-x uses webpack for bundling",
+        type: "fact",
+        projectScope: { hash: "1234567890abcdef", name: "project-x" },
+      },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
+    await saveMemory(
+      {
+        content: "project-y uses vite for bundling",
+        type: "fact",
+        projectScope: { hash: "fedcba0987654321", name: "project-y" },
+      },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     // Default query resolves to the test process's project (not project-x or project-y)
     const result = await session.client.callTool({
@@ -232,10 +245,10 @@ describe("query_memory tool", () => {
 
     // Save 5 memories, then request limit 2
     for (let i = 0; i < 5; i++) {
-      await session.core.repo.save({
-        content: `learning about javascript async pattern number ${i}`,
-        type: "learning",
-      });
+      await saveMemory(
+        { content: `learning about javascript async pattern number ${i}`, type: "learning" },
+        { repo: session.core.repo, embedder: session.core.embedding }
+      );
     }
 
     const result = await session.client.callTool({
@@ -255,10 +268,10 @@ describe("query_memory tool", () => {
     cleanup = session.cleanup;
 
     for (let i = 0; i < 12; i++) {
-      await session.core.repo.save({
-        content: `fact about node.js runtime behaviour number ${i}`,
-        type: "fact",
-      });
+      await saveMemory(
+        { content: `fact about node.js runtime behaviour number ${i}`, type: "fact" },
+        { repo: session.core.repo, embedder: session.core.embedding }
+      );
     }
 
     const result = await session.client.callTool({
@@ -286,10 +299,10 @@ describe("query_memory tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    const saved = await session.core.repo.save({
-      content: "always use strict TypeScript",
-      type: "preference",
-    });
+    const saved = await saveMemory(
+      { content: "always use strict TypeScript", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
     session.core.repo.setPin(saved.id, true);
 
     const result = await session.client.callTool({
@@ -312,10 +325,10 @@ describe("query_memory tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    const saved = await session.core.repo.save({
-      content: "always use strict TypeScript",
-      type: "preference",
-    });
+    const saved = await saveMemory(
+      { content: "always use strict TypeScript", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
     session.core.repo.setPin(saved.id, true);
 
     const result = await session.client.callTool({

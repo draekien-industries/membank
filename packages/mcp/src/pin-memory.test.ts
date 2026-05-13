@@ -1,4 +1,4 @@
-import { PIN_BUDGET_THRESHOLD } from "@membank/core";
+import { PIN_BUDGET_THRESHOLD, saveMemory } from "@membank/core";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -60,7 +60,10 @@ describe("pin_memory tool — pin budget warning", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    const memory = await session.core.repo.save({ content: "short content", type: "fact" });
+    const memory = await saveMemory(
+      { content: "short content", type: "fact" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     const result = await session.client.callTool({
       name: "pin_memory",
@@ -79,7 +82,10 @@ describe("pin_memory tool — pin budget warning", () => {
     cleanup = session.cleanup;
 
     const longContent = "x".repeat(PIN_BUDGET_THRESHOLD + 1);
-    const memory = await session.core.repo.save({ content: longContent, type: "fact" });
+    const memory = await saveMemory(
+      { content: longContent, type: "fact" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     const result = await session.client.callTool({
       name: "pin_memory",
@@ -99,7 +105,10 @@ describe("pin_memory tool — pin budget warning", () => {
     cleanup = session.cleanup;
 
     const longContent = "x".repeat(PIN_BUDGET_THRESHOLD + 1);
-    const memory = await session.core.repo.save({ content: longContent, type: "fact" });
+    const memory = await saveMemory(
+      { content: longContent, type: "fact" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     const result = await session.client.callTool({
       name: "pin_memory",
@@ -118,7 +127,10 @@ describe("pin_memory tool — pin budget warning", () => {
     cleanup = session.cleanup;
 
     const longContent = "x".repeat(PIN_BUDGET_THRESHOLD + 1);
-    const memory = await session.core.repo.save({ content: longContent, type: "fact" });
+    const memory = await saveMemory(
+      { content: longContent, type: "fact" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
     session.core.repo.setPin(memory.id, true);
 
     const result = await session.client.callTool({

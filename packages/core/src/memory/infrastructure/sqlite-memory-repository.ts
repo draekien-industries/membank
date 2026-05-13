@@ -1,64 +1,49 @@
 import { randomUUID } from "node:crypto";
-import type { DatabaseManager } from "../db/manager.js";
-import { rowToMemory, rowToReviewEvent } from "../db/row-types.js";
-import type { EmbeddingService } from "../embedding/service.js";
-import type { ProjectRepository } from "../project/repository.js";
+import type { DatabaseManager } from "../../db/manager.js";
+import { rowToMemory, rowToReviewEvent } from "../../persistence/infrastructure/row-types.js";
+import type { ProjectRepository } from "../../project/repository.js";
+import type { MemoryRow, ReviewEventRow } from "../../schemas.js";
 import {
   MEMORY_TYPE_VALUES,
   MemoryPatchSchema,
   MemoryRowSchema,
   MemoryTypeSchema,
   ReviewEventRowSchema,
-  SaveOptionsSchema,
-} from "../schemas.js";
+} from "../../schemas.js";
+import type { Memory, MemoryPatch, MemoryType } from "../domain/memory.js";
+import type { ReviewEvent } from "../domain/review-event.js";
 import type {
-  Memory,
-  MemoryPatch,
-  MemoryRow,
-  MemoryType,
-  ReviewEvent,
-  ReviewEventRow,
-  SaveOptions,
-} from "../types.js";
-
-export const PIN_BUDGET_THRESHOLD = 8000;
+  CreateMemoryOpts,
+  CreateReviewEventOpts,
+  MemoryRepository,
+  SimilarMemoryResult,
+  StatsResult,
+} from "../ports.js";
 
 interface SimilarityRow extends MemoryRow {
   rowid: number;
   similarity: number;
 }
 
-export class MemoryRepository {
+export class SqliteMemoryRepository implements MemoryRepository {
   readonly #db: DatabaseManager;
-  readonly #embedding: EmbeddingService;
   readonly #projects: ProjectRepository;
 
-  constructor(
-    db: DatabaseManager,
-    embeddingService: EmbeddingService,
-    projects: ProjectRepository
-  ) {
+  constructor(db: DatabaseManager, projects: ProjectRepository) {
     this.#db = db;
-    this.#embedding = embeddingService;
     this.#projects = projects;
   }
 
-  async save(options: SaveOptions): Promise<Memory> {
-    const {
-      content,
-      type,
-      tags = [],
-      projectScope,
-      sourceHarness,
-    } = SaveOptionsSchema.parse(options);
-
-    const embedding = await this.#embedding.embed(content);
+  findSimilar(
+    embedding: Float32Array,
+    type: MemoryType,
+    projectHash?: string
+  ): SimilarMemoryResult[] {
     const embeddingBlob = Buffer.from(embedding.buffer);
 
-    // Dedup: find similar memory in same context
-    let top: SimilarityRow | undefined;
-    if (projectScope !== undefined) {
-      top = this.#db.db
+    let row: SimilarityRow | undefined;
+    if (projectHash !== undefined) {
+      row = this.#db.db
         .prepare<[Buffer, string, string], SimilarityRow>(
           `SELECT m.rowid, m.*, (1 - vec_distance_cosine(e.embedding, ?)) AS similarity
            FROM memories m JOIN embeddings e ON e.rowid = m.rowid
@@ -67,9 +52,9 @@ export class MemoryRepository {
            WHERE m.type = ? AND p.scope_hash = ?
            ORDER BY similarity DESC LIMIT 1`
         )
-        .get(embeddingBlob, type, projectScope.hash);
+        .get(embeddingBlob, type, projectHash);
     } else {
-      top = this.#db.db
+      row = this.#db.db
         .prepare<[Buffer, string], SimilarityRow>(
           `SELECT m.rowid, m.*, (1 - vec_distance_cosine(e.embedding, ?)) AS similarity
            FROM memories m JOIN embeddings e ON e.rowid = m.rowid
@@ -80,43 +65,20 @@ export class MemoryRepository {
         .get(embeddingBlob, type);
     }
 
+    return row !== undefined ? [{ id: row.id, similarity: row.similarity }] : [];
+  }
+
+  create(opts: CreateMemoryOpts): Memory {
+    const { id, content, type, tags, sourceHarness, embedding, projectScope } = opts;
     const now = new Date().toISOString();
-
-    if (top !== undefined && top.similarity > 0.92) {
-      this.#db.db
-        .prepare(`UPDATE memories SET content = ?, updated_at = ? WHERE id = ?`)
-        .run(content, now, top.id);
-      this.#db.db
-        .prepare(`UPDATE embeddings SET embedding = ? WHERE rowid = ?`)
-        .run(embeddingBlob, top.rowid);
-
-      const updated = MemoryRowSchema.parse(
-        this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(top.id)
-      );
-
-      const projectMap = this.#projects.getProjectsForMemories([top.id]);
-      const events = this.#getEventsForMemories([top.id]);
-      return rowToMemory(updated, projectMap.get(top.id) ?? [], events.get(top.id) ?? []);
-    }
-
-    const id = randomUUID();
+    const embeddingBlob = Buffer.from(embedding.buffer);
 
     this.#db.db
       .prepare(
         `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)`
       )
-      .run(id, content, type, JSON.stringify(tags), sourceHarness ?? null, now, now);
-
-    if (top !== undefined && top.similarity >= 0.75) {
-      this.#db.db
-        .prepare(
-          `INSERT INTO memory_review_events
-             (id, memory_id, conflicting_memory_id, similarity, conflict_content_snapshot, reason, created_at)
-           VALUES (?, ?, ?, ?, ?, 'similarity_dedup', ?)`
-        )
-        .run(randomUUID(), top.id, id, top.similarity, content, now);
-    }
+      .run(id, content, type, JSON.stringify(tags), sourceHarness, now, now);
 
     this.#db.db
       .prepare(
@@ -134,10 +96,49 @@ export class MemoryRepository {
     );
 
     const projectMap = this.#projects.getProjectsForMemories([id]);
-    return rowToMemory(row, projectMap.get(id) ?? [], []);
+    return rowToMemory(row, projectMap.get(id) ?? []);
   }
 
-  async update(id: string, patch: MemoryPatch): Promise<Memory> {
+  overwrite(id: string, content: string, embedding: Float32Array): Memory {
+    const now = new Date().toISOString();
+    const embeddingBlob = Buffer.from(embedding.buffer);
+
+    this.#db.db
+      .prepare(`UPDATE memories SET content = ?, updated_at = ? WHERE id = ?`)
+      .run(content, now, id);
+
+    const rowid = this.#db.db
+      .prepare<[string], { rowid: number }>(`SELECT rowid FROM memories WHERE id = ?`)
+      .get(id)?.rowid;
+
+    if (rowid !== undefined) {
+      this.#db.db
+        .prepare(`UPDATE embeddings SET embedding = ? WHERE rowid = ?`)
+        .run(embeddingBlob, rowid);
+    }
+
+    const updated = MemoryRowSchema.parse(
+      this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(id)
+    );
+
+    const projectMap = this.#projects.getProjectsForMemories([id]);
+    const events = this.#getEventsForMemories([id]);
+    return rowToMemory(updated, projectMap.get(id) ?? [], events.get(id) ?? []);
+  }
+
+  findById(id: string): Memory | undefined {
+    const row = this.#db.db
+      .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
+      .get(id);
+
+    if (row === undefined) return undefined;
+
+    const projectMap = this.#projects.getProjectsForMemories([id]);
+    const events = this.#getEventsForMemories([id]);
+    return rowToMemory(row, projectMap.get(id) ?? [], events.get(id) ?? []);
+  }
+
+  update(id: string, patch: MemoryPatch, embedding?: Float32Array): Memory {
     const { content, tags, type } = MemoryPatchSchema.parse(patch);
 
     const existing = this.#db.db
@@ -152,18 +153,16 @@ export class MemoryRepository {
 
     const now = new Date().toISOString();
     const sets: string[] = ["updated_at = ?"];
-    const values: string[] = [now];
+    const values: (string | number)[] = [now];
 
     if (content !== undefined) {
       sets.push("content = ?");
       values.push(content);
     }
-
     if (tags !== undefined) {
       sets.push("tags = ?");
       values.push(JSON.stringify(tags));
     }
-
     if (type !== undefined) {
       sets.push("type = ?");
       values.push(type);
@@ -172,8 +171,7 @@ export class MemoryRepository {
     values.push(id);
     this.#db.db.prepare(`UPDATE memories SET ${sets.join(", ")} WHERE id = ?`).run(...values);
 
-    if (content !== undefined) {
-      const embedding = await this.#embedding.embed(content);
+    if (embedding !== undefined) {
       const embeddingBlob = Buffer.from(embedding.buffer);
       this.#db.db
         .prepare(`UPDATE embeddings SET embedding = ? WHERE rowid = ?`)
@@ -189,7 +187,7 @@ export class MemoryRepository {
     return rowToMemory(updated, projectMap.get(id) ?? [], events.get(id) ?? []);
   }
 
-  delete(id: string): Promise<void> {
+  delete(id: string): void {
     const row = this.#db.db
       .prepare<[string], { rowid: number }>(`SELECT rowid FROM memories WHERE id = ?`)
       .get(id);
@@ -200,8 +198,6 @@ export class MemoryRepository {
 
     this.#db.db.prepare(`DELETE FROM memory_projects WHERE memory_id = ?`).run(id);
     this.#db.db.prepare(`DELETE FROM memories WHERE id = ?`).run(id);
-
-    return Promise.resolve();
   }
 
   list(opts?: { type?: MemoryType; pinned?: boolean }): Memory[] {
@@ -212,7 +208,6 @@ export class MemoryRepository {
       conditions.push("type = ?");
       params.push(opts.type);
     }
-
     if (opts?.pinned === true) {
       conditions.push("pinned = 1");
     }
@@ -271,6 +266,24 @@ export class MemoryRepository {
     return rows.map((r) => rowToReviewEvent(ReviewEventRowSchema.parse(r)));
   }
 
+  createReviewEvent(opts: CreateReviewEventOpts): void {
+    const now = new Date().toISOString();
+    this.#db.db
+      .prepare(
+        `INSERT INTO memory_review_events
+           (id, memory_id, conflicting_memory_id, similarity, conflict_content_snapshot, reason, created_at)
+         VALUES (?, ?, ?, ?, ?, 'similarity_dedup', ?)`
+      )
+      .run(
+        randomUUID(),
+        opts.memoryId,
+        opts.conflictingMemoryId,
+        opts.similarity,
+        opts.conflictContentSnapshot,
+        now
+      );
+  }
+
   resolveReviewEvents(memoryId: string): void {
     const now = new Date().toISOString();
     this.#db.db
@@ -278,32 +291,6 @@ export class MemoryRepository {
         `UPDATE memory_review_events SET resolved_at = ? WHERE memory_id = ? AND resolved_at IS NULL`
       )
       .run(now, memoryId);
-  }
-
-  #getEventsForMemories(
-    ids: string[],
-    opts?: { unresolvedOnly?: boolean }
-  ): Map<string, ReviewEvent[]> {
-    if (ids.length === 0) return new Map();
-
-    const placeholders = ids.map(() => "?").join(", ");
-    const unresolvedClause = opts?.unresolvedOnly === true ? "AND resolved_at IS NULL" : "";
-    const rows = this.#db.db
-      .prepare<string[], ReviewEventRow>(
-        `SELECT * FROM memory_review_events
-         WHERE memory_id IN (${placeholders}) ${unresolvedClause}
-         ORDER BY created_at DESC`
-      )
-      .all(...ids);
-
-    const map = new Map<string, ReviewEvent[]>();
-    for (const row of rows) {
-      const event = rowToReviewEvent(ReviewEventRowSchema.parse(row));
-      const existing = map.get(event.memoryId) ?? [];
-      existing.push(event);
-      map.set(event.memoryId, existing);
-    }
-    return map;
   }
 
   getPinnedCharCount(): number {
@@ -315,13 +302,7 @@ export class MemoryRepository {
     return row.total;
   }
 
-  stats(): {
-    byType: Record<MemoryType, number>;
-    total: number;
-    pinned: number;
-    needsReview: number;
-    pinBudgetChars: number;
-  } {
+  stats(): StatsResult {
     const byType = Object.fromEntries(MEMORY_TYPE_VALUES.map((t) => [t, 0])) as Record<
       MemoryType,
       number
@@ -387,4 +368,37 @@ export class MemoryRepository {
   incrementAccessCount(id: string): void {
     this.#db.db.prepare(`UPDATE memories SET access_count = access_count + 1 WHERE id = ?`).run(id);
   }
+
+  #getEventsForMemories(
+    ids: string[],
+    opts?: { unresolvedOnly?: boolean }
+  ): Map<string, ReviewEvent[]> {
+    if (ids.length === 0) return new Map();
+
+    const placeholders = ids.map(() => "?").join(", ");
+    const unresolvedClause = opts?.unresolvedOnly === true ? "AND resolved_at IS NULL" : "";
+    const rows = this.#db.db
+      .prepare<string[], ReviewEventRow>(
+        `SELECT * FROM memory_review_events
+         WHERE memory_id IN (${placeholders}) ${unresolvedClause}
+         ORDER BY created_at DESC`
+      )
+      .all(...ids);
+
+    const map = new Map<string, ReviewEvent[]>();
+    for (const row of rows) {
+      const event = rowToReviewEvent(ReviewEventRowSchema.parse(row));
+      const existing = map.get(event.memoryId) ?? [];
+      existing.push(event);
+      map.set(event.memoryId, existing);
+    }
+    return map;
+  }
+}
+
+export function createMemoryRepository(
+  db: DatabaseManager,
+  projects: ProjectRepository
+): MemoryRepository {
+  return new SqliteMemoryRepository(db, projects);
 }

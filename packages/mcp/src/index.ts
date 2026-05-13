@@ -1,8 +1,8 @@
 import {
+  createMemoryRepository,
   DatabaseManager,
   EmbeddingService,
   isSynthesisEnabled,
-  MemoryRepository,
   ProjectRepository,
   QueryEngine,
   SynthesisRepository,
@@ -58,7 +58,7 @@ export async function runSynthesis(scope: string): Promise<string> {
   const db = DatabaseManager.open();
   const embedding = new EmbeddingService();
   const projects = new ProjectRepository(db);
-  const repo = new MemoryRepository(db, embedding, projects);
+  const repo = createMemoryRepository(db, projects);
   const queryEngine = new QueryEngine(db, embedding, repo);
   const synthRepo = new SynthesisRepository(db);
   const agentLoop = new SynthesisAgentLoop(buildSynthesisTools(repo, queryEngine), {

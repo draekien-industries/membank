@@ -1,7 +1,7 @@
 import type { DatabaseManager } from "../db/manager.js";
-import { rowToMemory } from "../db/row-types.js";
 import type { EmbeddingService } from "../embedding/service.js";
-import type { MemoryRepository } from "../memory/repository.js";
+import type { MemoryRepository } from "../memory/ports.js";
+import { rowToMemory } from "../persistence/infrastructure/row-types.js";
 import { QueryOptionsSchema } from "../schemas.js";
 import type { Memory, MemoryRow, MemoryType, QueryOptions } from "../types.js";
 

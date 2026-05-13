@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseManager } from "../db/manager.js";
 import type { EmbeddingService } from "../embedding/service.js";
-import type { MemoryRepository } from "../memory/repository.js";
+import type { MemoryRepository } from "../memory/ports.js";
 import { QueryEngine } from "./engine.js";
 
 function unitVec(dim: number, size = 384): Float32Array {

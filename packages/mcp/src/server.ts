@@ -1,13 +1,14 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type { MemoryRepository } from "@membank/core";
 import {
+  createMemoryRepository,
   DatabaseManager,
   EmbeddingService,
   isSynthesisEnabled,
   listMemoryTypes,
   MEMORY_TYPE_VALUES,
-  MemoryRepository,
   MIGRATIONS,
   PIN_BUDGET_THRESHOLD,
   ProjectRepository,
@@ -15,6 +16,8 @@ import {
   resolveProject,
   runScopeToProjectsMigration,
   SynthesisRepository,
+  saveMemory,
+  updateMemory,
 } from "@membank/core";
 import { Server } from "@modelcontextprotocol/sdk/server";
 import {
@@ -95,7 +98,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
     : DatabaseManager.open(options.dbPath);
   const embedding = new EmbeddingService();
   const projects = new ProjectRepository(db);
-  const repo = new MemoryRepository(db, embedding, projects);
+  const repo = createMemoryRepository(db, projects);
   const query = new QueryEngine(db, embedding, repo);
 
   const synthConfig = loadSynthesisConfig();
@@ -307,12 +310,10 @@ export function createServer(core: CoreServices): Server {
       const projectScope = args.global === true ? undefined : await resolveProject();
 
       try {
-        const memory = await core.repo.save({
-          content: args.content,
-          type: args.type,
-          tags: args.tags,
-          projectScope,
-        });
+        const memory = await saveMemory(
+          { content: args.content, type: args.type, tags: args.tags, projectScope },
+          { repo: core.repo, embedder: core.embedding }
+        );
 
         if (core.synthEngine !== undefined) {
           const scope =
@@ -333,11 +334,11 @@ export function createServer(core: CoreServices): Server {
       const args = parseArgs(UpdateMemoryArgsSchema, request.params.arguments);
 
       try {
-        const memory = await core.repo.update(args.id, {
-          content: args.content,
-          type: args.type,
-          tags: args.tags,
-        });
+        const memory = await updateMemory(
+          args.id,
+          { content: args.content, type: args.type, tags: args.tags },
+          { repo: core.repo, embedder: core.embedding }
+        );
 
         if (core.synthEngine !== undefined) {
           const scope =
@@ -380,7 +381,7 @@ export function createServer(core: CoreServices): Server {
           memoryScopeBeforeDelete = projectRow?.scope_hash ?? "global";
         }
 
-        await core.repo.delete(args.id);
+        core.repo.delete(args.id);
 
         if (core.synthEngine !== undefined && memoryScopeBeforeDelete !== undefined) {
           core.synthEngine.markDirty(memoryScopeBeforeDelete);

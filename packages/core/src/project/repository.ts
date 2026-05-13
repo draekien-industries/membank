@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseManager } from "../db/manager.js";
-import { rowToProject } from "../db/row-types.js";
+import { rowToProject } from "../persistence/infrastructure/row-types.js";
 import { ProjectRowSchema } from "../schemas.js";
 import type { Project, ProjectRow } from "../types.js";
 
