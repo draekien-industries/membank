@@ -178,12 +178,12 @@ describe("QueryEngine", () => {
       embedding: unitVec(0),
     });
 
-    const projId = insertProject(dbManager, "project-abc");
+    const projId = insertProject(dbManager, "abcdef0000000000");
     associateMemoryProject(dbManager, "project-1", projId);
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test", projectHash: "project-abc" });
+    const results = await engine.query({ query: "test", projectHash: "abcdef0000000000" });
 
     expect(results.length).toBe(1);
     expect(results[0]?.id).toBe("project-1");

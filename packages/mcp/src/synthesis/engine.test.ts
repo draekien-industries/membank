@@ -40,16 +40,16 @@ describe("SynthesisEngine", () => {
     db.db
       .prepare(
         `INSERT INTO projects (id, name, scope_hash, created_at, updated_at)
-         VALUES ('p1', 'proj', 'proj-hash', datetime('now'), datetime('now'))`
+         VALUES ('p1', 'proj', 'abcdef0123456789', datetime('now'), datetime('now'))`
       )
       .run();
 
     await engine.init();
     await engine.shutdown();
 
-    // Both 'global' and 'proj-hash' should have been synthesized (missing → queued)
+    // Both 'global' and 'abcdef0123456789' should have been synthesized (missing → queued)
     const globalSynth = synthRepo.getSynthesis("global");
-    const projSynth = synthRepo.getSynthesis("proj-hash");
+    const projSynth = synthRepo.getSynthesis("abcdef0123456789");
 
     expect(globalSynth?.content).toBe("synthesized content");
     expect(projSynth?.content).toBe("synthesized content");

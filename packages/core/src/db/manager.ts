@@ -113,6 +113,68 @@ CREATE INDEX IF NOT EXISTS idx_syntheses_scope_inflight
   ON syntheses(scope) WHERE in_flight_since IS NOT NULL;
 `,
   ],
+  [
+    5,
+    `
+PRAGMA foreign_keys = OFF;
+
+BEGIN;
+
+-- Rescue associations from corrupt projects by relinking them to a valid project with the same name
+INSERT OR IGNORE INTO memory_projects (memory_id, project_id)
+SELECT mp.memory_id, (
+  SELECT p_good.id
+  FROM projects p_good
+  WHERE p_good.name = p_bad.name
+    AND length(p_good.scope_hash) = 16
+    AND trim(p_good.scope_hash, '0123456789abcdef') = ''
+  ORDER BY p_good.created_at
+  LIMIT 1
+)
+FROM memory_projects mp
+JOIN projects p_bad ON p_bad.id = mp.project_id
+WHERE (length(p_bad.scope_hash) != 16 OR trim(p_bad.scope_hash, '0123456789abcdef') != '')
+  AND EXISTS (
+    SELECT 1 FROM projects p_good
+    WHERE p_good.name = p_bad.name
+      AND length(p_good.scope_hash) = 16
+      AND trim(p_good.scope_hash, '0123456789abcdef') = ''
+  );
+
+-- Drop all associations to corrupt projects (memories with no valid counterpart become global)
+DELETE FROM memory_projects
+WHERE project_id IN (
+  SELECT id FROM projects
+  WHERE length(scope_hash) != 16 OR trim(scope_hash, '0123456789abcdef') != ''
+);
+
+-- Delete corrupt projects
+DELETE FROM projects
+WHERE length(scope_hash) != 16 OR trim(scope_hash, '0123456789abcdef') != '';
+
+-- Recreate projects table with CHECK constraint on scope_hash
+-- SQLite requires table recreation to add CHECK constraints
+DROP TABLE IF EXISTS projects_new;
+
+CREATE TABLE projects_new (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  scope_hash TEXT NOT NULL UNIQUE
+               CHECK(length(scope_hash) = 16 AND trim(scope_hash, '0123456789abcdef') = ''),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+INSERT INTO projects_new SELECT * FROM projects;
+
+DROP TABLE projects;
+ALTER TABLE projects_new RENAME TO projects;
+
+COMMIT;
+
+PRAGMA foreign_keys = ON;
+`,
+  ],
 ];
 
 export class DatabaseManager {

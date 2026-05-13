@@ -73,7 +73,7 @@ describe("MemoryRepository", () => {
       content: "Always write tests",
       type: "correction",
       tags: ["testing", "quality"],
-      projectScope: { hash: "abc123", name: "test-project" },
+      projectScope: { hash: "abcdef0123456789", name: "test-project" },
       sourceHarness: "claude",
     });
 
@@ -83,7 +83,7 @@ describe("MemoryRepository", () => {
     expect(Array.isArray(memory.reviewEvents)).toBe(true);
     expect(typeof memory.accessCount).toBe("number");
     expect(memory.projects).toHaveLength(1);
-    expect(memory.projects[0]?.scopeHash).toBe("abc123");
+    expect(memory.projects[0]?.scopeHash).toBe("abcdef0123456789");
     expect(memory.sourceHarness).toBe("claude");
     expect(memory.createdAt).toBeTruthy();
     expect(memory.updatedAt).toBeTruthy();

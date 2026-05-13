@@ -82,26 +82,26 @@ describe("SessionContextBuilder", () => {
 
   it("returns pinned project memories for the given scope", () => {
     const memId = insertMemory(db, { pinned: true, content: "project-a pinned" });
-    const projId = insertProject(db, "project-a");
+    const projId = insertProject(db, "aa00000000000000");
     associateMemoryProject(db, memId, projId);
-    const ctx = builder.getSessionContext("project-a");
+    const ctx = builder.getSessionContext("aa00000000000000");
     expect(ctx.pinnedProject).toHaveLength(1);
     expect(ctx.pinnedProject[0]?.content).toBe("project-a pinned");
   });
 
   it("does NOT return pinned memories from a different project scope", () => {
     const memId = insertMemory(db, { pinned: true, content: "project-b pinned" });
-    const projId = insertProject(db, "project-b");
+    const projId = insertProject(db, "bb00000000000000");
     associateMemoryProject(db, memId, projId);
-    const ctx = builder.getSessionContext("project-a");
+    const ctx = builder.getSessionContext("aa00000000000000");
     expect(ctx.pinnedProject).toHaveLength(0);
   });
 
   it("does NOT include project memories in pinnedGlobal", () => {
     const memId = insertMemory(db, { pinned: true, content: "project memory" });
-    const projId = insertProject(db, "project-z");
+    const projId = insertProject(db, "cc00000000000000");
     associateMemoryProject(db, memId, projId);
-    const ctx = builder.getSessionContext("project-x");
+    const ctx = builder.getSessionContext("dd00000000000000");
     expect(ctx.pinnedGlobal).toHaveLength(0);
   });
 

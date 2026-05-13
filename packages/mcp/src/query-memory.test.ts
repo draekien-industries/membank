@@ -142,7 +142,7 @@ describe("query_memory tool", () => {
     await session.core.repo.save({
       content: "project uses ESLint for linting",
       type: "fact",
-      projectScope: { hash: "project-abc", name: "project-abc" },
+      projectScope: { hash: "abcdef0123456789", name: "project-abc" },
     });
     await session.core.repo.save({
       content: "global linting preference is Biome",
@@ -171,12 +171,12 @@ describe("query_memory tool", () => {
     await session.core.repo.save({
       content: "project-x uses webpack for bundling",
       type: "fact",
-      projectScope: { hash: "project-x-hash", name: "project-x" },
+      projectScope: { hash: "1234567890abcdef", name: "project-x" },
     });
     await session.core.repo.save({
       content: "project-y uses vite for bundling",
       type: "fact",
-      projectScope: { hash: "project-y-hash", name: "project-y" },
+      projectScope: { hash: "fedcba0987654321", name: "project-y" },
     });
 
     // Default query resolves to the test process's project (not project-x or project-y)

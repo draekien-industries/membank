@@ -193,7 +193,7 @@ describe("save_memory tool", () => {
     await session.core.repo.save({
       content: "always use TypeScript strict mode for all projects",
       type: "preference",
-      projectScope: { hash: "global", name: "global" },
+      // no projectScope = global memory
     });
 
     await session.client.callTool({
@@ -201,15 +201,14 @@ describe("save_memory tool", () => {
       arguments: {
         content: "always use TypeScript strict mode for all projects enabled",
         type: "preference",
-        scope: "global",
+        global: true,
       },
     });
 
-    // Query to confirm only one record exists for this content
+    // Query to confirm only one record exists for this content (dedup should have fired)
     const results = await session.core.query.query({
       query: "TypeScript strict mode",
       type: "preference",
-      projectHash: "global",
       limit: 10,
     });
 

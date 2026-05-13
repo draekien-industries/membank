@@ -105,7 +105,7 @@ describe("SynthesisRepository", () => {
     db.db
       .prepare(
         `INSERT INTO projects (id, name, scope_hash, created_at, updated_at)
-         VALUES ('p1', 'test-project', 'proj-hash-123', datetime('now'), datetime('now'))`
+         VALUES ('p1', 'test-project', 'abcdef0123456789', datetime('now'), datetime('now'))`
       )
       .run();
 
@@ -113,7 +113,7 @@ describe("SynthesisRepository", () => {
     const scopeNames = scopes.map((s) => s.scope);
 
     expect(scopeNames).toContain("global");
-    expect(scopeNames).toContain("proj-hash-123");
+    expect(scopeNames).toContain("abcdef0123456789");
     expect(scopes.every((s) => s.reason === "missing")).toBe(true);
   });
 

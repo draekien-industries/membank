@@ -74,6 +74,37 @@ describe("DatabaseManager", () => {
       mgr.close();
     });
 
+    it("projects.scope_hash rejects non-hex or wrong-length values via CHECK constraint", () => {
+      const mgr = DatabaseManager.openInMemory();
+      const now = new Date().toISOString();
+
+      expect(() =>
+        mgr.db
+          .prepare(
+            "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+          )
+          .run("test-id", "test", "parasol", now, now)
+      ).toThrow();
+
+      expect(() =>
+        mgr.db
+          .prepare(
+            "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+          )
+          .run("test-id-2", "test", "ABCDEF0123456789", now, now)
+      ).toThrow();
+
+      expect(() =>
+        mgr.db
+          .prepare(
+            "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+          )
+          .run("test-id-3", "test", "abcdef0123456789", now, now)
+      ).not.toThrow();
+
+      mgr.close();
+    });
+
     it("memory_projects table has the correct columns", () => {
       const mgr = DatabaseManager.openInMemory();
 
@@ -90,7 +121,7 @@ describe("DatabaseManager", () => {
   });
 
   describe("migrations", () => {
-    it("schema_version in meta is 4 after full init", () => {
+    it("schema_version in meta is 5 after full init", () => {
       const mgr = DatabaseManager.openInMemory();
 
       const row = mgr.db
@@ -98,7 +129,7 @@ describe("DatabaseManager", () => {
         .get();
 
       expect(row).not.toBeUndefined();
-      expect(row?.value).toBe("4");
+      expect(row?.value).toBe("5");
 
       mgr.close();
     });
@@ -116,8 +147,8 @@ describe("DatabaseManager", () => {
         .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
         .get();
 
-      expect(v1?.value).toBe("4");
-      expect(v2?.value).toBe("4");
+      expect(v1?.value).toBe("5");
+      expect(v2?.value).toBe("5");
 
       mgr1.close();
       mgr2.close();

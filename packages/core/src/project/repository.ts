@@ -16,6 +16,9 @@ export class ProjectRepository {
   }
 
   upsertByHash(hash: string, name: string): Project {
+    if (!/^[0-9a-f]{16}$/.test(hash)) {
+      throw new Error(`Invalid scope hash "${hash}": expected 16 lowercase hex characters`);
+    }
     const now = new Date().toISOString();
     const id = randomUUID();
     this.#db.db
