@@ -4,9 +4,9 @@ Branch: `refactor/codebase-restructure`
 
 ## Phase 0 — Scaffolding & Guardrails
 
-- [ ] Architecture lint rule added: `domain/` cannot import from `application/` or `infrastructure/`; `application/` cannot import from `infrastructure/`
-- [ ] Presentation package guard added: `cli`, `mcp`, `dashboard` may not import from `@membank/core/.../infrastructure/...`
-- [ ] Per-context layered shape documented in `packages/core/CLAUDE.md`
+- [x] Architecture lint rule added: `domain/` cannot import from `application/` or `infrastructure/`; `application/` cannot import from `infrastructure/`
+- [x] Presentation package guard added: `cli`, `mcp`, `dashboard` may not import from `@membank/core/.../infrastructure/...`
+- [x] Per-context layered shape documented in `packages/core/CLAUDE.md`
 
 ## Phase 1 — Memory + Persistence
 
