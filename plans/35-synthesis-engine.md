@@ -48,12 +48,15 @@ Implement a background synthesis engine that consolidates raw memories into cura
 - **Error handling**: Throws Error on not found; uses MemoryRowSchema for validation
 - **SynthesisRepository will mirror this pattern**
 
-### @anthropic-ai/agent-sdk dependency status
+### @anthropic-ai/claude-agent-sdk dependency status
+- **Package name**: `@anthropic-ai/claude-agent-sdk` (TypeScript Agent SDK — NOT `@anthropic-ai/agent-sdk`, that name is incorrect)
 - **Current**: NOT in any package.json
-- **Needed**: Add to @membank/mcp package.json
-- **Version**: Latest stable as of 2026-05
-- **Environment**: Uses CLAUDE_CODE_OAUTH_TOKEN (Claude Code auth token, no API key)
+- **Install**: `pnpm add @anthropic-ai/claude-agent-sdk --filter @membank/mcp` (let pnpm resolve latest, do not hand-pin)
+- **ESM requirement**: SDK requires ES modules — confirmed `@membank/mcp` already has `"type": "module"` in package.json
+- **Environment**: Issue body specifies `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` (Claude Max, no API key). The SDK's default auth is `ANTHROPIC_API_KEY`; verify at implementation time that the SDK honors the OAuth token env var (or document the fallback to API key if the SDK doesn't support it natively, e.g. by passing a custom auth header).
 - **Runtime context**: Runs in MCP server process (long-lived) — needs signal handling
+- **Reference**: Official docs at https://docs.claude.com/en/api/agent-sdk/typescript — implementation must follow the SDK's `query()` / agent patterns described there, not invent a custom loop.
+- **Scaffolding**: This integrates the SDK into an existing package; the `/new-sdk-app` command (from the `agent-sdk-dev` plugin) is NOT appropriate here — it scaffolds standalone SDK apps. Reference its generated patterns only as a guide.
 
 ### membank setup command flow
 - **Location**: `packages/cli/src/index.ts:219-315`
@@ -325,9 +328,10 @@ interface MemBankConfig {
 
 2. **`packages/mcp/src/synthesis/agent-loop.ts`** (NEW)
    - Class `SynthesisAgentLoop`
+   - Uses `@anthropic-ai/claude-agent-sdk` — follow the SDK's documented `query()` API and agent patterns from https://docs.claude.com/en/api/agent-sdk/typescript. Do not invent a custom loop on top of the raw Anthropic SDK.
    - Methods:
      - `run(prompt: string, scope: string): Promise<string>` (runs Claude Haiku via Agent SDK)
-     - Handles tool use: `query_memory`, `get_memory_summary` (calls back to core services)
+     - Handles tool use: `query_memory`, `get_memory_summary` (calls back to core services as in-process MCP tools or SDK-style custom tools per SDK docs)
      - Implements max-turns limit (e.g., 3 turns)
      - Returns final synthesis text
 
@@ -385,6 +389,22 @@ interface MemBankConfig {
 
 
 ---
+
+## SDK Reference & Verification
+
+This is the only feature in the membank repo that consumes `@anthropic-ai/claude-agent-sdk`. To stay aligned with current SDK best practices:
+
+1. **Reference docs at implementation time**: https://docs.claude.com/en/api/agent-sdk/typescript — fetch via WebFetch or context7 before writing the agent loop. The SDK evolves; do not rely on training-data knowledge.
+2. **Final verification gate**: After implementation, invoke the `agent-sdk-verifier-ts` agent (from the `agent-sdk-dev` plugin) scoped to `packages/mcp/`. The verifier checks:
+   - `@anthropic-ai/claude-agent-sdk` installed and reasonably current
+   - `"type": "module"` present (already satisfied)
+   - Correct SDK imports and `query()` usage
+   - Agent initialization, system prompt, model selection
+   - Custom tool / MCP integration patterns
+   - Permissions configuration if used
+   - Error handling around SDK calls
+   - `.env.example` documents the auth env var (`CLAUDE_CODE_OAUTH_TOKEN` per issue, or `ANTHROPIC_API_KEY` if that's what the SDK supports)
+3. **Treat verifier output as a blocking gate**: PASS or PASS WITH WARNINGS required before merge. Critical issues must be resolved.
 
 ## Tests
 

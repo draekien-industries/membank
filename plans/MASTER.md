@@ -101,6 +101,7 @@ Every worktree, regardless of wave, must:
    - `pnpm lint`
    - For UI/CLI changes: smoke-test the user-facing surface manually if test coverage doesn't fully exercise it.
 5. **Run `/simplify`** per the CLAUDE.md implementation checklist.
+5a. **For #35 only** — invoke the `agent-sdk-verifier-ts` agent (from the `agent-sdk-dev` plugin) scoped to `packages/mcp/`. Resolve all critical issues before merge. See the "SDK Reference & Verification" section in [35-synthesis-engine.md](35-synthesis-engine.md).
 6. **Create the changeset** — `pnpm changeset` from inside the worktree. Bump type and one-sentence description are specified in each per-issue plan's "Changeset" section. The `.changeset/*.md` file MUST be committed on the branch before merge.
 7. **Commit** using conventional commit format (e.g., `fix(core): include cosine similarity in query score`).
 8. **Open PR** and merge once CI passes.
