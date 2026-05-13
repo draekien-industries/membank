@@ -85,7 +85,7 @@ export class SynthesisAgentLoop {
         systemPrompt: SYNTHESIS_SYSTEM_PROMPT,
         mcpServers: { "membank-synthesis-tools": mcpServer },
         allowedTools: ["query_memory", "get_memory_summary"],
-        permissionMode: "dontAsk",
+        permissionMode: "bypassPermissions",
         env,
       },
     });
