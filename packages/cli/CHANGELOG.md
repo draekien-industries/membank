@@ -1,5 +1,13 @@
 # @membank/cli
 
+## 0.10.2
+
+### Patch Changes
+
+- 681d558: Fixed Stop hook output for claude-code harness to emit `{}` instead of an invalid `hookSpecificOutput` block, which caused a JSON schema validation error on session end.
+- Updated dependencies [85cd121]
+  - @membank/mcp@0.11.2
+
 ## 0.10.1
 
 ### Patch Changes
