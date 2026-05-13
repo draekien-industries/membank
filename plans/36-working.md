@@ -10,22 +10,22 @@ Branch: `refactor/codebase-restructure`
 
 ## Phase 1 — Memory + Persistence
 
-- [ ] `core/src/memory/domain/memory.ts` — `Memory`, `MemoryType`, `MemoryPatch` types
-- [ ] `core/src/memory/domain/dedup-policy.ts` — `classifyDuplicate()`, `AUTO_OVERWRITE_THRESHOLD = 0.92`, `FLAG_THRESHOLD = 0.75`
-- [ ] `core/src/memory/domain/pin-budget.ts` — `PIN_BUDGET_THRESHOLD`, budget checks
-- [ ] `core/src/memory/domain/review-event.ts` — `ReviewEvent` type
-- [ ] `core/src/memory/domain/*.test.ts` — pure unit tests (no DB)
-- [ ] `core/src/memory/application/save-memory.ts` — validate → embed → query similar → dedup-policy → persist
-- [ ] `core/src/memory/application/update-memory.ts`
-- [ ] `core/src/memory/application/delete-memory.ts`
-- [ ] `core/src/memory/application/resolve-review.ts`
-- [ ] `core/src/memory/application/*.test.ts` — use in-memory fake repo + fake embedder
-- [ ] `core/src/memory/infrastructure/sqlite-memory-repository.ts` — all SQL queries, row mapping
-- [ ] `core/src/memory/infrastructure/sqlite-memory-repository.test.ts` — integration, real sqlite (use `MEMBANK_INTEGRATION=true` guard + file-based path, following pattern in `core/src/db/manager.integration.test.ts`)
-- [ ] `core/src/memory/ports.ts` — `MemoryRepository`, `Embedder` interfaces
-- [ ] `core/src/memory/index.ts` — exports use-cases + Memory types + ports only
-- [ ] Old `memory/repository.ts` deleted
-- [ ] DB row-type helpers moved to `persistence/infrastructure/`
+- [x] `core/src/memory/domain/memory.ts` — `Memory`, `MemoryType`, `MemoryPatch` types
+- [x] `core/src/memory/domain/dedup-policy.ts` — `classifyDuplicate()`, `AUTO_OVERWRITE_THRESHOLD = 0.92`, `FLAG_THRESHOLD = 0.75`
+- [x] `core/src/memory/domain/pin-budget.ts` — `PIN_BUDGET_THRESHOLD`, budget checks
+- [x] `core/src/memory/domain/review-event.ts` — `ReviewEvent` type
+- [x] `core/src/memory/domain/*.test.ts` — pure unit tests (no DB)
+- [x] `core/src/memory/application/save-memory.ts` — validate → embed → query similar → dedup-policy → persist
+- [x] `core/src/memory/application/update-memory.ts`
+- [x] `core/src/memory/application/delete-memory.ts`
+- [x] `core/src/memory/application/resolve-review.ts`
+- [x] `core/src/memory/application/*.test.ts` — use in-memory fake repo + fake embedder
+- [x] `core/src/memory/infrastructure/sqlite-memory-repository.ts` — all SQL queries, row mapping
+- [x] `core/src/memory/infrastructure/sqlite-memory-repository.test.ts` — integration, real sqlite (use `MEMBANK_INTEGRATION=true` guard + file-based path, following pattern in `core/src/db/manager.integration.test.ts`)
+- [x] `core/src/memory/ports.ts` — `MemoryRepository`, `Embedder` interfaces
+- [x] `core/src/memory/index.ts` — exports use-cases + Memory types + ports only
+- [x] Old `memory/repository.ts` deleted
+- [x] DB row-type helpers moved to `persistence/infrastructure/`
 
 ## Phase 2 — Query + Embedding
 

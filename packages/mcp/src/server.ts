@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { MemoryRepository } from "@membank/core";
+import type { Embedder, MemoryRepository, Querier } from "@membank/core";
 import {
   createMemoryRepository,
   DatabaseManager,
@@ -44,9 +44,9 @@ const SERVER_VERSION = "0.1.0";
 
 export interface CoreServices {
   db: DatabaseManager;
-  embedding: EmbeddingService;
+  embedding: Embedder;
   repo: MemoryRepository;
-  query: QueryEngine;
+  query: Querier;
   projects: ProjectRepository;
   synthEngine?: SynthesisEngine;
 }
@@ -75,7 +75,7 @@ function loadSynthesisConfig(): SynthesisConfig {
   }
 }
 
-export function buildSynthesisTools(repo: MemoryRepository, query: QueryEngine): SynthesisTools {
+export function buildSynthesisTools(repo: MemoryRepository, query: Querier): SynthesisTools {
   return {
     queryMemory: async (args) => {
       const projectHash =

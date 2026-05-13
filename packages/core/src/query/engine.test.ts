@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseManager } from "../db/manager.js";
-import type { EmbeddingService } from "../embedding/service.js";
-import type { MemoryRepository } from "../memory/ports.js";
+import type { Embedder, MemoryRepository } from "../memory/ports.js";
 import { QueryEngine } from "./engine.js";
 
 function unitVec(dim: number, size = 384): Float32Array {
@@ -69,13 +68,13 @@ function associateMemoryProject(db: DatabaseManager, memoryId: string, projectId
 
 describe("QueryEngine", () => {
   let dbManager: DatabaseManager;
-  let embeddingStub: EmbeddingService;
+  let embeddingStub: Embedder;
   let repoStub: Pick<MemoryRepository, "incrementAccessCount">;
   let engine: QueryEngine;
 
   beforeEach(() => {
     dbManager = DatabaseManager.openInMemory();
-    embeddingStub = { embed: vi.fn() } as unknown as EmbeddingService;
+    embeddingStub = { embed: vi.fn() };
     repoStub = { incrementAccessCount: vi.fn() };
     engine = new QueryEngine(dbManager, embeddingStub, repoStub as MemoryRepository);
   });
