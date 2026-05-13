@@ -96,4 +96,4 @@ Branch: `refactor/codebase-restructure`
 - [x] `packages/mcp/` contains no SQL strings, no `better-sqlite3` imports, no `@anthropic-ai/claude-agent-sdk` imports, no `@huggingface/transformers` imports
 - [x] `packages/dashboard/` contains no SQL strings, no `better-sqlite3` imports, no `@anthropic-ai/claude-agent-sdk` imports, no `@huggingface/transformers` imports
 - [x] A reviewer can understand any `application/<use-case>.ts` without opening `infrastructure/`
-- [ ] Single changeset created covering all affected packages
+- [x] Single changeset created covering all affected packages
