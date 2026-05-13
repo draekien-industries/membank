@@ -21,6 +21,8 @@ import type {
   SaveOptions,
 } from "../types.js";
 
+export const PIN_BUDGET_THRESHOLD = 8000;
+
 interface SimilarityRow extends MemoryRow {
   rowid: number;
   similarity: number;
@@ -304,11 +306,21 @@ export class MemoryRepository {
     return map;
   }
 
+  getPinnedCharCount(): number {
+    const row = this.#db.db
+      .prepare<[], { total: number }>(
+        `SELECT COALESCE(SUM(LENGTH(content)), 0) as total FROM memories WHERE pinned = 1`
+      )
+      .get() ?? { total: 0 };
+    return row.total;
+  }
+
   stats(): {
     byType: Record<MemoryType, number>;
     total: number;
     pinned: number;
     needsReview: number;
+    pinBudgetChars: number;
   } {
     const byType = Object.fromEntries(MEMORY_TYPE_VALUES.map((t) => [t, 0])) as Record<
       MemoryType,
@@ -345,6 +357,7 @@ export class MemoryRepository {
       total: aggregates.total,
       pinned: aggregates.pinned ?? 0,
       needsReview: reviewRow.needsReview,
+      pinBudgetChars: this.getPinnedCharCount(),
     };
   }
 

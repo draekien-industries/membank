@@ -1,4 +1,5 @@
 import type { Memory, MemoryType, ReviewEvent } from "@membank/core";
+import { PIN_BUDGET_THRESHOLD } from "@membank/core";
 import chalk from "chalk";
 import Table from "cli-table3";
 
@@ -10,6 +11,7 @@ export interface StatsData {
   byType: Record<MemoryType, number>;
   total: number;
   needsReview: number;
+  pinBudgetChars: number;
 }
 
 const TYPE_COLORS: Record<MemoryType, (s: string) => string> = {
@@ -22,6 +24,14 @@ const TYPE_COLORS: Record<MemoryType, (s: string) => string> = {
 
 function colorType(type: MemoryType): string {
   return TYPE_COLORS[type](type);
+}
+
+function statsRow(label: string, value: string, warn: boolean): void {
+  if (warn) {
+    process.stdout.write(`  ${chalk.yellow("⚠")} ${label.padEnd(12)}  ${value}\n`);
+  } else {
+    process.stdout.write(`  ${"  ".concat(label).padEnd(14)}  ${value}\n`);
+  }
 }
 
 function truncate(str: string, max: number): string {
@@ -97,13 +107,13 @@ export class Formatter {
     }
     process.stdout.write(`\n  ${chalk.dim("─".repeat(24))}\n`);
     process.stdout.write(`  ${"total".padEnd(14)}  ${stats.total}\n`);
-    if (stats.needsReview > 0) {
-      process.stdout.write(
-        `  ${chalk.yellow("⚠")} ${"needs_review".padEnd(12)}  ${stats.needsReview}\n\n`
-      );
-    } else {
-      process.stdout.write(`  ${"  needs_review".padEnd(14)}  ${stats.needsReview}\n\n`);
-    }
+    statsRow("needs_review", String(stats.needsReview), stats.needsReview > 0);
+    statsRow(
+      "pin_budget",
+      `${stats.pinBudgetChars} / ${PIN_BUDGET_THRESHOLD} chars`,
+      stats.pinBudgetChars > PIN_BUDGET_THRESHOLD
+    );
+    process.stdout.write("\n");
   }
 
   outputQueryResults(results: QueryResult[]): void {

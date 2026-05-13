@@ -1,5 +1,10 @@
 import type { EmbeddingService } from "@membank/core";
-import { DatabaseManager, MemoryRepository, ProjectRepository } from "@membank/core";
+import {
+  DatabaseManager,
+  MemoryRepository,
+  PIN_BUDGET_THRESHOLD,
+  ProjectRepository,
+} from "@membank/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Formatter } from "../formatter.js";
 
@@ -124,7 +129,7 @@ describe("stats command integration — real in-memory SQLite", () => {
     expect(output).toContain("1"); // needsReview
   });
 
-  it("outputStats JSON mode returns object with byType, total, needsReview", () => {
+  it("outputStats JSON mode returns object with byType, total, needsReview, pinBudgetChars", () => {
     insertMemory(db, { id: "d1", content: "A decision", type: "decision" });
     insertMemory(db, { id: "l1", content: "A learning", type: "learning", withReviewEvent: true });
 
@@ -136,6 +141,7 @@ describe("stats command integration — real in-memory SQLite", () => {
       byType: Record<string, number>;
       total: number;
       needsReview: number;
+      pinBudgetChars: number;
     };
 
     expect(parsed.total).toBe(2);
@@ -143,5 +149,41 @@ describe("stats command integration — real in-memory SQLite", () => {
     expect(parsed.byType.decision).toBe(1);
     expect(parsed.byType.learning).toBe(1);
     expect(parsed.byType.correction).toBe(0);
+    expect(typeof parsed.pinBudgetChars).toBe("number");
+  });
+
+  it("outputStats human mode shows pin_budget line with threshold", () => {
+    const now = new Date().toISOString();
+    db.db
+      .prepare(
+        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run("pin1", "pinned content here", "fact", JSON.stringify([]), null, 0, 1, now, now);
+
+    const stats = repo.stats();
+    const formatter = new Formatter(false);
+    const output = captureStdout(() => formatter.outputStats(stats));
+
+    expect(output).toContain("pin_budget");
+    expect(output).toContain(String(PIN_BUDGET_THRESHOLD));
+  });
+
+  it("outputStats human mode shows warning icon when pin budget exceeded", () => {
+    const now = new Date().toISOString();
+    const bigContent = "x".repeat(PIN_BUDGET_THRESHOLD + 1);
+    db.db
+      .prepare(
+        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run("pin2", bigContent, "fact", JSON.stringify([]), null, 0, 1, now, now);
+
+    const stats = repo.stats();
+    const formatter = new Formatter(false);
+    const output = captureStdout(() => formatter.outputStats(stats));
+
+    expect(output).toContain("⚠");
+    expect(output).toContain("pin_budget");
   });
 });
