@@ -1,5 +1,11 @@
 # @membank/mcp
 
+## 0.11.2
+
+### Patch Changes
+
+- 85cd121: Fixed synthesis agent using bypassPermissions instead of dontAsk so in-process MCP tools are not blocked by permission evaluation.
+
 ## 0.11.1
 
 ### Patch Changes
