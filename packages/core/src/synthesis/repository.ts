@@ -115,6 +115,16 @@ export class SynthesisRepository {
       .run(now, scope);
   }
 
+  clearStaleInFlight(thresholdMs: number): void {
+    const cutoff = new Date(Date.now() - thresholdMs).toISOString();
+    const now = new Date().toISOString();
+    this.#db.db
+      .prepare(
+        "UPDATE syntheses SET in_flight_since = NULL, updated_at = ? WHERE in_flight_since IS NOT NULL AND in_flight_since < ?"
+      )
+      .run(now, cutoff);
+  }
+
   computeSourceMemoryHash(scope: string): string {
     let contents: { content: string }[];
 

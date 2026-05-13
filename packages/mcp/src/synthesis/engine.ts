@@ -27,6 +27,10 @@ export class SynthesisEngine {
   }
 
   async init(): Promise<void> {
+    // Clear in_flight_since markers older than the timeout — they belong to a dead process.
+    this.#synthRepo.clearStaleInFlight(
+      this.#config.inFlightTimeoutMs ?? DEFAULT_IN_FLIGHT_TIMEOUT_MS
+    );
     this.#synthRepo.expireStale();
 
     const stale = this.#synthRepo.getExpiredOrDirtyScopes();
