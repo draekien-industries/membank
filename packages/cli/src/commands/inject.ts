@@ -105,6 +105,11 @@ async function handleEvent(
   harness: InjectionHarness | undefined,
   eventName: string
 ): Promise<void> {
+  if (harness === "claude-code" && eventName === "Stop") {
+    // Stop hooks have no hookSpecificOutput schema — output a valid empty response.
+    process.stdout.write("{}");
+    return;
+  }
   const text = await buildText().catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     process.stderr.write(`membank inject: ${msg}\n`);

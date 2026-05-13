@@ -22,24 +22,38 @@ vi.mock("@membank/core", async (importOriginal) => {
   };
 });
 
+async function captureStdout(fn: () => Promise<void>): Promise<string> {
+  const chunks: string[] = [];
+  const orig = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (chunk: string | Uint8Array) => {
+    chunks.push(typeof chunk === "string" ? chunk : String(chunk));
+    return true;
+  };
+  try {
+    await fn();
+  } finally {
+    process.stdout.write = orig;
+  }
+  return chunks.join("");
+}
+
 describe("injectCommand — session-stop routing", () => {
   it.each([
     "session-stop",
     "stop",
   ])("accepts --event %s and writes output without error", async (event) => {
     const { injectCommand } = await import("./inject.js");
-    const written: string[] = [];
-    const origWrite = process.stdout.write.bind(process.stdout);
-    process.stdout.write = (chunk: string | Uint8Array) => {
-      written.push(typeof chunk === "string" ? chunk : String(chunk));
-      return true;
-    };
-    try {
-      await injectCommand({ event });
-    } finally {
-      process.stdout.write = origWrite;
-    }
-    expect(written.length).toBeGreaterThan(0);
+    const output = await captureStdout(() => injectCommand({ event }));
+    expect(output.length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    "session-stop",
+    "stop",
+  ])("claude-code harness outputs valid {} for --event %s", async (event) => {
+    const { injectCommand } = await import("./inject.js");
+    const output = await captureStdout(() => injectCommand({ harness: "claude-code", event }));
+    expect(output).toBe("{}");
   });
 });
 
