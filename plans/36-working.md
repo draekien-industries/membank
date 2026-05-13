@@ -77,23 +77,23 @@ Branch: `refactor/codebase-restructure`
 
 ## Phase 6 — CLI Command Audit
 
-- [ ] Every `packages/cli/src/commands/*.ts` is pure formatting/IO (no inline business logic)
-- [ ] Any business logic from `inject.ts`, `import.ts`, `export.ts` moved to core use-cases
+- [x] Every `packages/cli/src/commands/*.ts` is pure formatting/IO (no inline business logic)
+- [x] Any business logic from `inject.ts`, `import.ts`, `export.ts` moved to core use-cases
 
 ## Phase 7 — Cleanup & Guard Rail Enforcement
 
-- [ ] Architecture lint rules flipped from warnings to errors
-- [ ] Deprecated `scope/` folder deleted (if no consumers remain)
-- [ ] All `@membank/core` exports verified to flow through `packages/core/src/index.ts`
-- [ ] No path from outside core reaches into any `infrastructure/` sub-folder
+- [x] Architecture lint rules flipped from warnings to errors
+- [x] Deprecated `scope/` folder deleted (if no consumers remain) — consumers remain; folder kept
+- [x] All `@membank/core` exports verified to flow through `packages/core/src/index.ts`
+- [x] No path from outside core reaches into any `infrastructure/` sub-folder
 
 ## Definition of Done
 
-- [ ] All seven phases committed on `refactor/codebase-restructure`
-- [ ] `pnpm test` green across all packages
-- [ ] Architectural lint enforced as error
-- [ ] `packages/cli/` contains no SQL strings, no `better-sqlite3` imports, no `@anthropic-ai/claude-agent-sdk` imports, no `@huggingface/transformers` imports
-- [ ] `packages/mcp/` contains no SQL strings, no `better-sqlite3` imports, no `@anthropic-ai/claude-agent-sdk` imports, no `@huggingface/transformers` imports
-- [ ] `packages/dashboard/` contains no SQL strings, no `better-sqlite3` imports, no `@anthropic-ai/claude-agent-sdk` imports, no `@huggingface/transformers` imports
-- [ ] A reviewer can understand any `application/<use-case>.ts` without opening `infrastructure/`
+- [x] All seven phases committed on `refactor/codebase-restructure`
+- [x] `pnpm test` green across all packages
+- [x] Architectural lint enforced as error
+- [x] `packages/cli/` contains no SQL strings, no `better-sqlite3` imports, no `@anthropic-ai/claude-agent-sdk` imports, no `@huggingface/transformers` imports
+- [x] `packages/mcp/` contains no SQL strings, no `better-sqlite3` imports, no `@anthropic-ai/claude-agent-sdk` imports, no `@huggingface/transformers` imports
+- [x] `packages/dashboard/` contains no SQL strings, no `better-sqlite3` imports, no `@anthropic-ai/claude-agent-sdk` imports, no `@huggingface/transformers` imports
+- [x] A reviewer can understand any `application/<use-case>.ts` without opening `infrastructure/`
 - [ ] Single changeset created covering all affected packages

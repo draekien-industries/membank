@@ -364,29 +364,17 @@ export function createServer(core: CoreServices): Server {
       const args = parseArgs(DeleteMemoryArgsSchema, request.params.arguments);
 
       try {
-        const exists =
-          core.db.db
-            .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
-            .get(args.id) !== undefined;
+        const memory = core.repo.findById(args.id);
 
-        if (!exists) {
+        if (memory === undefined) {
           return {
             content: [{ type: "text", text: `Memory not found: ${args.id}` }],
             isError: true,
           };
         }
 
-        let memoryScopeBeforeDelete: string | undefined;
-        if (core.synthEngine !== undefined) {
-          const projectRow = core.db.db
-            .prepare<[string], { scope_hash: string }>(
-              `SELECT p.scope_hash FROM projects p
-               JOIN memory_projects mp ON mp.project_id = p.id
-               WHERE mp.memory_id = ?`
-            )
-            .get(args.id);
-          memoryScopeBeforeDelete = projectRow?.scope_hash ?? "global";
-        }
+        const memoryScopeBeforeDelete =
+          core.synthEngine !== undefined ? (memory.projects[0]?.scopeHash ?? "global") : undefined;
 
         core.repo.delete(args.id);
 
@@ -525,12 +513,7 @@ export function createServer(core: CoreServices): Server {
       const args = parseArgs(ResolveReviewArgsSchema, request.params.arguments);
 
       try {
-        const exists =
-          core.db.db
-            .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
-            .get(args.id) !== undefined;
-
-        if (!exists) {
+        if (core.repo.findById(args.id) === undefined) {
           return {
             content: [{ type: "text", text: `Memory not found: ${args.id}` }],
             isError: true,
