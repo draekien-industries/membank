@@ -106,7 +106,9 @@ core/src/memory/
 
 ### 3.4 Synthesis context (special — agent SDK consolidation)
 
-All of `packages/mcp/src/synthesis/` moves into `packages/core/src/synthesis/`. `@membank/core` takes a direct dependency on `@anthropic-ai/claude-agent-sdk`. The MCP package no longer touches synthesis logic; it only triggers `runSynthesis()` from core in response to MCP lifecycle events.
+> **Current state (as of 2026-05-14):** `SynthesisRepository` already lives in `packages/core/src/synthesis/repository.ts` (flat, no layering). The agent loop and engine remain in `packages/mcp/src/synthesis/`. Phase 4 moves the remaining mcp pieces into core, then applies the layered structure to everything including the existing repository.
+
+`packages/mcp/src/synthesis/{agent-loop.ts,engine.ts}` move into `packages/core/src/synthesis/`. `@membank/core` takes a direct dependency on `@anthropic-ai/claude-agent-sdk`. The MCP package no longer touches synthesis logic; it only triggers `runSynthesis()` from core in response to MCP lifecycle events.
 
 ```
 core/src/synthesis/
@@ -144,7 +146,7 @@ Order:
 3. Delete old files.
 4. Update `cli`, `mcp`, `dashboard` imports if any landed on internal paths (most use the root `@membank/core` export — no changes needed).
 
-**Tests**: existing `memory/repository.test.ts` splits into pure unit tests (dedup-policy) and integration tests (sqlite-memory-repository.test.ts). All tests stay green.
+**Tests**: existing `memory/repository.test.ts` splits into pure unit tests (dedup-policy) and integration tests (sqlite-memory-repository.test.ts). All tests stay green. Integration tests must follow the `MEMBANK_INTEGRATION=true` env-var guard and file-based SQLite pattern established in `core/src/db/manager.integration.test.ts` (committed 670e9da) — Lefthook runs these pre-commit; CI skips them.
 
 ### Phase 2 — Query + Embedding (S)
 
@@ -154,16 +156,19 @@ Apply the same shape to `query/` and `embedding/`. Query context defines a `Memo
 
 Same treatment for the smaller contexts. SessionInjection's pinned-memory-bundle builder becomes a pure application use-case over Memory + Project repositories.
 
+> **Already done:** `ProjectRepository.upsertByHash()` now validates the 16-char lowercase hex format and throws on invalid input (committed 14efb94). Migration v5 (scope_hash CHECK constraint + corrupt-hash rescue) is already in `db/manager.ts`. Phase 3 only needs to apply the layered structure — no new validation logic to write for project scope.
+
 ### Phase 4 — Synthesis consolidation (L)
 
-The big one. Move `packages/mcp/src/synthesis/` into `packages/core/src/synthesis/`:
+The big one. `SynthesisRepository` is already in `core/src/synthesis/repository.ts` (flat). Move the remaining mcp pieces into core and apply the full layered structure:
 
 1. Add `@anthropic-ai/claude-agent-sdk` to `@membank/core` dependencies (use `pnpm add`, do not hand-edit `package.json`).
-2. Move `agent-loop.ts` → `core/src/synthesis/infrastructure/claude-agent-runner.ts`, refactored behind an `AgentRunner` port.
-3. Move `engine.ts` → `core/src/synthesis/application/engine.ts`.
-4. Update `packages/mcp/src/index.ts` and `packages/mcp/src/server.ts` to import the synthesis entrypoint from `@membank/core` and call it. Remove `packages/mcp/src/synthesis/`.
-5. Update `tsdown.config.ts` in core to keep `@anthropic-ai/claude-agent-sdk` external (do not bundle).
-6. Move `packages/mcp/src/synthesis/*.test.ts` to `packages/core/src/synthesis/`, adapting imports.
+2. Move `mcp/src/synthesis/agent-loop.ts` → `core/src/synthesis/infrastructure/claude-agent-runner.ts`, refactored behind an `AgentRunner` port.
+3. Move `mcp/src/synthesis/engine.ts` → `core/src/synthesis/application/engine.ts`.
+4. Move existing `core/src/synthesis/repository.ts` → `core/src/synthesis/infrastructure/sqlite-synthesis-repository.ts` (rename only, no logic change).
+5. Update `packages/mcp/src/index.ts` and `packages/mcp/src/server.ts` to import the synthesis entrypoint from `@membank/core` and call it. Remove `packages/mcp/src/synthesis/`.
+6. Update `tsdown.config.ts` in core to keep `@anthropic-ai/claude-agent-sdk` external (do not bundle).
+7. Move `packages/mcp/src/synthesis/*.test.ts` to `packages/core/src/synthesis/`, adapting imports.
 
 **Locked surface check**: the MCP server still triggers synthesis on the same events with the same debounce. Add an end-to-end test asserting that an MCP `save_memory` call still marks the scope dirty for synthesis.
 
