@@ -6,22 +6,24 @@ MCP server for membank. Exposes memory tools to LLMs via the [Model Context Prot
 
 Runs as a stdio MCP server. LLM harnesses (Claude Code, GitHub Copilot, etc.) connect to it and can call tools to query, save, update, delete, pin, and migrate memories.
 
-In most cases you don't need to use this package directly — `@membank/cli` starts the server via the `--mcp` flag and `membank setup` writes the harness config automatically.
+Run `membank setup` to auto-configure your harness — it writes the correct command for you.
 
 ## Usage
 
-### Start the server
+### Standalone binary (recommended)
+
+```bash
+npx @membank/mcp
+```
+
+Starts the stdio MCP server directly, without pulling in the full CLI package. This is what `membank setup` writes into harness configs.
+
+### Programmatic
 
 ```typescript
 import { startServer } from '@membank/mcp'
 
 await startServer()
-```
-
-Or via the CLI:
-
-```bash
-npx @membank/cli --mcp
 ```
 
 ### MCP config (manual)
@@ -31,9 +33,11 @@ If you're configuring a harness by hand, point it at:
 ```json
 {
   "command": "npx",
-  "args": ["@membank/cli", "--mcp"]
+  "args": ["-y", "@membank/mcp"]
 }
 ```
+
+> **Legacy:** `npx @membank/cli --mcp` still works but emits a deprecation warning. Run `membank setup upgrade` to migrate existing configs.
 
 ## Tools
 
