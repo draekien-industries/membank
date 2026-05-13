@@ -1,9 +1,9 @@
 import {
   createMemoryRepository,
+  createProjectRepository,
   DatabaseManager,
   EmbeddingService,
   isSynthesisEnabled,
-  ProjectRepository,
   QueryEngine,
   SynthesisRepository,
 } from "@membank/core";
@@ -57,7 +57,7 @@ export async function runSynthesis(scope: string): Promise<string> {
 
   const db = DatabaseManager.open();
   const embedding = new EmbeddingService();
-  const projects = new ProjectRepository(db);
+  const projects = createProjectRepository(db);
   const repo = createMemoryRepository(db, projects);
   const queryEngine = new QueryEngine(db, embedding, repo);
   const synthRepo = new SynthesisRepository(db);

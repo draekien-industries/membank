@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseManager } from "../../db/manager.js";
 import { rowToMemory, rowToReviewEvent } from "../../persistence/infrastructure/row-types.js";
-import type { ProjectRepository } from "../../project/repository.js";
+import type { ProjectRepository } from "../../project/ports.js";
 import type { MemoryRow, ReviewEventRow } from "../../schemas.js";
 import {
   MEMORY_TYPE_VALUES,
@@ -227,6 +227,29 @@ export class SqliteMemoryRepository implements MemoryRepository {
     return rows.map((row) =>
       rowToMemory(row, projectMap.get(row.id) ?? [], eventMap.get(row.id) ?? [])
     );
+  }
+
+  listPinnedGlobal(): Memory[] {
+    const rows = this.#db.db
+      .prepare<[], MemoryRow>(
+        `SELECT * FROM memories
+         WHERE id NOT IN (SELECT memory_id FROM memory_projects)
+         AND pinned = 1`
+      )
+      .all();
+    return rows.map((row) => rowToMemory(row, []));
+  }
+
+  listPinnedForProject(projectHash: string): Memory[] {
+    const rows = this.#db.db
+      .prepare<[string], MemoryRow>(
+        `SELECT m.* FROM memories m
+         JOIN memory_projects mp ON mp.memory_id = m.id
+         JOIN projects p ON p.id = mp.project_id
+         WHERE p.scope_hash = ? AND m.pinned = 1`
+      )
+      .all(projectHash);
+    return rows.map((row) => rowToMemory(row, []));
   }
 
   listFlagged(): Memory[] {

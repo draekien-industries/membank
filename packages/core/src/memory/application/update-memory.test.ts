@@ -29,6 +29,8 @@ function makeFakeRepo(updateResult: Memory): MemoryRepository & { updateCalls: u
     findById: () => undefined,
     findSimilar: () => [],
     list: () => [],
+    listPinnedGlobal: () => [],
+    listPinnedForProject: () => [],
     listFlagged: () => [],
     listReviewEvents: () => [],
     getPinnedCharCount: () => 0,

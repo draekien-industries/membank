@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { DatabaseManager } from "../db/manager.js";
+import { createMemoryRepository } from "../memory/infrastructure/sqlite-memory-repository.js";
+import { createProjectRepository } from "../project/infrastructure/sqlite-project-repository.js";
 import { listMemoryTypes, SessionContextBuilder } from "./builder.js";
 
 function insertMemory(
@@ -63,7 +65,9 @@ describe("SessionContextBuilder", () => {
 
   beforeEach(() => {
     db = DatabaseManager.openInMemory();
-    builder = new SessionContextBuilder(db);
+    const projects = createProjectRepository(db);
+    const repo = createMemoryRepository(db, projects);
+    builder = new SessionContextBuilder(repo);
   });
 
   it("returns pinned global memories", () => {

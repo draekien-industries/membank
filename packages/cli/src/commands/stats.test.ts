@@ -1,9 +1,9 @@
 import type { MemoryRepository } from "@membank/core";
 import {
   createMemoryRepository,
+  createProjectRepository,
   DatabaseManager,
   PIN_BUDGET_THRESHOLD,
-  ProjectRepository,
 } from "@membank/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Formatter } from "../formatter.js";
@@ -55,7 +55,7 @@ describe("stats command integration — real in-memory SQLite", () => {
 
   beforeEach(() => {
     db = DatabaseManager.openInMemory();
-    repo = createMemoryRepository(db, new ProjectRepository(db));
+    repo = createMemoryRepository(db, createProjectRepository(db));
   });
 
   it("stats returns correct counts per type", () => {

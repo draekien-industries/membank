@@ -29,22 +29,22 @@ Branch: `refactor/codebase-restructure`
 
 ## Phase 2 — Query + Embedding
 
-- [ ] `core/src/query/domain/scoring.ts` — cosine + recency + access-count scoring policy
-- [ ] `core/src/query/application/` — query use-cases
-- [ ] `core/src/query/infrastructure/` — SQLite query adapters
-- [ ] `core/src/query/ports.ts` — `MemoryRepository`, `Embedder` ports (or re-uses Memory's)
-- [ ] `core/src/query/index.ts`
-- [ ] `core/src/embedding/domain/`, `application/`, `infrastructure/` — layered shape
-- [ ] `core/src/embedding/ports.ts`
-- [ ] `core/src/embedding/index.ts`
+- [x] `core/src/query/domain/scoring.ts` — cosine + recency + access-count scoring policy
+- [x] `core/src/query/application/` — query use-cases
+- [x] `core/src/query/infrastructure/` — SQLite query adapters
+- [x] `core/src/query/ports.ts` — `MemoryRepository`, `Embedder` ports (or re-uses Memory's)
+- [x] `core/src/query/index.ts`
+- [x] `core/src/embedding/domain/`, `application/`, `infrastructure/` — layered shape
+- [x] `core/src/embedding/ports.ts`
+- [x] `core/src/embedding/index.ts`
 
 ## Phase 3 — Project + SessionInjection + Configuration
 
 > Already done (no checklist items): `ProjectRepository.upsertByHash()` validates 16-char hex (14efb94). Migration v5 (scope_hash CHECK constraint + corrupt-hash rescue) is in `db/manager.ts`. Phase 3 only applies layering.
 
-- [ ] `core/src/project/` — domain/application/infrastructure layered shape
-- [ ] `core/src/session/` — pinned-memory-bundle builder as pure application use-case over Memory + Project repositories
-- [ ] `core/src/config/` — runtime config resolution layered shape
+- [x] `core/src/project/` — domain/application/infrastructure layered shape
+- [x] `core/src/session/` — pinned-memory-bundle builder as pure application use-case over Memory + Project repositories
+- [x] `core/src/config/` — runtime config resolution layered shape
 
 ## Phase 4 — Synthesis Consolidation
 

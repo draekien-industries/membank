@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Embedder, MemoryRepository, Querier } from "@membank/core";
+import type { Embedder, MemoryRepository, ProjectRepository, Querier } from "@membank/core";
 import {
   createMemoryRepository,
+  createProjectRepository,
   DatabaseManager,
   EmbeddingService,
   isSynthesisEnabled,
@@ -11,7 +12,6 @@ import {
   MEMORY_TYPE_VALUES,
   MIGRATIONS,
   PIN_BUDGET_THRESHOLD,
-  ProjectRepository,
   QueryEngine,
   resolveProject,
   runScopeToProjectsMigration,
@@ -97,7 +97,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
     ? DatabaseManager.openInMemory()
     : DatabaseManager.open(options.dbPath);
   const embedding = new EmbeddingService();
-  const projects = new ProjectRepository(db);
+  const projects = createProjectRepository(db);
   const repo = createMemoryRepository(db, projects);
   const query = new QueryEngine(db, embedding, repo);
 

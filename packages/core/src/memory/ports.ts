@@ -39,6 +39,8 @@ export interface MemoryRepository {
     projectHash?: string
   ): SimilarMemoryResult[];
   list(opts?: { type?: MemoryType; pinned?: boolean }): Memory[];
+  listPinnedGlobal(): Memory[];
+  listPinnedForProject(projectHash: string): Memory[];
   listFlagged(): Memory[];
   listReviewEvents(memoryId: string, opts?: { unresolvedOnly?: boolean }): ReviewEvent[];
   getPinnedCharCount(): number;

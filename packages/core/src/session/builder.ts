@@ -1,63 +1,20 @@
-import type { DatabaseManager } from "../db/manager.js";
-import { rowToMemory } from "../persistence/infrastructure/row-types.js";
-import { MEMORY_TYPE_VALUES, MemoryTypeSchema } from "../schemas.js";
-import type { MemoryRow, MemoryType, SessionContext } from "../types.js";
-
-interface TypeCountRow {
-  type: string;
-  count: number;
-}
+import type { MemoryRepository } from "../memory/ports.js";
+import { MEMORY_TYPE_VALUES } from "../schemas.js";
+import type { MemoryType, SessionContext } from "../types.js";
+import { getSessionContext } from "./application/get-session-context.js";
 
 export function listMemoryTypes(): MemoryType[] {
   return [...MEMORY_TYPE_VALUES];
 }
 
 export class SessionContextBuilder {
-  readonly #db: DatabaseManager;
+  readonly #repo: MemoryRepository;
 
-  constructor(db: DatabaseManager) {
-    this.#db = db;
+  constructor(repo: MemoryRepository) {
+    this.#repo = repo;
   }
 
   getSessionContext(projectHash: string, synthesis?: string): SessionContext {
-    const typeCounts = this.#db.db
-      .prepare<[], TypeCountRow>("SELECT type, COUNT(*) as count FROM memories GROUP BY type")
-      .all();
-
-    const stats = Object.fromEntries(MEMORY_TYPE_VALUES.map((t) => [t, 0])) as Record<
-      MemoryType,
-      number
-    >;
-    for (const row of typeCounts) {
-      const parsed = MemoryTypeSchema.safeParse(row.type);
-      if (parsed.success) {
-        stats[parsed.data] = row.count;
-      }
-    }
-
-    if (synthesis !== undefined && synthesis.length > 0) {
-      return { stats, pinnedGlobal: [], pinnedProject: [], synthesis };
-    }
-
-    const pinnedGlobal = this.#db.db
-      .prepare<[], MemoryRow>(
-        `SELECT * FROM memories
-         WHERE id NOT IN (SELECT memory_id FROM memory_projects)
-         AND pinned = 1`
-      )
-      .all()
-      .map((row) => rowToMemory(row, []));
-
-    const pinnedProject = this.#db.db
-      .prepare<[string], MemoryRow>(
-        `SELECT m.* FROM memories m
-         JOIN memory_projects mp ON mp.memory_id = m.id
-         JOIN projects p ON p.id = mp.project_id
-         WHERE p.scope_hash = ? AND m.pinned = 1`
-      )
-      .all(projectHash)
-      .map((row) => rowToMemory(row, []));
-
-    return { stats, pinnedGlobal, pinnedProject };
+    return getSessionContext({ projectHash, synthesis }, { repo: this.#repo });
   }
 }

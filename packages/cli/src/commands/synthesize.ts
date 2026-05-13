@@ -1,4 +1,4 @@
-import { DatabaseManager, ProjectRepository } from "@membank/core";
+import { createProjectRepository, DatabaseManager } from "@membank/core";
 import { runSynthesis } from "@membank/mcp";
 import type { Formatter } from "../formatter.js";
 
@@ -55,7 +55,7 @@ export function synthesizeShowCommand(opts: { scope?: string }, formatter: Forma
 
     let resolvedScope = scope;
     if (scope !== "global" && !/^[0-9a-f]{16}$/.test(scope)) {
-      const project = new ProjectRepository(db).getByName(scope);
+      const project = createProjectRepository(db).getByName(scope);
       if (project !== undefined) {
         resolvedScope = project.scopeHash;
       }

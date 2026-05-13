@@ -1,8 +1,8 @@
 import type { EmbeddingService, Memory, MemoryRepository } from "@membank/core";
 import {
   createMemoryRepository,
+  createProjectRepository,
   DatabaseManager,
-  ProjectRepository,
   QueryEngine,
 } from "@membank/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -74,7 +74,7 @@ describe("query command integration — real in-memory SQLite", () => {
   beforeEach(() => {
     db = DatabaseManager.openInMemory();
     embeddingStub = { embed: vi.fn() } as unknown as EmbeddingService;
-    repo = createMemoryRepository(db, new ProjectRepository(db));
+    repo = createMemoryRepository(db, createProjectRepository(db));
     engine = new QueryEngine(db, embeddingStub, repo);
   });
 

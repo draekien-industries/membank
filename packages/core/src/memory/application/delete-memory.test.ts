@@ -10,6 +10,8 @@ function makeFakeRepo(): MemoryRepository & { deleteCalls: string[] } {
     findById: () => undefined,
     findSimilar: () => [],
     list: () => [],
+    listPinnedGlobal: () => [],
+    listPinnedForProject: () => [],
     listFlagged: () => [],
     listReviewEvents: () => [],
     getPinnedCharCount: () => 0,

@@ -1,8 +1,8 @@
 import type { EmbeddingService } from "@membank/core";
 import {
   createMemoryRepository,
+  createProjectRepository,
   DatabaseManager,
-  ProjectRepository,
   saveMemory,
 } from "@membank/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,7 +31,7 @@ function captureStdout(fn: () => void): string {
 }
 
 async function insertMemory(db: DatabaseManager, embeddingStub: EmbeddingService): Promise<string> {
-  const repo = createMemoryRepository(db, new ProjectRepository(db));
+  const repo = createMemoryRepository(db, createProjectRepository(db));
   const memory = await saveMemory(
     { content: "test content", type: "fact" },
     { repo, embedder: embeddingStub }

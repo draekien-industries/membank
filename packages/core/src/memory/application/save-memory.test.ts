@@ -61,6 +61,8 @@ function makeFakeRepo(
     update: () => makeMemory(),
     delete: () => {},
     list: () => [],
+    listPinnedGlobal: () => [],
+    listPinnedForProject: () => [],
     listFlagged: () => [],
     listReviewEvents: () => [],
     getPinnedCharCount: () => 0,

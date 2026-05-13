@@ -1,4 +1,4 @@
-import { createMemoryRepository, DatabaseManager, ProjectRepository } from "@membank/core";
+import { createMemoryRepository, createProjectRepository, DatabaseManager } from "@membank/core";
 import type { Formatter } from "../formatter.js";
 
 export async function reviewCommand(
@@ -7,7 +7,7 @@ export async function reviewCommand(
 ): Promise<void> {
   const db = DatabaseManager.open();
   try {
-    const repo = createMemoryRepository(db, new ProjectRepository(db));
+    const repo = createMemoryRepository(db, createProjectRepository(db));
 
     if (opts.resolve !== undefined) {
       repo.resolveReviewEvents(opts.resolve);

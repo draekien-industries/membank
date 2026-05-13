@@ -1,5 +1,7 @@
 import type { Memory, SessionContext } from "@membank/core";
 import {
+  createMemoryRepository,
+  createProjectRepository,
   DatabaseManager,
   resolveProject,
   SessionContextBuilder,
@@ -84,7 +86,9 @@ async function buildText(): Promise<string> {
   const resolved = await resolveProject();
   const db = DatabaseManager.open();
   try {
-    const builder = new SessionContextBuilder(db);
+    const projects = createProjectRepository(db);
+    const repo = createMemoryRepository(db, projects);
+    const builder = new SessionContextBuilder(repo);
     const synthRepo = new SynthesisRepository(db);
 
     const globalRow = synthRepo.getSynthesis("global");

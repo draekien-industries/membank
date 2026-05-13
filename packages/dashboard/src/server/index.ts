@@ -3,12 +3,12 @@ import { createServer } from "node:net";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import type { MemoryRepository, MemoryType, Project } from "@membank/core";
+import type { MemoryRepository, MemoryType, Project, ProjectRepository } from "@membank/core";
 import {
   createMemoryRepository,
+  createProjectRepository,
   DatabaseManager,
   EmbeddingService,
-  ProjectRepository,
   updateMemory,
 } from "@membank/core";
 import { Hono } from "hono";
@@ -329,7 +329,7 @@ export async function startDashboard(opts?: { port?: number }): Promise<void> {
 
   const db = DatabaseManager.open();
   const embedding = new EmbeddingService();
-  const projects = new ProjectRepository(db);
+  const projects = createProjectRepository(db);
   const repo = createMemoryRepository(db, projects);
 
   const app = createApiApp(db, repo, projects, embedding);

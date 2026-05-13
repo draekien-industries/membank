@@ -1,4 +1,8 @@
-import { createMemoryRepository, type DatabaseManager, ProjectRepository } from "@membank/core";
+import {
+  createMemoryRepository,
+  createProjectRepository,
+  type DatabaseManager,
+} from "@membank/core";
 import chalk from "chalk";
 import type { Formatter } from "../formatter.js";
 import type { PromptHelper } from "../prompt-helper.js";
@@ -23,7 +27,7 @@ export async function deleteCommand(
     return;
   }
 
-  const repo = createMemoryRepository(db, new ProjectRepository(db));
+  const repo = createMemoryRepository(db, createProjectRepository(db));
   repo.delete(id);
 
   process.stdout.write(`${chalk.green("✓")} Deleted memory: ${chalk.dim(id)}\n`);

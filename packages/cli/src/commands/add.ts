@@ -1,9 +1,9 @@
 import type { EmbeddingService } from "@membank/core";
 import {
   createMemoryRepository,
+  createProjectRepository,
   DatabaseManager,
   EmbeddingService as EmbeddingServiceImpl,
-  ProjectRepository,
   resolveProject,
   saveMemory,
 } from "@membank/core";
@@ -28,7 +28,7 @@ export async function addCommand(
   const resolvedDb = db ?? DatabaseManager.open();
   try {
     const embedder = embeddingService ?? new EmbeddingServiceImpl();
-    const projects = new ProjectRepository(resolvedDb);
+    const projects = createProjectRepository(resolvedDb);
     const repo = createMemoryRepository(resolvedDb, projects);
 
     const tags = options.tags !== undefined ? options.tags.split(",").map((t) => t.trim()) : [];
