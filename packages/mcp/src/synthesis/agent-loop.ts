@@ -27,13 +27,6 @@ export class SynthesisAgentLoop {
   }
 
   async run(scope: string): Promise<string> {
-    const apiKey = process.env.ANTHROPIC_API_KEY ?? process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    if (apiKey === undefined || apiKey === "") {
-      throw new Error(
-        "ANTHROPIC_API_KEY (or CLAUDE_CODE_OAUTH_TOKEN) is required for synthesis. Set one of these environment variables to enable synthesis."
-      );
-    }
-
     const queryMemoryTool = tool(
       "query_memory",
       "Search memories by semantic similarity",

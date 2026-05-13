@@ -249,7 +249,7 @@ export class SetupOrchestrator {
 
     if (this.#synthesisOptIn && !yes && !json) {
       const enableSynthesis = await this.#prompter(
-        "Enable memory synthesis? (experimental — summarizes memories at session start using Claude Haiku, requires ANTHROPIC_API_KEY)"
+        "Enable memory synthesis? (experimental — summarizes memories using Claude Haiku via your local claude CLI. Requires one of: claude auth login, ANTHROPIC_API_KEY, or CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`)"
       );
       if (enableSynthesis) {
         ConfigManager.set("synthesis.enabled", true);
