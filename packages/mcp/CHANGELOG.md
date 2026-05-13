@@ -1,5 +1,19 @@
 # @membank/mcp
 
+## 0.13.0
+
+### Minor Changes
+
+- cf7ae76: Added standalone `membank-mcp` binary — harnesses can now be configured to run `npx @membank/mcp` directly, skipping CLI overhead. Invoking `membank --mcp` still works but now emits a deprecation warning.
+
+### Patch Changes
+
+- 8ad48f1: Restructured all business logic into a layered domain/application/infrastructure architecture in core, making presentation packages (cli, mcp, dashboard) thin adapters with no SQL, no heavy native dependencies, and no direct infrastructure imports.
+- 8ad48f1: Optimized published bundles: externalized `zod` from `core` and `mcp` to prevent duplicate instances in consumer projects, removed unused `@anthropic-ai/claude-agent-sdk` dependency from `mcp`, added `@membank/dashboard` to CLI's never-bundle list, and enabled minification on library outputs.
+- Updated dependencies [8ad48f1]
+- Updated dependencies [8ad48f1]
+  - @membank/core@0.10.0
+
 ## 0.12.2
 
 ### Patch Changes

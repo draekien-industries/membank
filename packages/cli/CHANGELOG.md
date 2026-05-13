@@ -1,5 +1,21 @@
 # @membank/cli
 
+## 0.12.0
+
+### Minor Changes
+
+- cf7ae76: Removed `@membank/dashboard` as a CLI dependency, significantly reducing the `npx @membank/cli` install footprint. The `membank dashboard` command now prints a migration message directing users to `npx @membank/dashboard`. Added `membank setup upgrade` to automatically migrate existing harness configs from `npx @membank/cli --mcp` to the new `npx @membank/mcp` standalone binary. New harness setups configured by `membank setup` now use `npx @membank/mcp` by default.
+
+### Patch Changes
+
+- 8ad48f1: Restructured all business logic into a layered domain/application/infrastructure architecture in core, making presentation packages (cli, mcp, dashboard) thin adapters with no SQL, no heavy native dependencies, and no direct infrastructure imports.
+- 8ad48f1: Optimized published bundles: externalized `zod` from `core` and `mcp` to prevent duplicate instances in consumer projects, removed unused `@anthropic-ai/claude-agent-sdk` dependency from `mcp`, added `@membank/dashboard` to CLI's never-bundle list, and enabled minification on library outputs.
+- Updated dependencies [8ad48f1]
+- Updated dependencies [8ad48f1]
+- Updated dependencies [cf7ae76]
+  - @membank/core@0.10.0
+  - @membank/mcp@0.13.0
+
 ## 0.11.2
 
 ### Patch Changes
