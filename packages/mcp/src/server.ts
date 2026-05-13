@@ -33,7 +33,7 @@ import {
   SaveMemoryArgsSchema,
   UpdateMemoryArgsSchema,
 } from "./schemas.js";
-import type { SynthesisConfig } from "./synthesis/index.js";
+import type { SynthesisConfig, SynthesisTools } from "./synthesis/index.js";
 import { SynthesisAgentLoop, SynthesisEngine } from "./synthesis/index.js";
 
 const SERVER_NAME = "membank";
@@ -72,6 +72,22 @@ function loadSynthesisConfig(): SynthesisConfig {
   }
 }
 
+export function buildSynthesisTools(repo: MemoryRepository, query: QueryEngine): SynthesisTools {
+  return {
+    queryMemory: async (args) => {
+      const projectHash = args.global === true ? undefined : (await resolveProject()).hash;
+      const results = await query.query({
+        query: args.query,
+        projectHash,
+        limit: args.limit ?? 20,
+        includePinned: true,
+      });
+      return JSON.stringify(results);
+    },
+    getMemorySummary: async () => JSON.stringify(repo.stats()),
+  };
+}
+
 export function initCore(options: ServerOptions = {}): CoreServices {
   const db = options.useInMemoryDb
     ? DatabaseManager.openInMemory()
@@ -86,22 +102,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
 
   if (synthConfig.enabled) {
     const synthRepo = new SynthesisRepository(db);
-    const agentLoop = new SynthesisAgentLoop(
-      {
-        queryMemory: async (args) => {
-          const projectHash = args.global === true ? undefined : (await resolveProject()).hash;
-          const results = await query.query({
-            query: args.query,
-            projectHash,
-            limit: args.limit ?? 20,
-            includePinned: true,
-          });
-          return JSON.stringify(results);
-        },
-        getMemorySummary: async () => JSON.stringify(repo.stats()),
-      },
-      synthConfig
-    );
+    const agentLoop = new SynthesisAgentLoop(buildSynthesisTools(repo, query), synthConfig);
     synthEngine = new SynthesisEngine(db, synthRepo, synthConfig, agentLoop);
   }
 

@@ -1,6 +1,16 @@
+import {
+  DatabaseManager,
+  EmbeddingService,
+  isSynthesisEnabled,
+  MemoryRepository,
+  ProjectRepository,
+  QueryEngine,
+  SynthesisRepository,
+} from "@membank/core";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CoreServices } from "./server.js";
-import { createServer, initCore } from "./server.js";
+import { buildSynthesisTools, createServer, initCore } from "./server.js";
+import { SynthesisAgentLoop } from "./synthesis/index.js";
 
 export async function startServer(): Promise<void> {
   let core: CoreServices;
@@ -38,4 +48,35 @@ export async function startServer(): Promise<void> {
   const server = createServer(core);
   const transport = new StdioServerTransport();
   await server.connect(transport);
+}
+
+export async function runSynthesis(scope: string): Promise<string> {
+  if (!isSynthesisEnabled()) {
+    throw new Error("Synthesis is not enabled. Run: membank config set synthesis.enabled true");
+  }
+
+  const db = DatabaseManager.open();
+  const embedding = new EmbeddingService();
+  const projects = new ProjectRepository(db);
+  const repo = new MemoryRepository(db, embedding, projects);
+  const queryEngine = new QueryEngine(db, embedding, repo);
+  const synthRepo = new SynthesisRepository(db);
+  const agentLoop = new SynthesisAgentLoop(buildSynthesisTools(repo, queryEngine), {
+    enabled: true,
+  });
+
+  synthRepo.markInFlight(scope);
+  try {
+    const [content, sourceHash] = await Promise.all([
+      agentLoop.run(scope),
+      Promise.resolve(synthRepo.computeSourceMemoryHash(scope)),
+    ]);
+    synthRepo.saveSynthesis(scope, content, sourceHash);
+    return content;
+  } catch (err) {
+    synthRepo.clearInFlight(scope);
+    throw err;
+  } finally {
+    db.close();
+  }
 }

@@ -14,7 +14,7 @@ export interface SynthesisConfig {
   inFlightTimeoutMs?: number;
 }
 
-interface SynthesisTools {
+export interface SynthesisTools {
   queryMemory: (args: { query: string; limit?: number; global?: boolean }) => Promise<string>;
   getMemorySummary: () => Promise<string>;
 }

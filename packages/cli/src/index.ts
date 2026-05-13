@@ -18,7 +18,11 @@ import { pinCommand } from "./commands/pin.js";
 import { queryCommand } from "./commands/query.js";
 import { reviewCommand } from "./commands/review.js";
 import { statsCommand } from "./commands/stats.js";
-import { synthesizeShowCommand, synthesizeStatusCommand } from "./commands/synthesize.js";
+import {
+  synthesizeRunCommand,
+  synthesizeShowCommand,
+  synthesizeStatusCommand,
+} from "./commands/synthesize.js";
 import { unpinCommand } from "./commands/unpin.js";
 import { Formatter } from "./formatter.js";
 import { PromptHelper } from "./prompt-helper.js";
@@ -392,7 +396,22 @@ configCmd
     configShowCommand(formatter);
   });
 
-const synthesizeCmd = program.command("synthesize").description("view synthesis state");
+const synthesizeCmd = program.command("synthesize").description("view and manage synthesis");
+
+synthesizeCmd
+  .command("run")
+  .description("trigger a synthesis run for a scope")
+  .option("--scope <scope>", "scope to synthesize (default: global)")
+  .action(async (cmdOptions: { scope?: string }) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    try {
+      await synthesizeRunCommand(cmdOptions, formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
 
 synthesizeCmd
   .command("show")

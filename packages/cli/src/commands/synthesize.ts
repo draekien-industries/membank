@@ -1,4 +1,5 @@
 import { DatabaseManager } from "@membank/core";
+import { runSynthesis } from "@membank/mcp";
 import type { Formatter } from "../formatter.js";
 
 interface SynthesisRow {
@@ -20,6 +21,22 @@ function hasSynthesesTable(db: DatabaseManager): boolean {
     )
     .get();
   return row !== undefined;
+}
+
+export async function synthesizeRunCommand(
+  opts: { scope?: string },
+  formatter: Formatter
+): Promise<void> {
+  const scope = opts.scope ?? "global";
+  if (!formatter.isJson) {
+    process.stdout.write(`Running synthesis for scope: ${scope}\n`);
+  }
+  const content = await runSynthesis(scope);
+  if (formatter.isJson) {
+    process.stdout.write(`${JSON.stringify({ scope, content })}\n`);
+  } else {
+    process.stdout.write(`\nSynthesis complete for scope: ${scope}\n\n${content}\n\n`);
+  }
 }
 
 export function synthesizeShowCommand(opts: { scope?: string }, formatter: Formatter): void {
