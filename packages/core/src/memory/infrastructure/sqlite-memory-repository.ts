@@ -200,22 +200,38 @@ export class SqliteMemoryRepository implements MemoryRepository {
     this.#db.db.prepare(`DELETE FROM memories WHERE id = ?`).run(id);
   }
 
-  list(opts?: { type?: MemoryType; pinned?: boolean }): Memory[] {
+  list(opts?: {
+    type?: MemoryType;
+    pinned?: boolean;
+    needsReview?: boolean;
+    projectId?: string;
+  }): Memory[] {
     const conditions: string[] = [];
     const params: (string | number)[] = [];
 
     if (opts?.type !== undefined) {
-      conditions.push("type = ?");
+      conditions.push("m.type = ?");
       params.push(opts.type);
     }
     if (opts?.pinned === true) {
-      conditions.push("pinned = 1");
+      conditions.push("m.pinned = 1");
+    }
+    if (opts?.needsReview === true) {
+      conditions.push(
+        "EXISTS (SELECT 1 FROM memory_review_events e WHERE e.memory_id = m.id AND e.resolved_at IS NULL)"
+      );
+    }
+    if (opts?.projectId === "global") {
+      conditions.push("m.id NOT IN (SELECT memory_id FROM memory_projects)");
+    } else if (opts?.projectId !== undefined) {
+      conditions.push("m.id IN (SELECT memory_id FROM memory_projects WHERE project_id = ?)");
+      params.push(opts.projectId);
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
     const rows = this.#db.db
       .prepare<(string | number)[], MemoryRow>(
-        `SELECT * FROM memories ${where} ORDER BY created_at DESC`
+        `SELECT m.* FROM memories m ${where} ORDER BY m.created_at DESC`
       )
       .all(...params);
 

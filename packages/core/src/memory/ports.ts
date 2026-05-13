@@ -38,7 +38,12 @@ export interface MemoryRepository {
     type: MemoryType,
     projectHash?: string
   ): SimilarMemoryResult[];
-  list(opts?: { type?: MemoryType; pinned?: boolean }): Memory[];
+  list(opts?: {
+    type?: MemoryType;
+    pinned?: boolean;
+    needsReview?: boolean;
+    projectId?: string;
+  }): Memory[];
   listPinnedGlobal(): Memory[];
   listPinnedForProject(projectHash: string): Memory[];
   listFlagged(): Memory[];

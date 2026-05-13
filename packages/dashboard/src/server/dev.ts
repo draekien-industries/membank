@@ -14,7 +14,7 @@ const embedding = new EmbeddingService();
 const projects = createProjectRepository(db);
 const repo = createMemoryRepository(db, projects);
 
-const app = createApiApp(db, repo, projects, embedding);
+const app = createApiApp(repo, projects, embedding);
 
 serve({ fetch: app.fetch, port: PORT });
 process.stdout.write(`  API server → http://localhost:${PORT}\n`);

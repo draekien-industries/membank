@@ -3,7 +3,7 @@ import { createServer } from "node:net";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import type { MemoryRepository, MemoryType, Project, ProjectRepository } from "@membank/core";
+import type { Embedder, MemoryRepository, MemoryType, ProjectRepository } from "@membank/core";
 import {
   createMemoryRepository,
   createProjectRepository,
@@ -29,80 +29,6 @@ const MIME: Record<string, string> = {
   ".png": "image/png",
   ".json": "application/json",
 };
-
-interface MemoryRow {
-  id: string;
-  content: string;
-  type: string;
-  tags: string;
-  source: string | null;
-  access_count: number;
-  pinned: number;
-  created_at: string;
-  updated_at: string;
-}
-
-interface ReviewEventRow {
-  id: string;
-  memory_id: string;
-  conflicting_memory_id: string | null;
-  similarity: number;
-  conflict_content_snapshot: string;
-  reason: string;
-  created_at: string;
-  resolved_at: string | null;
-}
-
-function parseReviewEvent(row: ReviewEventRow) {
-  return {
-    id: row.id,
-    memoryId: row.memory_id,
-    conflictingMemoryId: row.conflicting_memory_id,
-    similarity: row.similarity,
-    conflictContentSnapshot: row.conflict_content_snapshot,
-    reason: row.reason,
-    createdAt: row.created_at,
-    resolvedAt: row.resolved_at,
-  };
-}
-
-function getReviewEventsForMemories(db: DatabaseManager, ids: string[]) {
-  if (ids.length === 0) return new Map<string, ReturnType<typeof parseReviewEvent>[]>();
-  const placeholders = ids.map(() => "?").join(", ");
-  const rows = db.db
-    .prepare<string[], ReviewEventRow>(
-      `SELECT * FROM memory_review_events WHERE memory_id IN (${placeholders}) AND resolved_at IS NULL ORDER BY created_at DESC`
-    )
-    .all(...ids);
-  const map = new Map<string, ReturnType<typeof parseReviewEvent>[]>();
-  for (const row of rows) {
-    const event = parseReviewEvent(row);
-    const existing = map.get(event.memoryId) ?? [];
-    existing.push(event);
-    map.set(event.memoryId, existing);
-  }
-  return map;
-}
-
-function parseRow(
-  row: MemoryRow,
-  projects: Project[] = [],
-  reviewEvents: ReturnType<typeof parseReviewEvent>[] = []
-) {
-  return {
-    id: row.id,
-    content: row.content,
-    type: row.type,
-    tags: JSON.parse(row.tags) as string[],
-    projects,
-    sourceHarness: row.source,
-    accessCount: row.access_count,
-    pinned: row.pinned !== 0,
-    reviewEvents,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
 
 function tryPort(port: number): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -130,82 +56,36 @@ async function findFreePort(preferred: number): Promise<number> {
 }
 
 export function createApiApp(
-  db: DatabaseManager,
   repo: MemoryRepository,
   projectRepo: ProjectRepository,
-  embedder: EmbeddingService
+  embedder: Embedder
 ): Hono {
   const app = new Hono();
 
-  // List memories with optional filters
   app.get("/api/memories", (c) => {
     const { type, pinned, needsReview, search, projectId } = c.req.query();
-
-    const conditions: string[] = [];
-    const params: (string | number)[] = [];
-
-    if (type) {
-      conditions.push("m.type = ?");
-      params.push(type);
-    }
-    if (pinned === "true") {
-      conditions.push("m.pinned = 1");
-    }
-    if (needsReview === "true") {
-      conditions.push(
-        "EXISTS (SELECT 1 FROM memory_review_events e WHERE e.memory_id = m.id AND e.resolved_at IS NULL)"
-      );
-    }
-    if (projectId === "global") {
-      conditions.push("m.id NOT IN (SELECT memory_id FROM memory_projects)");
-    } else if (projectId) {
-      conditions.push("m.id IN (SELECT memory_id FROM memory_projects WHERE project_id = ?)");
-      params.push(projectId);
-    }
-
-    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-    const rows = db.db
-      .prepare<(string | number)[], MemoryRow>(
-        `SELECT m.* FROM memories m ${where} ORDER BY m.created_at DESC`
-      )
-      .all(...params);
-
-    const ids = rows.map((r) => r.id);
-    const projectMap = projectRepo.getProjectsForMemories(ids);
-    const eventMap = getReviewEventsForMemories(db, ids);
-
-    let memories = rows.map((r) =>
-      parseRow(r, projectMap.get(r.id) ?? [], eventMap.get(r.id) ?? [])
-    );
-
+    let memories = repo.list({
+      type: type as MemoryType | undefined,
+      pinned: pinned === "true" ? true : undefined,
+      needsReview: needsReview === "true" ? true : undefined,
+      projectId,
+    });
     if (search) {
       const q = search.toLowerCase();
       memories = memories.filter((m) => m.content.toLowerCase().includes(q));
     }
-
     return c.json(memories);
   });
 
-  // Get single memory
   app.get("/api/memories/:id", (c) => {
-    const id = c.req.param("id");
-    const row = db.db.prepare<[string], MemoryRow>("SELECT * FROM memories WHERE id = ?").get(id);
-
-    if (!row) return c.json({ error: "Not found" }, 404);
-
-    const projectMap = projectRepo.getProjectsForMemories([id]);
-    const eventMap = getReviewEventsForMemories(db, [id]);
-    return c.json(parseRow(row, projectMap.get(id) ?? [], eventMap.get(id) ?? []));
+    const memory = repo.findById(c.req.param("id"));
+    if (!memory) return c.json({ error: "Not found" }, 404);
+    return c.json(memory);
   });
 
-  // Update memory
   app.patch("/api/memories/:id", async (c) => {
     const id = c.req.param("id");
-
-    const existing = db.db
-      .prepare<[string], { id: string }>("SELECT id FROM memories WHERE id = ?")
-      .get(id);
-    if (!existing) return c.json({ error: "Not found" }, 404);
+    if (!repo.findById(id)) return c.json({ error: "Not found" }, 404);
 
     const body = await c.req.json<{
       content?: string;
@@ -215,110 +95,51 @@ export function createApiApp(
       needsReview?: boolean;
     }>();
 
-    const sets: string[] = [];
-    const sqlParams: (string | number)[] = [];
-
-    if (body.pinned !== undefined) {
-      sets.push("pinned = ?");
-      sqlParams.push(body.pinned ? 1 : 0);
-    }
-    if (body.type !== undefined) {
-      sets.push("type = ?");
-      sqlParams.push(body.type);
+    if (body.pinned !== undefined) repo.setPin(id, body.pinned);
+    if (body.needsReview === false) repo.resolveReviewEvents(id);
+    if (body.content !== undefined || body.tags !== undefined || body.type !== undefined) {
+      await updateMemory(
+        id,
+        { content: body.content, tags: body.tags, type: body.type as MemoryType | undefined },
+        { repo, embedder }
+      );
     }
 
-    if (sets.length > 0) {
-      sets.push("updated_at = ?");
-      sqlParams.push(new Date().toISOString(), id);
-      db.db.prepare(`UPDATE memories SET ${sets.join(", ")} WHERE id = ?`).run(...sqlParams);
-    }
-
-    if (body.needsReview === false) {
-      repo.resolveReviewEvents(id);
-    }
-
-    if (body.content !== undefined || body.tags !== undefined) {
-      await updateMemory(id, { content: body.content, tags: body.tags }, { repo, embedder });
-    }
-
-    const updated = db.db
-      .prepare<[string], MemoryRow>("SELECT * FROM memories WHERE id = ?")
-      .get(id) as MemoryRow;
-
-    const projectMap = projectRepo.getProjectsForMemories([id]);
-    const eventMap = getReviewEventsForMemories(db, [id]);
-    return c.json(parseRow(updated, projectMap.get(id) ?? [], eventMap.get(id) ?? []));
+    return c.json(repo.findById(id));
   });
 
-  // Delete memory
   app.delete("/api/memories/:id", (c) => {
     repo.delete(c.req.param("id"));
     return c.json({ ok: true });
   });
 
-  // Associate memory with project
   app.post("/api/memories/:id/projects", async (c) => {
-    const memoryId = c.req.param("id");
     const body = await c.req.json<{ projectId: string }>();
-    projectRepo.addAssociation(memoryId, body.projectId);
+    projectRepo.addAssociation(c.req.param("id"), body.projectId);
     return c.json({ ok: true });
   });
 
-  // Remove project association from memory
   app.delete("/api/memories/:id/projects/:projectId", (c) => {
     projectRepo.removeAssociation(c.req.param("id"), c.req.param("projectId"));
     return c.json({ ok: true });
   });
 
-  // List projects
   app.get("/api/projects", (c) => {
     return c.json(projectRepo.list());
   });
 
-  // Rename project
   app.patch("/api/projects/:id", async (c) => {
-    const id = c.req.param("id");
     const body = await c.req.json<{ name: string }>();
     try {
-      return c.json(projectRepo.rename(id, body.name));
+      return c.json(projectRepo.rename(c.req.param("id"), body.name));
     } catch {
       return c.json({ error: "Not found" }, 404);
     }
   });
 
-  // Stats
   app.get("/api/stats", (c) => {
-    const byType = {
-      correction: 0,
-      preference: 0,
-      decision: 0,
-      learning: 0,
-      fact: 0,
-    } as Record<MemoryType, number>;
-
-    const typeRows = db.db
-      .prepare<[], { type: string; count: number }>(
-        "SELECT type, COUNT(*) as count FROM memories GROUP BY type"
-      )
-      .all();
-
-    for (const row of typeRows) {
-      if (row.type in byType) {
-        byType[row.type as MemoryType] = row.count;
-      }
-    }
-
-    const totals = db.db
-      .prepare<[], { total: number }>("SELECT COUNT(*) as total FROM memories")
-      .get() ?? { total: 0 };
-
-    const reviewRow = db.db
-      .prepare<[], { needsReview: number }>(
-        "SELECT COUNT(DISTINCT memory_id) as needsReview FROM memory_review_events WHERE resolved_at IS NULL"
-      )
-      .get() ?? { needsReview: 0 };
-
-    return c.json({ byType, total: totals.total, needsReview: reviewRow.needsReview });
+    const { byType, total, needsReview } = repo.stats();
+    return c.json({ byType, total, needsReview });
   });
 
   return app;
@@ -332,9 +153,8 @@ export async function startDashboard(opts?: { port?: number }): Promise<void> {
   const projects = createProjectRepository(db);
   const repo = createMemoryRepository(db, projects);
 
-  const app = createApiApp(db, repo, projects, embedding);
+  const app = createApiApp(repo, projects, embedding);
 
-  // Static file serving + SPA fallback
   const __dir = dirname(fileURLToPath(import.meta.url));
   const clientDir = join(__dir, "client");
 
