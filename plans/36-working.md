@@ -7,7 +7,6 @@ Branch: `refactor/codebase-restructure`
 - [ ] Architecture lint rule added: `domain/` cannot import from `application/` or `infrastructure/`; `application/` cannot import from `infrastructure/`
 - [ ] Presentation package guard added: `cli`, `mcp`, `dashboard` may not import from `@membank/core/.../infrastructure/...`
 - [ ] Per-context layered shape documented in `packages/core/CLAUDE.md`
-- [ ] `pnpm typecheck && pnpm lint && pnpm test` green
 
 ## Phase 1 — Memory + Persistence
 
@@ -27,8 +26,6 @@ Branch: `refactor/codebase-restructure`
 - [ ] `core/src/memory/index.ts` — exports use-cases + Memory types + ports only
 - [ ] Old `memory/repository.ts` deleted
 - [ ] DB row-type helpers moved to `persistence/infrastructure/`
-- [ ] `pnpm typecheck && pnpm lint && pnpm test` green
-- [ ] Committed: `refactor(core): phase 1 — memory + persistence layering`
 
 ## Phase 2 — Query + Embedding
 
@@ -40,8 +37,6 @@ Branch: `refactor/codebase-restructure`
 - [ ] `core/src/embedding/domain/`, `application/`, `infrastructure/` — layered shape
 - [ ] `core/src/embedding/ports.ts`
 - [ ] `core/src/embedding/index.ts`
-- [ ] `pnpm typecheck && pnpm lint && pnpm test` green
-- [ ] Committed: `refactor(core): phase 2 — query + embedding layering`
 
 ## Phase 3 — Project + SessionInjection + Configuration
 
@@ -50,8 +45,6 @@ Branch: `refactor/codebase-restructure`
 - [ ] `core/src/project/` — domain/application/infrastructure layered shape
 - [ ] `core/src/session/` — pinned-memory-bundle builder as pure application use-case over Memory + Project repositories
 - [ ] `core/src/config/` — runtime config resolution layered shape
-- [ ] `pnpm typecheck && pnpm lint && pnpm test` green
-- [ ] Committed: `refactor(core): phase 3 — project + session + config layering`
 
 ## Phase 4 — Synthesis Consolidation
 
@@ -71,8 +64,6 @@ Branch: `refactor/codebase-restructure`
 - [ ] `@anthropic-ai/claude-agent-sdk` kept external in `core/tsdown.config.ts`
 - [ ] Synthesis tests moved to `core/src/synthesis/` with updated imports
 - [ ] E2E test: MCP `save_memory` call still marks scope dirty for synthesis
-- [ ] `pnpm typecheck && pnpm lint && pnpm test` green
-- [ ] Committed: `refactor(core,mcp): phase 4 — synthesis consolidation`
 
 ## Phase 5 — Dashboard Server as Thin Adapter
 
@@ -82,16 +73,12 @@ Branch: `refactor/codebase-restructure`
 - [ ] Each Hono handler rewritten to: parse → call use-case → return JSON (3–5 lines)
 - [ ] Custom `parseRow` / `parseReviewEvent` parsers in dashboard server deleted
 - [ ] Snapshot diff of `/api/*` response shapes is empty
-- [ ] `pnpm typecheck && pnpm lint && pnpm test` green
 - [ ] Dashboard React client verified working against new server build
-- [ ] Committed: `refactor(core,dashboard): phase 5 — dashboard server as thin adapter`
 
 ## Phase 6 — CLI Command Audit
 
 - [ ] Every `packages/cli/src/commands/*.ts` is pure formatting/IO (no inline business logic)
 - [ ] Any business logic from `inject.ts`, `import.ts`, `export.ts` moved to core use-cases
-- [ ] `pnpm typecheck && pnpm lint && pnpm test` green
-- [ ] Committed: `refactor(cli,core): phase 6 — cli command audit`
 
 ## Phase 7 — Cleanup & Guard Rail Enforcement
 
@@ -99,8 +86,6 @@ Branch: `refactor/codebase-restructure`
 - [ ] Deprecated `scope/` folder deleted (if no consumers remain)
 - [ ] All `@membank/core` exports verified to flow through `packages/core/src/index.ts`
 - [ ] No path from outside core reaches into any `infrastructure/` sub-folder
-- [ ] `pnpm typecheck && pnpm lint && pnpm test` green
-- [ ] Committed: `refactor(core): phase 7 — cleanup and guardrail enforcement`
 
 ## Definition of Done
 
