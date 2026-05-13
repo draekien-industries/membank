@@ -1,5 +1,28 @@
 # @membank/cli
 
+## 0.10.0
+
+### Minor Changes
+
+- b763c4d: Added config system and synthesis management commands. ConfigManager reads/writes ~/.membank/config.json. New commands: `membank config` (get/set/show) and `membank synthesize` (show/status). Synthesis opt-in prompt added to setup flow.
+- abece34: Add Stop hook to capture session-end memories.
+- 7994b23: Add pin budget warning when pinned memories exceed 8000 character threshold to prevent context bloat.
+
+### Patch Changes
+
+- Updated dependencies [bf4acd7]
+- Updated dependencies [b051d40]
+- Updated dependencies [499a69d]
+- Updated dependencies [3658eeb]
+- Updated dependencies [7994b23]
+- Updated dependencies [b763c4d]
+- Updated dependencies [b763c4d]
+- Updated dependencies [29010c6]
+- Updated dependencies [3731650]
+  - @membank/mcp@0.11.0
+  - @membank/core@0.9.0
+  - @membank/dashboard@0.5.1
+
 ## 0.9.0
 
 ### Minor Changes

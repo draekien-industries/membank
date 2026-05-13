@@ -1,5 +1,18 @@
 # @membank/core
 
+## 0.9.0
+
+### Minor Changes
+
+- 3658eeb: Add get_memory_summary MCP tool for session orientation — returns total, byType counts, pinned count, and review queue size.
+- 7994b23: Add pin budget warning when pinned memories exceed 8000 character threshold to prevent context bloat.
+- b763c4d: Added SynthesisRepository and syntheses table (migration 4) for background memory summarization. SessionContext extended with optional synthesis field.
+
+### Patch Changes
+
+- 499a69d: Add type reclassification to update_memory — memories can now have their type changed without losing history.
+- 3731650: Integrated cosine similarity into memory scoring formula to prioritize semantic relevance over type weight, rebalancing from `typeWeight × 0.4` to `cosine_sim × 0.4 + typeWeight × 0.25`
+
 ## 0.8.0
 
 ### Minor Changes
