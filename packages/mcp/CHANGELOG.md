@@ -1,5 +1,26 @@
 # @membank/mcp
 
+## 0.11.0
+
+### Minor Changes
+
+- bf4acd7: Add optional `global` parameter to query_memory tool to scope queries by project.
+- b051d40: Add list_flagged_memories and resolve_review MCP tools to expose dedup review queue.
+- 3658eeb: Add get_memory_summary MCP tool for session orientation — returns total, byType counts, pinned count, and review queue size.
+- 7994b23: Add pin budget warning when pinned memories exceed 8000 character threshold to prevent context bloat.
+- b763c4d: Added SynthesisEngine for background memory synthesis via Claude Haiku. Adaptive 45s debounce, per-scope in-flight guards, SHA-256 drift detection, 30-day TTL. Synthesis replaces verbatim pinned injection when available; falls back gracefully when absent or in-flight.
+
+### Patch Changes
+
+- 499a69d: Add type reclassification to update_memory — memories can now have their type changed without losing history.
+- 29010c6: Add missing provenance fields (createdAt, updatedAt, sourceHarness) to query_memory results
+- Updated dependencies [499a69d]
+- Updated dependencies [3658eeb]
+- Updated dependencies [7994b23]
+- Updated dependencies [b763c4d]
+- Updated dependencies [3731650]
+  - @membank/core@0.9.0
+
 ## 0.10.0
 
 ### Minor Changes
