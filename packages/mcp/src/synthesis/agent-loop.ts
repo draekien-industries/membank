@@ -4,8 +4,6 @@ import { z } from "zod";
 const SYNTHESIS_SYSTEM_PROMPT =
   "You are a memory synthesizer. Your job is to read the user's stored memories and produce a concise, well-structured summary of what's most important to remember about this user — their preferences, corrections, decisions, and key facts. Pinned memories are higher fidelity and should be weighted more heavily. Exclude transient or ephemeral details. Output plain text suitable for injection into an LLM context window. Be concise — target 200-400 words.";
 
-const MAX_TURNS = 3;
-
 export interface SynthesisConfig {
   enabled: boolean;
   maxTokensPerRun?: number;
@@ -81,7 +79,6 @@ export class SynthesisAgentLoop {
       prompt,
       options: {
         model: "claude-haiku-4-5-20251001",
-        maxTurns: MAX_TURNS,
         systemPrompt: SYNTHESIS_SYSTEM_PROMPT,
         mcpServers: { "membank-synthesis-tools": mcpServer },
         allowedTools: ["query_memory", "get_memory_summary"],
