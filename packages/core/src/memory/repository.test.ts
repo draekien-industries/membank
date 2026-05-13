@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseManager } from "../db/manager.js";
 import type { EmbeddingService } from "../embedding/service.js";
 import { ProjectRepository } from "../project/repository.js";
-import { MemoryRepository } from "./repository.js";
+import { MemoryRepository, PIN_BUDGET_THRESHOLD } from "./repository.js";
 
 // Build a unit-vector embedding seeded at a specific dimension index.
 function makeUnitVector(dimension: number): Float32Array {
@@ -226,5 +226,41 @@ describe("MemoryRepository", () => {
       .get(memory.id) as { access_count: number };
 
     expect(row.access_count).toBe(2);
+  });
+
+  it("getPinnedCharCount() returns 0 when no pinned memories", async () => {
+    vi.mocked(embeddingStub.embed).mockResolvedValue(makeUnitVector(0));
+    await repo.save({ content: "Unpinned memory", type: "fact" });
+
+    expect(repo.getPinnedCharCount()).toBe(0);
+  });
+
+  it("getPinnedCharCount() sums only pinned memory content lengths", async () => {
+    vi.mocked(embeddingStub.embed).mockResolvedValue(makeUnitVector(0));
+    const m1 = await repo.save({ content: "pinned memory one", type: "fact" });
+    vi.mocked(embeddingStub.embed).mockResolvedValue(makeUnitVector(1));
+    const m2 = await repo.save({ content: "unpinned memory", type: "fact" });
+
+    repo.setPin(m1.id, true);
+
+    const charCount = repo.getPinnedCharCount();
+    expect(charCount).toBe("pinned memory one".length);
+    expect(charCount).not.toBe("pinned memory one".length + "unpinned memory".length);
+
+    repo.setPin(m2.id, true);
+    expect(repo.getPinnedCharCount()).toBe("pinned memory one".length + "unpinned memory".length);
+  });
+
+  it("stats() includes pinBudgetChars field", async () => {
+    vi.mocked(embeddingStub.embed).mockResolvedValue(makeUnitVector(0));
+    const m = await repo.save({ content: "hello world", type: "fact" });
+    repo.setPin(m.id, true);
+
+    const stats = repo.stats();
+    expect(stats.pinBudgetChars).toBe("hello world".length);
+  });
+
+  it("PIN_BUDGET_THRESHOLD is exported as 8000", () => {
+    expect(PIN_BUDGET_THRESHOLD).toBe(8000);
   });
 });

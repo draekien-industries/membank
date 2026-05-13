@@ -1,10 +1,12 @@
 import {
   DatabaseManager,
   EmbeddingService,
+  isSynthesisEnabled,
   listMemoryTypes,
   MEMORY_TYPE_VALUES,
   MemoryRepository,
   MIGRATIONS,
+  PIN_BUDGET_THRESHOLD,
   ProjectRepository,
   QueryEngine,
   resolveProject,
@@ -390,6 +392,18 @@ export function createServer(core: CoreServices): Server {
 
       try {
         const memory = core.repo.setPin(args.id, pinned);
+
+        if (pinned) {
+          const charCount = core.repo.getPinnedCharCount();
+          if (charCount > PIN_BUDGET_THRESHOLD && !isSynthesisEnabled()) {
+            const result = {
+              ...memory,
+              pinBudgetWarning: `Pinned memories now use ${charCount} characters (threshold: ${PIN_BUDGET_THRESHOLD}). Consider unpinning older memories or enabling synthesis to compress them.`,
+            };
+            return { content: [{ type: "text", text: JSON.stringify(result) }] };
+          }
+        }
+
         return { content: [{ type: "text", text: JSON.stringify(memory) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

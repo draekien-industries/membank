@@ -1,2 +1,1 @@
-// Memory CRUD, dedup, scoring
-export { MemoryRepository } from "./repository.js";
+export { MemoryRepository, PIN_BUDGET_THRESHOLD } from "./repository.js";
