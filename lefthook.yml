@@ -7,6 +7,11 @@ pre-commit:
     test-core:
       glob: "packages/core/**/*.ts"
       run: pnpm --filter @membank/core test
+    test-core-integration:
+      glob: "packages/core/**/*.ts"
+      env:
+        MEMBANK_INTEGRATION: "true"
+      run: pnpm --filter @membank/core test:integration
     test-mcp:
       glob: "packages/mcp/**/*.ts"
       run: pnpm --filter @membank/mcp test

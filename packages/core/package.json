@@ -24,7 +24,7 @@
     "lint": "biome check ./src",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:integration": "vitest run --reporter=verbose src/**/*.integration.test.ts",
+    "test:integration": "vitest run --reporter=verbose",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
