@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import {
   DatabaseManager,
   EmbeddingService,
@@ -11,6 +14,7 @@ import {
   QueryEngine,
   resolveProject,
   runScopeToProjectsMigration,
+  SynthesisRepository,
 } from "@membank/core";
 import { Server } from "@modelcontextprotocol/sdk/server";
 import {
@@ -29,6 +33,8 @@ import {
   SaveMemoryArgsSchema,
   UpdateMemoryArgsSchema,
 } from "./schemas.js";
+import type { SynthesisConfig } from "./synthesis/index.js";
+import { SynthesisAgentLoop, SynthesisEngine } from "./synthesis/index.js";
 
 const SERVER_NAME = "membank";
 const SERVER_VERSION = "0.1.0";
@@ -39,11 +45,31 @@ export interface CoreServices {
   repo: MemoryRepository;
   query: QueryEngine;
   projects: ProjectRepository;
+  synthEngine?: SynthesisEngine;
 }
 
 export interface ServerOptions {
   dbPath?: string;
   useInMemoryDb?: boolean;
+}
+
+function loadSynthesisConfig(): SynthesisConfig {
+  const configPath = join(homedir(), ".membank", "config.json");
+  try {
+    const raw = readFileSync(configPath, "utf8");
+    const parsed = JSON.parse(raw) as {
+      synthesis?: Partial<SynthesisConfig>;
+    };
+    return {
+      enabled: parsed.synthesis?.enabled === true,
+      maxTokensPerRun: parsed.synthesis?.maxTokensPerRun,
+      debounceMs: parsed.synthesis?.debounceMs,
+      stalenessDays: parsed.synthesis?.stalenessDays,
+      inFlightTimeoutMs: parsed.synthesis?.inFlightTimeoutMs,
+    };
+  } catch {
+    return { enabled: false };
+  }
 }
 
 export function initCore(options: ServerOptions = {}): CoreServices {
@@ -54,7 +80,32 @@ export function initCore(options: ServerOptions = {}): CoreServices {
   const projects = new ProjectRepository(db);
   const repo = new MemoryRepository(db, embedding, projects);
   const query = new QueryEngine(db, embedding, repo);
-  return { db, embedding, repo, query, projects };
+
+  const synthConfig = loadSynthesisConfig();
+  let synthEngine: SynthesisEngine | undefined;
+
+  if (synthConfig.enabled) {
+    const synthRepo = new SynthesisRepository(db);
+    const agentLoop = new SynthesisAgentLoop(
+      {
+        queryMemory: async (args) => {
+          const projectHash = args.global === true ? undefined : (await resolveProject()).hash;
+          const results = await query.query({
+            query: args.query,
+            projectHash,
+            limit: args.limit ?? 20,
+            includePinned: true,
+          });
+          return JSON.stringify(results);
+        },
+        getMemorySummary: async () => JSON.stringify(repo.stats()),
+      },
+      synthConfig
+    );
+    synthEngine = new SynthesisEngine(db, synthRepo, synthConfig, agentLoop);
+  }
+
+  return { db, embedding, repo, query, projects, synthEngine };
 }
 
 function parseArgs<T>(schema: { parse: (v: unknown) => T }, raw: unknown): T {
@@ -261,6 +312,12 @@ export function createServer(core: CoreServices): Server {
           projectScope,
         });
 
+        if (core.synthEngine !== undefined) {
+          const scope =
+            memory.projects.length > 0 ? (memory.projects[0]?.scopeHash ?? "global") : "global";
+          core.synthEngine.markDirty(scope);
+        }
+
         return {
           content: [{ type: "text", text: JSON.stringify(memory) }],
         };
@@ -279,6 +336,13 @@ export function createServer(core: CoreServices): Server {
           type: args.type,
           tags: args.tags,
         });
+
+        if (core.synthEngine !== undefined) {
+          const scope =
+            memory.projects.length > 0 ? (memory.projects[0]?.scopeHash ?? "global") : "global";
+          core.synthEngine.markDirty(scope);
+        }
+
         return { content: [{ type: "text", text: JSON.stringify(memory) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -302,7 +366,24 @@ export function createServer(core: CoreServices): Server {
           };
         }
 
+        let memoryScopeBeforeDelete: string | undefined;
+        if (core.synthEngine !== undefined) {
+          const projectRow = core.db.db
+            .prepare<[string], { scope_hash: string }>(
+              `SELECT p.scope_hash FROM projects p
+               JOIN memory_projects mp ON mp.project_id = p.id
+               WHERE mp.memory_id = ?`
+            )
+            .get(args.id);
+          memoryScopeBeforeDelete = projectRow?.scope_hash ?? "global";
+        }
+
         await core.repo.delete(args.id);
+
+        if (core.synthEngine !== undefined && memoryScopeBeforeDelete !== undefined) {
+          core.synthEngine.markDirty(memoryScopeBeforeDelete);
+        }
+
         return {
           content: [{ type: "text", text: JSON.stringify({ success: true, id: args.id }) }],
         };

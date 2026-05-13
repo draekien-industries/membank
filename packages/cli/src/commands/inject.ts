@@ -1,5 +1,10 @@
 import type { Memory, SessionContext } from "@membank/core";
-import { DatabaseManager, resolveProject, SessionContextBuilder } from "@membank/core";
+import {
+  DatabaseManager,
+  resolveProject,
+  SessionContextBuilder,
+  SynthesisRepository,
+} from "@membank/core";
 import type { z } from "zod";
 import { InjectionHarnessSchema } from "../schemas.js";
 
@@ -25,12 +30,16 @@ function formatContext(ctx: SessionContext): string {
     parts.push(`<memory-stats>\n${statParts.join(", ")}\n</memory-stats>`);
   }
 
-  const allPinned: Memory[] = [...ctx.pinnedGlobal, ...ctx.pinnedProject];
-  if (allPinned.length > 0) {
-    const memLines = allPinned.map(
-      (m) => `  <memory type="${m.type}">${xmlEscape(m.content)}</memory>`
-    );
-    parts.push(`<pinned-memories>\n${memLines.join("\n")}\n</pinned-memories>`);
+  if (ctx.synthesis !== undefined && ctx.synthesis.length > 0) {
+    parts.push(`<synthesis>\n${ctx.synthesis}\n</synthesis>`);
+  } else {
+    const allPinned: Memory[] = [...ctx.pinnedGlobal, ...ctx.pinnedProject];
+    if (allPinned.length > 0) {
+      const memLines = allPinned.map(
+        (m) => `  <memory type="${m.type}">${xmlEscape(m.content)}</memory>`
+      );
+      parts.push(`<pinned-memories>\n${memLines.join("\n")}\n</pinned-memories>`);
+    }
   }
 
   parts.push(`<memory-guidance>\n${MEMORY_GUIDANCE}\n</memory-guidance>`);
@@ -63,12 +72,29 @@ function outputAdditionalContext(
   process.stdout.write(`${text}\n`);
 }
 
+function pickBestSynthesis(
+  globalSynthesis: string | undefined,
+  projectSynthesis: string | undefined
+): string | undefined {
+  // Project synthesis is more specific — prefer it when available
+  return projectSynthesis ?? globalSynthesis;
+}
+
 async function buildText(): Promise<string> {
   const resolved = await resolveProject();
   const db = DatabaseManager.open();
   try {
     const builder = new SessionContextBuilder(db);
-    const ctx = builder.getSessionContext(resolved.hash);
+    const synthRepo = new SynthesisRepository(db);
+
+    const globalRow = synthRepo.getSynthesis("global");
+    const projectRow = synthRepo.getSynthesis(resolved.hash);
+
+    const globalSynthesis = globalRow?.inFlightSince === null ? globalRow.content : undefined;
+    const projectSynthesis = projectRow?.inFlightSince === null ? projectRow.content : undefined;
+
+    const synthesis = pickBestSynthesis(globalSynthesis, projectSynthesis);
+    const ctx = builder.getSessionContext(resolved.hash, synthesis);
     return formatContext(ctx);
   } finally {
     db.close();

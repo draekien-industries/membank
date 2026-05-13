@@ -19,7 +19,26 @@ export class SessionContextBuilder {
     this.#db = db;
   }
 
-  getSessionContext(projectHash: string): SessionContext {
+  getSessionContext(projectHash: string, synthesis?: string): SessionContext {
+    const typeCounts = this.#db.db
+      .prepare<[], TypeCountRow>("SELECT type, COUNT(*) as count FROM memories GROUP BY type")
+      .all();
+
+    const stats = Object.fromEntries(MEMORY_TYPE_VALUES.map((t) => [t, 0])) as Record<
+      MemoryType,
+      number
+    >;
+    for (const row of typeCounts) {
+      const parsed = MemoryTypeSchema.safeParse(row.type);
+      if (parsed.success) {
+        stats[parsed.data] = row.count;
+      }
+    }
+
+    if (synthesis !== undefined && synthesis.length > 0) {
+      return { stats, pinnedGlobal: [], pinnedProject: [], synthesis };
+    }
+
     const pinnedGlobal = this.#db.db
       .prepare<[], MemoryRow>(
         `SELECT * FROM memories
@@ -38,21 +57,6 @@ export class SessionContextBuilder {
       )
       .all(projectHash)
       .map((row) => rowToMemory(row, []));
-
-    const typeCounts = this.#db.db
-      .prepare<[], TypeCountRow>("SELECT type, COUNT(*) as count FROM memories GROUP BY type")
-      .all();
-
-    const stats = Object.fromEntries(MEMORY_TYPE_VALUES.map((t) => [t, 0])) as Record<
-      MemoryType,
-      number
-    >;
-    for (const row of typeCounts) {
-      const parsed = MemoryTypeSchema.safeParse(row.type);
-      if (parsed.success) {
-        stats[parsed.data] = row.count;
-      }
-    }
 
     return { stats, pinnedGlobal, pinnedProject };
   }

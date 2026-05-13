@@ -12,6 +12,29 @@ export async function startServer(): Promise<void> {
     process.exit(1);
   }
 
+  if (core.synthEngine !== undefined) {
+    try {
+      await core.synthEngine.init();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`membank: synthesis engine init failed: ${message}\n`);
+    }
+  }
+
+  const shutdown = async (): Promise<void> => {
+    if (core.synthEngine !== undefined) {
+      await core.synthEngine.shutdown();
+    }
+    process.exit(0);
+  };
+
+  process.on("SIGTERM", () => {
+    void shutdown();
+  });
+  process.on("SIGINT", () => {
+    void shutdown();
+  });
+
   const server = createServer(core);
   const transport = new StdioServerTransport();
   await server.connect(transport);

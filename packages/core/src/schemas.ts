@@ -89,10 +89,24 @@ export const MemoryPatchSchema = z.object({
 });
 export type MemoryPatch = z.infer<typeof MemoryPatchSchema>;
 
+export const SynthesisSchema = z.object({
+  id: z.string(),
+  scope: z.string(),
+  content: z.string(),
+  sourceMemoryHash: z.string(),
+  synthesizedAt: z.string(),
+  expiresAt: z.string(),
+  inFlightSince: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Synthesis = z.infer<typeof SynthesisSchema>;
+
 export const SessionContextSchema = z.object({
   stats: z.record(MemoryTypeSchema, z.number()),
   pinnedGlobal: z.array(MemorySchema),
   pinnedProject: z.array(MemorySchema),
+  synthesis: z.string().optional(),
 });
 export type SessionContext = z.infer<typeof SessionContextSchema>;
 

@@ -6,6 +6,7 @@ import { startServer } from "@membank/mcp";
 import chalk from "chalk";
 import { Command } from "commander";
 import { addCommand } from "./commands/add.js";
+import { configGetCommand, configSetCommand, configShowCommand } from "./commands/config.js";
 import { dashboardCommand } from "./commands/dashboard.js";
 import { deleteCommand } from "./commands/delete.js";
 import { exportCommand } from "./commands/export.js";
@@ -17,6 +18,7 @@ import { pinCommand } from "./commands/pin.js";
 import { queryCommand } from "./commands/query.js";
 import { reviewCommand } from "./commands/review.js";
 import { statsCommand } from "./commands/stats.js";
+import { synthesizeShowCommand, synthesizeStatusCommand } from "./commands/synthesize.js";
 import { unpinCommand } from "./commands/unpin.js";
 import { Formatter } from "./formatter.js";
 import { PromptHelper } from "./prompt-helper.js";
@@ -289,6 +291,7 @@ program
       harnessSelector,
       modelDownloader: new ModelDownloader(),
       out: formatter.isJson ? undefined : decoratedOut,
+      synthesisOptIn: true,
     });
     try {
       const results = await orchestrator.run({
@@ -356,6 +359,66 @@ program
       await dashboardCommand(cmdOptions);
     } catch (err) {
       process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+      process.exit(2);
+    }
+  });
+
+const configCmd = program.command("config").description("manage membank configuration");
+
+configCmd
+  .command("get <key>")
+  .description("print a config value as JSON")
+  .action((key: string) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    configGetCommand(key, formatter);
+  });
+
+configCmd
+  .command("set <key> <value>")
+  .description("set a config value and persist")
+  .action((key: string, value: string) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    configSetCommand(key, value, formatter);
+  });
+
+configCmd
+  .command("show")
+  .description("print the entire config as formatted JSON")
+  .action(() => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    configShowCommand(formatter);
+  });
+
+const synthesizeCmd = program.command("synthesize").description("view synthesis state");
+
+synthesizeCmd
+  .command("show")
+  .description("display current synthesis for a scope")
+  .option("--scope <scope>", "scope to show (default: global)")
+  .action((cmdOptions: { scope?: string }) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    try {
+      synthesizeShowCommand(cmdOptions, formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+synthesizeCmd
+  .command("status")
+  .description("show all scopes with synthesis status")
+  .action(() => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    try {
+      synthesizeStatusCommand(formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
       process.exit(2);
     }
   });

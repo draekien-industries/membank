@@ -89,6 +89,30 @@ CREATE INDEX IF NOT EXISTS idx_review_events_memory_open
 ALTER TABLE memories DROP COLUMN needs_review;
 `,
   ],
+  [
+    4,
+    `
+CREATE TABLE IF NOT EXISTS syntheses (
+  id                  TEXT PRIMARY KEY,
+  scope               TEXT NOT NULL,
+  content             TEXT NOT NULL,
+  source_memory_hash  TEXT NOT NULL,
+  synthesized_at      TEXT NOT NULL,
+  expires_at          TEXT NOT NULL,
+  in_flight_since     TEXT,
+  created_at          TEXT NOT NULL,
+  updated_at          TEXT NOT NULL,
+  UNIQUE(scope),
+  CHECK(expires_at > synthesized_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_syntheses_expires_at
+  ON syntheses(expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_syntheses_scope_inflight
+  ON syntheses(scope) WHERE in_flight_since IS NOT NULL;
+`,
+  ],
 ];
 
 export class DatabaseManager {

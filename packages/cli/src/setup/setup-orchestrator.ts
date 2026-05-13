@@ -1,4 +1,5 @@
 import { createInterface } from "node:readline";
+import { ConfigManager } from "../config/index.js";
 import { SetupHarnessSchema } from "../schemas.js";
 import type { HarnessConfigWriter } from "./harness-config-writer.js";
 import { CommandError, SUPPORTED_HARNESSES } from "./harness-config-writer.js";
@@ -46,6 +47,8 @@ export interface OrchestratorDeps {
   modelDownloader?: ModelDownloaderLike;
   out?: (msg: string) => void;
   progressWrite?: (text: string) => void;
+  /** When true, prompt user to opt in to memory synthesis after model download. */
+  synthesisOptIn?: boolean;
 }
 
 function renderProgressBar(percentage: number, width: number): string {
@@ -73,6 +76,7 @@ export class SetupOrchestrator {
   readonly #modelDownloader: ModelDownloaderLike | undefined;
   readonly #out: (msg: string) => void;
   readonly #progressWrite: (text: string) => void;
+  readonly #synthesisOptIn: boolean;
 
   constructor(deps: OrchestratorDeps) {
     this.#detector = deps.detector ?? (() => detectHarnesses());
@@ -82,6 +86,7 @@ export class SetupOrchestrator {
     this.#harnessSelector = deps.harnessSelector;
     this.#modelDownloader = deps.modelDownloader;
     this.#out = deps.out ?? ((msg) => process.stdout.write(`${msg}\n`));
+    this.#synthesisOptIn = deps.synthesisOptIn ?? false;
     this.#progressWrite = deps.progressWrite ?? ((text) => process.stdout.write(text));
   }
 
@@ -240,6 +245,16 @@ export class SetupOrchestrator {
       modelDownloaded = !dlResult.skipped;
     } else {
       out("Model download step: see DRA-52");
+    }
+
+    if (this.#synthesisOptIn && !yes && !json) {
+      const enableSynthesis = await this.#prompter(
+        "Enable memory synthesis? (experimental — summarizes memories at session start using Claude Haiku, requires ANTHROPIC_API_KEY)"
+      );
+      if (enableSynthesis) {
+        ConfigManager.set("synthesis.enabled", true);
+        out("  ✓ Memory synthesis enabled.");
+      }
     }
 
     const written = results.filter((r) => r.status === "written").length;
