@@ -1,5 +1,14 @@
 # @membank/mcp
 
+## 0.11.1
+
+### Patch Changes
+
+- f5d63a0: Fix package README docs to match current API and feature set.
+- 61d7c6e: Fixed synthesis failing for users authenticated via `claude auth login` (keychain) by removing the incorrect pre-flight env var check; updated setup prompt to list all three valid auth paths (keychain, ANTHROPIC_API_KEY, CLAUDE_CODE_OAUTH_TOKEN).
+- Updated dependencies [f5d63a0]
+  - @membank/core@0.9.1
+
 ## 0.11.0
 
 ### Minor Changes
