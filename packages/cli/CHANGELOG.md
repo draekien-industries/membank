@@ -1,5 +1,14 @@
 # @membank/cli
 
+## 0.11.2
+
+### Patch Changes
+
+- Updated dependencies [14efb94]
+  - @membank/core@0.9.4
+  - @membank/mcp@0.12.2
+  - @membank/dashboard@0.5.5
+
 ## 0.11.1
 
 ### Patch Changes
