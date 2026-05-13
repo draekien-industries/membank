@@ -23,6 +23,7 @@ import {
   MigrateArgsSchema,
   PinMemoryArgsSchema,
   QueryMemoryArgsSchema,
+  ResolveReviewArgsSchema,
   SaveMemoryArgsSchema,
   UpdateMemoryArgsSchema,
 } from "./schemas.js";
@@ -202,6 +203,24 @@ export function createServer(core: CoreServices): Server {
           "Returns aggregate stats for session orientation: total memories, counts by type, pinned count, and review queue size.",
         inputSchema: { type: "object", properties: {}, required: [] },
       },
+      {
+        name: "list_flagged_memories",
+        description:
+          "List memories that have unresolved dedup review events. These were flagged automatically when a near-duplicate was saved (cosine similarity 0.75–0.92).",
+        inputSchema: { type: "object", properties: {}, required: [] },
+      },
+      {
+        name: "resolve_review",
+        description:
+          "Dismiss all unresolved review events for a memory. Use after reviewing the memory and deciding it should be kept as-is.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "string", description: "Memory id to resolve review events for" },
+          },
+          required: ["id"],
+        },
+      },
     ],
   }));
 
@@ -367,6 +386,42 @@ export function createServer(core: CoreServices): Server {
     if (request.params.name === "get_memory_summary") {
       try {
         return { content: [{ type: "text", text: JSON.stringify(core.repo.stats()) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true };
+      }
+    }
+
+    if (request.params.name === "list_flagged_memories") {
+      try {
+        const memories = core.repo.listFlagged();
+        return { content: [{ type: "text", text: JSON.stringify(memories) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true };
+      }
+    }
+
+    if (request.params.name === "resolve_review") {
+      const args = parseArgs(ResolveReviewArgsSchema, request.params.arguments);
+
+      try {
+        const exists =
+          core.db.db
+            .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
+            .get(args.id) !== undefined;
+
+        if (!exists) {
+          return {
+            content: [{ type: "text", text: `Memory not found: ${args.id}` }],
+            isError: true,
+          };
+        }
+
+        core.repo.resolveReviewEvents(args.id);
+        return {
+          content: [{ type: "text", text: JSON.stringify({ success: true, id: args.id }) }],
+        };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: message }], isError: true };

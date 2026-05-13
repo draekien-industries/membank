@@ -33,3 +33,7 @@ export const MigrateArgsSchema = z.discriminatedUnion("mode", [
 export const PinMemoryArgsSchema = z.object({
   id: z.string().min(1),
 });
+
+export const ResolveReviewArgsSchema = z.object({
+  id: z.string().min(1),
+});
