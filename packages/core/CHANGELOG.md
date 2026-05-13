@@ -1,5 +1,11 @@
 # @membank/core
 
+## 0.9.1
+
+### Patch Changes
+
+- f5d63a0: Fix package README docs to match current API and feature set.
+
 ## 0.9.0
 
 ### Minor Changes

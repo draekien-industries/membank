@@ -1,5 +1,13 @@
 # @membank/dashboard
 
+## 0.5.2
+
+### Patch Changes
+
+- f5d63a0: Fix package README docs to match current API and feature set.
+- Updated dependencies [f5d63a0]
+  - @membank/core@0.9.1
+
 ## 0.5.1
 
 ### Patch Changes
