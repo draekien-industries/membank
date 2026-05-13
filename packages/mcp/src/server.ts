@@ -105,19 +105,25 @@ export function createServer(core: CoreServices): Server {
       },
       {
         name: "update_memory",
-        description: "Update the content and/or tags of an existing memory by id.",
+        description:
+          "Update the content, type, and/or tags of an existing memory by id. All fields except id are optional.",
         inputSchema: {
           type: "object",
           properties: {
             id: { type: "string", description: "Memory id to update" },
             content: { type: "string", description: "New content for the memory" },
+            type: {
+              type: "string",
+              enum: [...MEMORY_TYPE_VALUES],
+              description: "New type for the memory (reclassification)",
+            },
             tags: {
               type: "array",
               items: { type: "string" },
               description: "Replacement tags (optional)",
             },
           },
-          required: ["id", "content"],
+          required: ["id"],
         },
       },
       {
@@ -263,6 +269,7 @@ export function createServer(core: CoreServices): Server {
       try {
         const memory = await core.repo.update(args.id, {
           content: args.content,
+          type: args.type,
           tags: args.tags,
         });
         return { content: [{ type: "text", text: JSON.stringify(memory) }] };

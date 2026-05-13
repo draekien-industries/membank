@@ -178,6 +178,30 @@ describe("MemoryRepository", () => {
     expect(embeddingStub.embed).toHaveBeenCalledTimes(2);
   });
 
+  it("update() reclassifies type without recomputing embedding", async () => {
+    vi.mocked(embeddingStub.embed).mockResolvedValue(makeUnitVector(0));
+    const original = await repo.save({ content: "Some fact", type: "fact" });
+
+    const updated = await repo.update(original.id, { type: "learning" });
+
+    expect(updated.type).toBe("learning");
+    expect(updated.content).toBe("Some fact");
+    expect(updated.id).toBe(original.id);
+    expect(embeddingStub.embed).toHaveBeenCalledTimes(1);
+  });
+
+  it("update() with type+content recomputes embedding", async () => {
+    vi.mocked(embeddingStub.embed).mockResolvedValue(makeUnitVector(0));
+    const original = await repo.save({ content: "Old content", type: "fact" });
+
+    vi.mocked(embeddingStub.embed).mockResolvedValue(makeUnitVector(1));
+    const updated = await repo.update(original.id, { type: "learning", content: "New content" });
+
+    expect(updated.type).toBe("learning");
+    expect(updated.content).toBe("New content");
+    expect(embeddingStub.embed).toHaveBeenCalledTimes(2);
+  });
+
   it("delete() removes the record; DB count decreases by 1", async () => {
     vi.mocked(embeddingStub.embed).mockResolvedValue(makeUnitVector(0));
     const memory = await repo.save({ content: "To be deleted", type: "fact" });
