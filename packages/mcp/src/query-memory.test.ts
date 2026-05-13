@@ -64,7 +64,7 @@ describe("query_memory tool", () => {
 
     const result = await session.client.callTool({
       name: "query_memory",
-      arguments: { query: "editor theme settings" },
+      arguments: { query: "editor theme settings", global: true },
     });
 
     expect(result.content).toHaveLength(1);
@@ -120,7 +120,7 @@ describe("query_memory tool", () => {
 
     const result = await session.client.callTool({
       name: "query_memory",
-      arguments: { query: "indentation style choice", type: "decision" },
+      arguments: { query: "indentation style choice", type: "decision", global: true },
     });
 
     if ("toolResult" in result) throw new Error("unreachable");
@@ -135,7 +135,7 @@ describe("query_memory tool", () => {
     }
   });
 
-  it("returns memories from all projects when querying", async () => {
+  it("global:true returns memories across all projects", async () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
@@ -151,7 +151,7 @@ describe("query_memory tool", () => {
 
     const result = await session.client.callTool({
       name: "query_memory",
-      arguments: { query: "linting tool configuration" },
+      arguments: { query: "linting tool configuration", global: true },
     });
 
     if ("toolResult" in result) throw new Error("unreachable");
@@ -161,6 +161,69 @@ describe("query_memory tool", () => {
     }>;
 
     expect(parsed.length).toBe(2);
+  });
+
+  it("default scope returns only memories from the current project", async () => {
+    const session = await startInProcess();
+    cleanup = session.cleanup;
+
+    // resolveProject() in tests resolves to the git remote or cwd hash — use a distinct hash for isolation
+    await session.core.repo.save({
+      content: "project-x uses webpack for bundling",
+      type: "fact",
+      projectScope: { hash: "project-x-hash", name: "project-x" },
+    });
+    await session.core.repo.save({
+      content: "project-y uses vite for bundling",
+      type: "fact",
+      projectScope: { hash: "project-y-hash", name: "project-y" },
+    });
+
+    // Default query resolves to the test process's project (not project-x or project-y)
+    const result = await session.client.callTool({
+      name: "query_memory",
+      arguments: { query: "bundler configuration" },
+    });
+
+    if ("toolResult" in result) throw new Error("unreachable");
+    const [block] = result.content;
+    const parsed = JSON.parse((block as { type: string; text: string }).text) as Array<{
+      content: string;
+    }>;
+
+    // Neither project-x nor project-y memories should appear for the test project scope
+    expect(parsed.some((r) => r.content.includes("project-x"))).toBe(false);
+    expect(parsed.some((r) => r.content.includes("project-y"))).toBe(false);
+  });
+
+  it("default scope finds memories saved to the current project", async () => {
+    const session = await startInProcess();
+    cleanup = session.cleanup;
+
+    // Save directly via MCP tool (default scope = current project from resolveProject())
+    const saveResult = await session.client.callTool({
+      name: "save_memory",
+      arguments: { content: "use pnpm for package management in this project", type: "fact" },
+    });
+
+    if ("toolResult" in saveResult) throw new Error("unreachable");
+    const [saveBlock] = saveResult.content;
+    const saved = JSON.parse((saveBlock as { type: string; text: string }).text) as {
+      id: string;
+    };
+
+    const queryResult = await session.client.callTool({
+      name: "query_memory",
+      arguments: { query: "package manager choice" },
+    });
+
+    if ("toolResult" in queryResult) throw new Error("unreachable");
+    const [queryBlock] = queryResult.content;
+    const parsed = JSON.parse((queryBlock as { type: string; text: string }).text) as Array<{
+      id: string;
+    }>;
+
+    expect(parsed.some((r) => r.id === saved.id)).toBe(true);
   });
 
   it("limit caps the number of results returned", async () => {
@@ -231,7 +294,7 @@ describe("query_memory tool", () => {
 
     const result = await session.client.callTool({
       name: "query_memory",
-      arguments: { query: "TypeScript strict mode" },
+      arguments: { query: "TypeScript strict mode", global: true },
     });
 
     if ("toolResult" in result) throw new Error("unreachable");
@@ -257,7 +320,7 @@ describe("query_memory tool", () => {
 
     const result = await session.client.callTool({
       name: "query_memory",
-      arguments: { query: "TypeScript strict mode", includePinned: true },
+      arguments: { query: "TypeScript strict mode", includePinned: true, global: true },
     });
 
     if ("toolResult" in result) throw new Error("unreachable");

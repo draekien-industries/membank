@@ -156,6 +156,11 @@ export function createServer(core: CoreServices): Server {
               description:
                 "Include pinned memories in results. Pinned memories are already injected into session context, so excluded by default to avoid duplicates.",
             },
+            global: {
+              type: "boolean",
+              description:
+                "Query global memories only. When omitted or false, queries the current project scope.",
+            },
           },
           required: ["query"],
         },
@@ -307,11 +312,13 @@ export function createServer(core: CoreServices): Server {
 
     if (request.params.name === "query_memory") {
       const args = parseArgs(QueryMemoryArgsSchema, request.params.arguments);
+      const projectHash = args.global === true ? undefined : (await resolveProject()).hash;
 
       try {
         const results = await core.query.query({
           query: args.query,
           type: args.type,
+          projectHash,
           limit: args.limit ?? 10,
           includePinned: args.includePinned,
         });
