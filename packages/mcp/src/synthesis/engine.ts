@@ -103,7 +103,8 @@ export class SynthesisEngine {
     this.#synthRepo.markInFlight(scope);
 
     try {
-      const content = await this.#agentLoop.run(scope);
+      const projectHash = scope === "global" ? undefined : scope;
+      const content = await this.#agentLoop.run(scope, projectHash);
       const sourceHash = this.#synthRepo.computeSourceMemoryHash(scope);
       this.#synthRepo.saveSynthesis(scope, content, sourceHash);
       this.#failureCounts.delete(scope);

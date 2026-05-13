@@ -13,7 +13,12 @@ export interface SynthesisConfig {
 }
 
 export interface SynthesisTools {
-  queryMemory: (args: { query: string; limit?: number; global?: boolean }) => Promise<string>;
+  queryMemory: (args: {
+    query: string;
+    limit?: number;
+    global?: boolean;
+    projectHash?: string;
+  }) => Promise<string>;
   getMemorySummary: () => Promise<string>;
 }
 
@@ -24,7 +29,7 @@ export class SynthesisAgentLoop {
     this.#tools = tools;
   }
 
-  async run(scope: string): Promise<string> {
+  async run(scope: string, projectHash?: string): Promise<string> {
     const queryMemoryTool = tool(
       "query_memory",
       "Search memories by semantic similarity",
@@ -41,6 +46,7 @@ export class SynthesisAgentLoop {
           query: q,
           limit,
           global: isGlobal,
+          projectHash,
         });
         return { content: [{ type: "text" as const, text: result }] };
       },

@@ -65,16 +65,26 @@ export async function runSynthesis(scope: string): Promise<string> {
     enabled: true,
   });
 
-  synthRepo.markInFlight(scope);
+  let resolvedScope = scope;
+  if (scope !== "global" && !/^[0-9a-f]{16}$/.test(scope)) {
+    const project = projects.getByName(scope);
+    if (project !== undefined) {
+      resolvedScope = project.scopeHash;
+    }
+  }
+
+  const projectHash = resolvedScope === "global" ? undefined : resolvedScope;
+
+  synthRepo.markInFlight(resolvedScope);
   try {
     const [content, sourceHash] = await Promise.all([
-      agentLoop.run(scope),
-      Promise.resolve(synthRepo.computeSourceMemoryHash(scope)),
+      agentLoop.run(resolvedScope, projectHash),
+      Promise.resolve(synthRepo.computeSourceMemoryHash(resolvedScope)),
     ]);
-    synthRepo.saveSynthesis(scope, content, sourceHash);
+    synthRepo.saveSynthesis(resolvedScope, content, sourceHash);
     return content;
   } catch (err) {
-    synthRepo.clearInFlight(scope);
+    synthRepo.clearInFlight(resolvedScope);
     throw err;
   } finally {
     db.close();

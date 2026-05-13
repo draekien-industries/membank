@@ -61,6 +61,13 @@ export class ProjectRepository {
     return row !== undefined ? rowToProject(row) : undefined;
   }
 
+  getByName(name: string): Project | undefined {
+    const row = this.#db.db
+      .prepare<[string], ProjectRow>(`SELECT * FROM projects WHERE name = ? LIMIT 1`)
+      .get(name);
+    return row !== undefined ? rowToProject(row) : undefined;
+  }
+
   addAssociation(memoryId: string, projectId: string): void {
     this.#db.db
       .prepare(`INSERT OR IGNORE INTO memory_projects (memory_id, project_id) VALUES (?, ?)`)

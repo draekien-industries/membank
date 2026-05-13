@@ -75,7 +75,8 @@ function loadSynthesisConfig(): SynthesisConfig {
 export function buildSynthesisTools(repo: MemoryRepository, query: QueryEngine): SynthesisTools {
   return {
     queryMemory: async (args) => {
-      const projectHash = args.global === true ? undefined : (await resolveProject()).hash;
+      const projectHash =
+        args.global === true ? undefined : (args.projectHash ?? (await resolveProject()).hash);
       const results = await query.query({
         query: args.query,
         projectHash,

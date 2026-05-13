@@ -1,4 +1,4 @@
-import { DatabaseManager } from "@membank/core";
+import { DatabaseManager, ProjectRepository } from "@membank/core";
 import { runSynthesis } from "@membank/mcp";
 import type { Formatter } from "../formatter.js";
 
@@ -52,11 +52,20 @@ export function synthesizeShowCommand(opts: { scope?: string }, formatter: Forma
     }
 
     const scope = opts.scope ?? "global";
+
+    let resolvedScope = scope;
+    if (scope !== "global" && !/^[0-9a-f]{16}$/.test(scope)) {
+      const project = new ProjectRepository(db).getByName(scope);
+      if (project !== undefined) {
+        resolvedScope = project.scopeHash;
+      }
+    }
+
     const row = db.db
       .prepare<[string], SynthesisRow>(
         "SELECT * FROM syntheses WHERE scope = ? ORDER BY synthesized_at DESC LIMIT 1"
       )
-      .get(scope);
+      .get(resolvedScope);
 
     if (row === undefined) {
       if (formatter.isJson) {
@@ -101,7 +110,14 @@ export function synthesizeStatusCommand(formatter: Formatter): void {
       return;
     }
 
-    const rows = db.db.prepare<[], SynthesisRow>("SELECT * FROM syntheses ORDER BY scope").all();
+    const rows = db.db
+      .prepare<[], SynthesisRow & { project_name: string | null }>(
+        `SELECT s.*, p.name AS project_name
+         FROM syntheses s
+         LEFT JOIN projects p ON p.scope_hash = s.scope
+         ORDER BY COALESCE(p.name, s.scope)`
+      )
+      .all();
 
     if (formatter.isJson) {
       process.stdout.write(`${JSON.stringify(rows)}\n`);
@@ -115,12 +131,13 @@ export function synthesizeStatusCommand(formatter: Formatter): void {
 
     process.stdout.write("\n");
     for (const row of rows) {
+      const displayScope = row.project_name ?? row.scope;
       const inFlight = row.in_flight_since !== null ? " [in-flight]" : "";
       const synthesized =
         row.synthesized_at !== null ? new Date(row.synthesized_at).toLocaleString() : "(never)";
       const expires =
         row.expires_at !== null ? new Date(row.expires_at).toLocaleString() : "(none)";
-      process.stdout.write(`  ${row.scope}${inFlight}\n`);
+      process.stdout.write(`  ${displayScope}${inFlight}\n`);
       process.stdout.write(`    synthesized_at: ${synthesized}\n`);
       process.stdout.write(`    expires_at:     ${expires}\n`);
     }

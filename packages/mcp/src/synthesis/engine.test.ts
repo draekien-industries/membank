@@ -78,7 +78,7 @@ describe("SynthesisEngine", () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 100));
     await freshEngine.shutdown();
 
-    expect(vi.mocked(freshLoop.run)).toHaveBeenCalledWith("extra-scope");
+    expect(vi.mocked(freshLoop.run)).toHaveBeenCalledWith("extra-scope", "extra-scope");
   });
 
   it("multiple markDirty() calls for the same scope result in one synthesis per cycle", async () => {
@@ -115,7 +115,7 @@ describe("SynthesisEngine", () => {
     await engine2.init();
     await engine2.shutdown();
 
-    expect(vi.mocked(agentLoop.run)).not.toHaveBeenCalledWith("global");
+    expect(vi.mocked(agentLoop.run)).not.toHaveBeenCalledWith("global", undefined);
   });
 
   it("in-flight guard: allows resynthesis if in_flight_since is stale", async () => {
@@ -136,7 +136,7 @@ describe("SynthesisEngine", () => {
     await engine2.init();
     await engine2.shutdown();
 
-    expect(vi.mocked(agentLoop.run)).toHaveBeenCalledWith("global");
+    expect(vi.mocked(agentLoop.run)).toHaveBeenCalledWith("global", undefined);
   });
 
   it("engine does not crash when agentLoop.run() throws", async () => {
