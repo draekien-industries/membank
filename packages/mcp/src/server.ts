@@ -1,20 +1,32 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import type {
+  Embedder,
+  MemoryRepository,
+  ProjectRepository,
+  Querier,
+  SynthesisConfig,
+  SynthesisTools,
+} from "@membank/core";
 import {
+  createMemoryRepository,
+  createProjectRepository,
+  createSynthesisAgentRunner,
+  createSynthesisRepository,
   DatabaseManager,
   EmbeddingService,
   isSynthesisEnabled,
   listMemoryTypes,
   MEMORY_TYPE_VALUES,
-  MemoryRepository,
   MIGRATIONS,
   PIN_BUDGET_THRESHOLD,
-  ProjectRepository,
   QueryEngine,
   resolveProject,
   runScopeToProjectsMigration,
-  SynthesisRepository,
+  SynthesisEngine,
+  saveMemory,
+  updateMemory,
 } from "@membank/core";
 import { Server } from "@modelcontextprotocol/sdk/server";
 import {
@@ -33,17 +45,15 @@ import {
   SaveMemoryArgsSchema,
   UpdateMemoryArgsSchema,
 } from "./schemas.js";
-import type { SynthesisConfig, SynthesisTools } from "./synthesis/index.js";
-import { SynthesisAgentLoop, SynthesisEngine } from "./synthesis/index.js";
 
 const SERVER_NAME = "membank";
 const SERVER_VERSION = "0.1.0";
 
 export interface CoreServices {
   db: DatabaseManager;
-  embedding: EmbeddingService;
+  embedding: Embedder;
   repo: MemoryRepository;
-  query: QueryEngine;
+  query: Querier;
   projects: ProjectRepository;
   synthEngine?: SynthesisEngine;
 }
@@ -72,7 +82,7 @@ function loadSynthesisConfig(): SynthesisConfig {
   }
 }
 
-export function buildSynthesisTools(repo: MemoryRepository, query: QueryEngine): SynthesisTools {
+export function buildSynthesisTools(repo: MemoryRepository, query: Querier): SynthesisTools {
   return {
     queryMemory: async (args) => {
       const projectHash =
@@ -94,17 +104,17 @@ export function initCore(options: ServerOptions = {}): CoreServices {
     ? DatabaseManager.openInMemory()
     : DatabaseManager.open(options.dbPath);
   const embedding = new EmbeddingService();
-  const projects = new ProjectRepository(db);
-  const repo = new MemoryRepository(db, embedding, projects);
+  const projects = createProjectRepository(db);
+  const repo = createMemoryRepository(db, projects);
   const query = new QueryEngine(db, embedding, repo);
 
   const synthConfig = loadSynthesisConfig();
   let synthEngine: SynthesisEngine | undefined;
 
   if (synthConfig.enabled) {
-    const synthRepo = new SynthesisRepository(db);
-    const agentLoop = new SynthesisAgentLoop(buildSynthesisTools(repo, query), synthConfig);
-    synthEngine = new SynthesisEngine(db, synthRepo, synthConfig, agentLoop);
+    const synthRepo = createSynthesisRepository(db);
+    const agentRunner = createSynthesisAgentRunner(buildSynthesisTools(repo, query), synthConfig);
+    synthEngine = new SynthesisEngine(synthRepo, synthConfig, agentRunner);
   }
 
   return { db, embedding, repo, query, projects, synthEngine };
@@ -307,12 +317,10 @@ export function createServer(core: CoreServices): Server {
       const projectScope = args.global === true ? undefined : await resolveProject();
 
       try {
-        const memory = await core.repo.save({
-          content: args.content,
-          type: args.type,
-          tags: args.tags,
-          projectScope,
-        });
+        const memory = await saveMemory(
+          { content: args.content, type: args.type, tags: args.tags, projectScope },
+          { repo: core.repo, embedder: core.embedding }
+        );
 
         if (core.synthEngine !== undefined) {
           const scope =
@@ -333,11 +341,11 @@ export function createServer(core: CoreServices): Server {
       const args = parseArgs(UpdateMemoryArgsSchema, request.params.arguments);
 
       try {
-        const memory = await core.repo.update(args.id, {
-          content: args.content,
-          type: args.type,
-          tags: args.tags,
-        });
+        const memory = await updateMemory(
+          args.id,
+          { content: args.content, type: args.type, tags: args.tags },
+          { repo: core.repo, embedder: core.embedding }
+        );
 
         if (core.synthEngine !== undefined) {
           const scope =
@@ -356,31 +364,19 @@ export function createServer(core: CoreServices): Server {
       const args = parseArgs(DeleteMemoryArgsSchema, request.params.arguments);
 
       try {
-        const exists =
-          core.db.db
-            .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
-            .get(args.id) !== undefined;
+        const memory = core.repo.findById(args.id);
 
-        if (!exists) {
+        if (memory === undefined) {
           return {
             content: [{ type: "text", text: `Memory not found: ${args.id}` }],
             isError: true,
           };
         }
 
-        let memoryScopeBeforeDelete: string | undefined;
-        if (core.synthEngine !== undefined) {
-          const projectRow = core.db.db
-            .prepare<[string], { scope_hash: string }>(
-              `SELECT p.scope_hash FROM projects p
-               JOIN memory_projects mp ON mp.project_id = p.id
-               WHERE mp.memory_id = ?`
-            )
-            .get(args.id);
-          memoryScopeBeforeDelete = projectRow?.scope_hash ?? "global";
-        }
+        const memoryScopeBeforeDelete =
+          core.synthEngine !== undefined ? (memory.projects[0]?.scopeHash ?? "global") : undefined;
 
-        await core.repo.delete(args.id);
+        core.repo.delete(args.id);
 
         if (core.synthEngine !== undefined && memoryScopeBeforeDelete !== undefined) {
           core.synthEngine.markDirty(memoryScopeBeforeDelete);
@@ -517,12 +513,7 @@ export function createServer(core: CoreServices): Server {
       const args = parseArgs(ResolveReviewArgsSchema, request.params.arguments);
 
       try {
-        const exists =
-          core.db.db
-            .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
-            .get(args.id) !== undefined;
-
-        if (!exists) {
+        if (core.repo.findById(args.id) === undefined) {
           return {
             content: [{ type: "text", text: `Memory not found: ${args.id}` }],
             isError: true,

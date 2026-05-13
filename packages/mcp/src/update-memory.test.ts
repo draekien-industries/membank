@@ -1,3 +1,4 @@
+import { saveMemory } from "@membank/core";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
 import { afterEach, describe, expect, it } from "vitest";
@@ -66,10 +67,10 @@ describe("update_memory tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    const saved = await session.core.repo.save({
-      content: "use tabs for indentation",
-      type: "preference",
-    });
+    const saved = await saveMemory(
+      { content: "use tabs for indentation", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     const result = await session.client.callTool({
       name: "update_memory",
@@ -85,11 +86,10 @@ describe("update_memory tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    const saved = await session.core.repo.save({
-      content: "prefer functional components",
-      type: "preference",
-      tags: ["react"],
-    });
+    const saved = await saveMemory(
+      { content: "prefer functional components", type: "preference", tags: ["react"] },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     const result = await session.client.callTool({
       name: "update_memory",
@@ -131,10 +131,10 @@ describe("update_memory tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    const saved = await session.core.repo.save({
-      content: "always use semicolons",
-      type: "preference",
-    });
+    const saved = await saveMemory(
+      { content: "always use semicolons", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     const result = await session.client.callTool({
       name: "update_memory",
@@ -151,10 +151,10 @@ describe("update_memory tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    const saved = await session.core.repo.save({
-      content: "old content",
-      type: "fact",
-    });
+    const saved = await saveMemory(
+      { content: "old content", type: "fact" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     const result = await session.client.callTool({
       name: "update_memory",

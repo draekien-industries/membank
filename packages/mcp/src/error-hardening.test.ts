@@ -1,4 +1,5 @@
 import type { ProjectRepository } from "@membank/core";
+import { saveMemory } from "@membank/core";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -49,11 +50,11 @@ describe("error hardening", () => {
   });
 
   describe("save_memory core error propagation", () => {
-    it("returns ToolError when core.repo.save throws", async () => {
+    it("returns ToolError when embedding throws during save", async () => {
       const session = await startInProcess();
       cleanup = session.cleanup;
 
-      vi.spyOn(session.core.repo, "save").mockRejectedValue(new Error("DB locked"));
+      vi.spyOn(session.core.embedding, "embed").mockRejectedValue(new Error("DB locked"));
 
       const result = await session.client.callTool({
         name: "save_memory",
@@ -69,7 +70,7 @@ describe("error hardening", () => {
       const session = await startInProcess();
       cleanup = session.cleanup;
 
-      vi.spyOn(session.core.repo, "save").mockRejectedValueOnce(new Error("DB locked"));
+      vi.spyOn(session.core.embedding, "embed").mockRejectedValueOnce(new Error("DB locked"));
 
       await session.client.callTool({
         name: "save_memory",
@@ -97,7 +98,9 @@ describe("error hardening", () => {
       const session = await startInProcess();
       cleanup = session.cleanup;
 
-      vi.spyOn(session.core.repo, "update").mockRejectedValue(new Error("DB locked"));
+      vi.spyOn(session.core.repo, "update").mockImplementation(() => {
+        throw new Error("DB locked");
+      });
 
       const result = await session.client.callTool({
         name: "update_memory",
@@ -113,7 +116,9 @@ describe("error hardening", () => {
       const session = await startInProcess();
       cleanup = session.cleanup;
 
-      vi.spyOn(session.core.repo, "update").mockRejectedValueOnce(new Error("DB locked"));
+      vi.spyOn(session.core.repo, "update").mockImplementationOnce(() => {
+        throw new Error("DB locked");
+      });
 
       await session.client.callTool({
         name: "update_memory",
@@ -136,12 +141,14 @@ describe("error hardening", () => {
       const session = await startInProcess();
       cleanup = session.cleanup;
 
-      const saved = await session.core.repo.save({
-        content: "to be deleted",
-        type: "fact",
-      });
+      const saved = await saveMemory(
+        { content: "to be deleted", type: "fact" },
+        { repo: session.core.repo, embedder: session.core.embedding }
+      );
 
-      vi.spyOn(session.core.repo, "delete").mockRejectedValue(new Error("DB locked"));
+      vi.spyOn(session.core.repo, "delete").mockImplementation(() => {
+        throw new Error("DB locked");
+      });
 
       const result = await session.client.callTool({
         name: "delete_memory",
@@ -157,12 +164,14 @@ describe("error hardening", () => {
       const session = await startInProcess();
       cleanup = session.cleanup;
 
-      const saved = await session.core.repo.save({
-        content: "to be deleted",
-        type: "fact",
-      });
+      const saved = await saveMemory(
+        { content: "to be deleted", type: "fact" },
+        { repo: session.core.repo, embedder: session.core.embedding }
+      );
 
-      vi.spyOn(session.core.repo, "delete").mockRejectedValueOnce(new Error("DB locked"));
+      vi.spyOn(session.core.repo, "delete").mockImplementationOnce(() => {
+        throw new Error("DB locked");
+      });
 
       await session.client.callTool({
         name: "delete_memory",
@@ -256,13 +265,35 @@ describe("error hardening", () => {
           },
           close: () => {},
         } as unknown as CoreServices["db"],
-        embedding: {} as CoreServices["embedding"],
+        embedding: { embed: () => Promise.reject(dbError) } as unknown as CoreServices["embedding"],
         repo: {
-          save: () => Promise.reject(dbError),
-          update: () => Promise.reject(dbError),
-          delete: () => Promise.reject(dbError),
-          findById: () => Promise.resolve(undefined),
-          list: () => Promise.resolve([]),
+          create: () => {
+            throw dbError;
+          },
+          overwrite: () => {
+            throw dbError;
+          },
+          update: () => {
+            throw dbError;
+          },
+          delete: () => {
+            throw dbError;
+          },
+          findById: () => undefined,
+          findSimilar: () => [],
+          list: () => [],
+          listFlagged: () => [],
+          listReviewEvents: () => [],
+          getPinnedCharCount: () => 0,
+          stats: () => {
+            throw dbError;
+          },
+          createReviewEvent: () => {},
+          resolveReviewEvents: () => {},
+          setPin: () => {
+            throw dbError;
+          },
+          incrementAccessCount: () => {},
         } as unknown as CoreServices["repo"],
         query: {
           query: () => Promise.reject(dbError),

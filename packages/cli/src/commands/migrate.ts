@@ -1,7 +1,7 @@
 import {
+  createProjectRepository,
   DatabaseManager,
   MIGRATIONS,
-  ProjectRepository,
   runScopeToProjectsMigration,
 } from "@membank/core";
 import type { Formatter } from "../formatter.js";
@@ -39,7 +39,7 @@ export async function migrateCommand(
   const db = DatabaseManager.open();
   try {
     if (name === "scope-to-projects") {
-      const result = await runScopeToProjectsMigration(new ProjectRepository(db));
+      const result = await runScopeToProjectsMigration(createProjectRepository(db));
       if (result === null) {
         formatter.error("No project found for current directory.");
         return;

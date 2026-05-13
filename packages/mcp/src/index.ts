@@ -1,16 +1,17 @@
 import {
+  runSynthesis as coreSynthesis,
+  createMemoryRepository,
+  createProjectRepository,
+  createSynthesisAgentRunner,
+  createSynthesisRepository,
   DatabaseManager,
   EmbeddingService,
   isSynthesisEnabled,
-  MemoryRepository,
-  ProjectRepository,
   QueryEngine,
-  SynthesisRepository,
 } from "@membank/core";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CoreServices } from "./server.js";
 import { buildSynthesisTools, createServer, initCore } from "./server.js";
-import { SynthesisAgentLoop } from "./synthesis/index.js";
 
 export async function startServer(): Promise<void> {
   let core: CoreServices;
@@ -57,11 +58,11 @@ export async function runSynthesis(scope: string): Promise<string> {
 
   const db = DatabaseManager.open();
   const embedding = new EmbeddingService();
-  const projects = new ProjectRepository(db);
-  const repo = new MemoryRepository(db, embedding, projects);
+  const projects = createProjectRepository(db);
+  const repo = createMemoryRepository(db, projects);
   const queryEngine = new QueryEngine(db, embedding, repo);
-  const synthRepo = new SynthesisRepository(db);
-  const agentLoop = new SynthesisAgentLoop(buildSynthesisTools(repo, queryEngine), {
+  const synthRepo = createSynthesisRepository(db);
+  const agentRunner = createSynthesisAgentRunner(buildSynthesisTools(repo, queryEngine), {
     enabled: true,
   });
 
@@ -73,19 +74,8 @@ export async function runSynthesis(scope: string): Promise<string> {
     }
   }
 
-  const projectHash = resolvedScope === "global" ? undefined : resolvedScope;
-
-  synthRepo.markInFlight(resolvedScope);
   try {
-    const [content, sourceHash] = await Promise.all([
-      agentLoop.run(resolvedScope, projectHash),
-      Promise.resolve(synthRepo.computeSourceMemoryHash(resolvedScope)),
-    ]);
-    synthRepo.saveSynthesis(resolvedScope, content, sourceHash);
-    return content;
-  } catch (err) {
-    synthRepo.clearInFlight(resolvedScope);
-    throw err;
+    return await coreSynthesis(resolvedScope, { synthRepo, agentRunner });
   } finally {
     db.close();
   }

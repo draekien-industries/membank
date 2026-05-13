@@ -1,6 +1,7 @@
+import { saveMemory } from "@membank/core";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CoreServices } from "./server.js";
 import { createServer, initCore } from "./server.js";
 
@@ -190,11 +191,10 @@ describe("save_memory tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    await session.core.repo.save({
-      content: "always use TypeScript strict mode for all projects",
-      type: "preference",
-      // no projectScope = global memory
-    });
+    await saveMemory(
+      { content: "always use TypeScript strict mode for all projects", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     await session.client.callTool({
       name: "save_memory",
@@ -222,6 +222,25 @@ describe("save_memory tool", () => {
     await expect(
       session.client.callTool({ name: "save_memory", arguments: { type: "preference" } })
     ).rejects.toThrow();
+  });
+
+  it("marks synthesis scope dirty when synthEngine is present", async () => {
+    const session = await startInProcess();
+    cleanup = session.cleanup;
+
+    const markDirty = vi.fn();
+    session.core.synthEngine = {
+      markDirty,
+      init: vi.fn(),
+      shutdown: vi.fn(),
+    } as unknown as NonNullable<typeof session.core.synthEngine>;
+
+    await session.client.callTool({
+      name: "save_memory",
+      arguments: { content: "some preference", type: "preference", global: true },
+    });
+
+    expect(markDirty).toHaveBeenCalledWith("global");
   });
 
   it("missing type returns a structured MCP error", async () => {

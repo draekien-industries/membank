@@ -1,36 +1,28 @@
-import type { DatabaseManager, SynthesisRepository } from "@membank/core";
-import type { SynthesisAgentLoop, SynthesisConfig } from "./agent-loop.js";
-
-const DEFAULT_DEBOUNCE_MS = 45_000;
-const DEFAULT_IN_FLIGHT_TIMEOUT_MS = 120_000;
-const MAX_BACKOFF_MULTIPLIER = 5;
+import {
+  DEFAULT_DEBOUNCE_MS,
+  IN_FLIGHT_TIMEOUT_MS,
+  MAX_BACKOFF_MULTIPLIER,
+} from "../domain/debounce-policy.js";
+import type { AgentRunner, SynthesisConfig, SynthesisRepository } from "../ports.js";
 
 export class SynthesisEngine {
   readonly #synthRepo: SynthesisRepository;
   readonly #config: SynthesisConfig;
-  readonly #agentLoop: SynthesisAgentLoop;
+  readonly #agentRunner: AgentRunner;
   readonly #dirtyScopes = new Set<string>();
   readonly #failureCounts = new Map<string, number>();
   #running = false;
   #loopTimer: ReturnType<typeof setTimeout> | undefined;
   #inFlightPromises = new Map<string, Promise<void>>();
 
-  constructor(
-    _db: DatabaseManager,
-    synthRepo: SynthesisRepository,
-    config: SynthesisConfig,
-    agentLoop: SynthesisAgentLoop
-  ) {
+  constructor(synthRepo: SynthesisRepository, config: SynthesisConfig, agentRunner: AgentRunner) {
     this.#synthRepo = synthRepo;
     this.#config = config;
-    this.#agentLoop = agentLoop;
+    this.#agentRunner = agentRunner;
   }
 
   async init(): Promise<void> {
-    // Clear in_flight_since markers older than the timeout — they belong to a dead process.
-    this.#synthRepo.clearStaleInFlight(
-      this.#config.inFlightTimeoutMs ?? DEFAULT_IN_FLIGHT_TIMEOUT_MS
-    );
+    this.#synthRepo.clearStaleInFlight(this.#config.inFlightTimeoutMs ?? IN_FLIGHT_TIMEOUT_MS);
     this.#synthRepo.expireStale();
 
     const stale = this.#synthRepo.getExpiredOrDirtyScopes();
@@ -39,7 +31,6 @@ export class SynthesisEngine {
     }
 
     this.#running = true;
-    // Process any scopes discovered at startup immediately, then begin the periodic cycle
     await this.#debounceLoop();
   }
 
@@ -77,7 +68,7 @@ export class SynthesisEngine {
     const scopesToProcess = [...this.#dirtyScopes];
 
     for (const scope of scopesToProcess) {
-      const inFlightTimeoutMs = this.#config.inFlightTimeoutMs ?? DEFAULT_IN_FLIGHT_TIMEOUT_MS;
+      const inFlightTimeoutMs = this.#config.inFlightTimeoutMs ?? IN_FLIGHT_TIMEOUT_MS;
       const synthesis = this.#synthRepo.getSynthesis(scope);
 
       if (synthesis?.inFlightSince !== null && synthesis?.inFlightSince !== undefined) {
@@ -85,7 +76,6 @@ export class SynthesisEngine {
         if (inFlightMs < inFlightTimeoutMs) {
           continue;
         }
-        // Stale in-flight — clear it and allow resynthesis
         this.#synthRepo.clearInFlight(scope);
       }
 
@@ -104,7 +94,7 @@ export class SynthesisEngine {
 
     try {
       const projectHash = scope === "global" ? undefined : scope;
-      const content = await this.#agentLoop.run(scope, projectHash);
+      const content = await this.#agentRunner.run(scope, projectHash);
       const sourceHash = this.#synthRepo.computeSourceMemoryHash(scope);
       this.#synthRepo.saveSynthesis(scope, content, sourceHash);
       this.#failureCounts.delete(scope);
@@ -112,7 +102,6 @@ export class SynthesisEngine {
       const failures = (this.#failureCounts.get(scope) ?? 0) + 1;
       this.#failureCounts.set(scope, failures);
 
-      // Exponential backoff: re-queue with multiplied debounce up to MAX_BACKOFF_MULTIPLIER
       const backoffMultiplier = Math.min(failures, MAX_BACKOFF_MULTIPLIER);
       const backoffMs = (this.#config.debounceMs ?? DEFAULT_DEBOUNCE_MS) * backoffMultiplier;
 

@@ -1,3 +1,4 @@
+import { saveMemory } from "@membank/core";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
 import { afterEach, describe, expect, it } from "vitest";
@@ -80,9 +81,18 @@ describe("get_memory_summary tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    await session.core.repo.save({ content: "prefer tabs", type: "preference" });
-    await session.core.repo.save({ content: "use pnpm", type: "decision" });
-    await session.core.repo.save({ content: "node is fast", type: "fact" });
+    await saveMemory(
+      { content: "prefer tabs", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
+    await saveMemory(
+      { content: "use pnpm", type: "decision" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
+    await saveMemory(
+      { content: "node is fast", type: "fact" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     const result = await session.client.callTool({ name: "get_memory_summary", arguments: {} });
     if ("toolResult" in result) throw new Error("unreachable");
@@ -106,8 +116,14 @@ describe("get_memory_summary tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    const m1 = await session.core.repo.save({ content: "prefer tabs", type: "preference" });
-    await session.core.repo.save({ content: "use pnpm", type: "decision" });
+    const m1 = await saveMemory(
+      { content: "prefer tabs", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
+    await saveMemory(
+      { content: "use pnpm", type: "decision" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
     session.core.repo.setPin(m1.id, true);
 
     const result = await session.client.callTool({ name: "get_memory_summary", arguments: {} });
@@ -126,14 +142,14 @@ describe("get_memory_summary tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    const m1 = await session.core.repo.save({
-      content: "always use dark mode",
-      type: "preference",
-    });
-    const m2 = await session.core.repo.save({
-      content: "always use light mode",
-      type: "preference",
-    });
+    const m1 = await saveMemory(
+      { content: "always use dark mode", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
+    const m2 = await saveMemory(
+      { content: "always use light mode", type: "preference" },
+      { repo: session.core.repo, embedder: session.core.embedding }
+    );
 
     // Insert directly: real similarity dedup is non-deterministic in unit tests.
     session.core.db.db

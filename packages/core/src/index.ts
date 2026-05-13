@@ -1,4 +1,4 @@
-export * from "./config/loader.js";
+export * from "./config/index.js";
 export * from "./db/index.js";
 export * from "./embedding/index.js";
 export * from "./memory/index.js";

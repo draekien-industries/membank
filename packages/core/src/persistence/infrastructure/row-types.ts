@@ -1,4 +1,4 @@
-import { MemoryTypeSchema, ReviewEventRowSchema, TagsJsonSchema } from "../schemas.js";
+import { MemoryTypeSchema, ReviewEventRowSchema, TagsJsonSchema } from "../../schemas.js";
 import type {
   Memory,
   MemoryRow,
@@ -6,7 +6,7 @@ import type {
   ProjectRow,
   ReviewEvent,
   ReviewEventRow,
-} from "../types.js";
+} from "../../types.js";
 
 export function rowToMemory(
   row: MemoryRow,

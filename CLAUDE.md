@@ -12,7 +12,7 @@ packages/
   dashboard/  @membank/dashboard — web UI
 ```
 
-`core` has no workspace deps. `mcp` depends on `core`. `cli` depends on `core` and `mcp`. Build order is enforced by Turborepo.
+`core` has no workspace deps. `mcp` depends on `core`. `cli` depends on `core` and `mcp`. Build order is enforced by Turborepo. After you make a change, run `pnpm build` to rebuild in the correct order.
 
 ## Key commands
 

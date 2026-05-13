@@ -1,11 +1,11 @@
-import type { EmbeddingService } from "@membank/core";
+import type { MemoryRepository } from "@membank/core";
 import {
+  createMemoryRepository,
+  createProjectRepository,
   DatabaseManager,
-  MemoryRepository,
   PIN_BUDGET_THRESHOLD,
-  ProjectRepository,
 } from "@membank/core";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { Formatter } from "../formatter.js";
 
 interface InsertOpts {
@@ -55,8 +55,7 @@ describe("stats command integration — real in-memory SQLite", () => {
 
   beforeEach(() => {
     db = DatabaseManager.openInMemory();
-    const embeddingStub = { embed: vi.fn() } as unknown as EmbeddingService;
-    repo = new MemoryRepository(db, embeddingStub, new ProjectRepository(db));
+    repo = createMemoryRepository(db, createProjectRepository(db));
   });
 
   it("stats returns correct counts per type", () => {

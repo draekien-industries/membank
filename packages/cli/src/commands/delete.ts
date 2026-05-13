@@ -1,8 +1,7 @@
 import {
+  createMemoryRepository,
+  createProjectRepository,
   type DatabaseManager,
-  EmbeddingService,
-  MemoryRepository,
-  ProjectRepository,
 } from "@membank/core";
 import chalk from "chalk";
 import type { Formatter } from "../formatter.js";
@@ -14,11 +13,9 @@ export async function deleteCommand(
   formatter: Formatter,
   prompt: PromptHelper
 ): Promise<void> {
-  const row = db.db
-    .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
-    .get(id);
+  const repo = createMemoryRepository(db, createProjectRepository(db));
 
-  if (row === undefined) {
+  if (repo.findById(id) === undefined) {
     formatter.error(`Memory not found: ${id}`);
     process.exit(1);
   }
@@ -28,9 +25,7 @@ export async function deleteCommand(
     return;
   }
 
-  const embedding = new EmbeddingService();
-  const repo = new MemoryRepository(db, embedding, new ProjectRepository(db));
-  await repo.delete(id);
+  repo.delete(id);
 
   process.stdout.write(`${chalk.green("✓")} Deleted memory: ${chalk.dim(id)}\n`);
 }

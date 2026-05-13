@@ -16,9 +16,9 @@ vi.mock("@membank/core", async (importOriginal) => {
         pinnedProject: [],
       }),
     })),
-    SynthesisRepository: vi.fn().mockImplementation(() => ({
+    createSynthesisRepository: vi.fn().mockReturnValue({
       getSynthesis: vi.fn().mockReturnValue(undefined),
-    })),
+    }),
   };
 });
 

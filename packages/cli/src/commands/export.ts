@@ -1,21 +1,8 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseManager } from "@membank/core";
+import { createMemoryRepository, createProjectRepository } from "@membank/core";
 import type { Formatter } from "../formatter.js";
-import { TagsRowSchema } from "../schemas.js";
-
-interface ExportRow {
-  id: string;
-  content: string;
-  type: string;
-  tags: string;
-  source: string | null;
-  access_count: number;
-  pinned: number;
-  created_at: string;
-  updated_at: string;
-  embedding: Buffer | null;
-}
 
 export interface ExportRecord {
   id: string;
@@ -41,23 +28,27 @@ export function exportCommand(
   formatter: Formatter,
   opts: { output?: string }
 ): void {
-  const rows = db.db
-    .prepare<[], ExportRow>(
-      `SELECT m.*, e.embedding FROM memories m LEFT JOIN embeddings e ON e.rowid = m.rowid ORDER BY m.created_at DESC`
-    )
-    .all();
+  const repo = createMemoryRepository(db, createProjectRepository(db));
+  const rawRecords = repo.exportAll();
 
-  const memories: ExportRecord[] = rows.map((row) => ({
-    id: row.id,
-    content: row.content,
-    type: row.type,
-    tags: TagsRowSchema.parse(JSON.parse(row.tags)),
-    sourceHarness: row.source,
-    accessCount: row.access_count,
-    pinned: row.pinned !== 0,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    embedding: row.embedding !== null ? Buffer.from(row.embedding).toString("base64") : null,
+  const memories: ExportRecord[] = rawRecords.map((rec) => ({
+    id: rec.id,
+    content: rec.content,
+    type: rec.type,
+    tags: rec.tags,
+    sourceHarness: rec.sourceHarness,
+    accessCount: rec.accessCount,
+    pinned: rec.pinned,
+    createdAt: rec.createdAt,
+    updatedAt: rec.updatedAt,
+    embedding:
+      rec.embedding !== null
+        ? Buffer.from(
+            rec.embedding.buffer,
+            rec.embedding.byteOffset,
+            rec.embedding.byteLength
+          ).toString("base64")
+        : null,
   }));
 
   const exportedAt = new Date().toISOString();

@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { DatabaseManager } from "../db/manager.js";
-import { SynthesisRepository } from "./repository.js";
+import { DatabaseManager } from "../../db/manager.js";
+import type { SynthesisRepository } from "../ports.js";
+import { createSynthesisRepository } from "./sqlite-synthesis-repository.js";
 
-describe("SynthesisRepository", () => {
+describe("SqliteSynthesisRepository", () => {
   let db: DatabaseManager;
   let repo: SynthesisRepository;
 
   beforeEach(() => {
     db = DatabaseManager.openInMemory();
-    repo = new SynthesisRepository(db);
+    repo = createSynthesisRepository(db);
   });
 
   it("saveSynthesis() writes to DB and returns a Synthesis", () => {

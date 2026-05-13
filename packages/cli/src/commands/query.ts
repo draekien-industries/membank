@@ -1,8 +1,8 @@
 import {
+  createMemoryRepository,
+  createProjectRepository,
   DatabaseManager,
   EmbeddingService,
-  MemoryRepository,
-  ProjectRepository,
   QueryEngine,
 } from "@membank/core";
 import ora from "ora";
@@ -23,7 +23,7 @@ export async function queryCommand(
   const db = DatabaseManager.open();
   try {
     const embedding = new EmbeddingService();
-    const repo = new MemoryRepository(db, embedding, new ProjectRepository(db));
+    const repo = createMemoryRepository(db, createProjectRepository(db));
     const engine = new QueryEngine(db, embedding, repo);
 
     const limit = options.limit !== undefined ? LimitSchema.parse(options.limit) : 10;
