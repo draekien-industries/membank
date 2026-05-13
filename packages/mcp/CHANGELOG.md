@@ -1,5 +1,17 @@
 # @membank/mcp
 
+## 0.12.0
+
+### Minor Changes
+
+- 5ca75cb: Add `membank synthesize run` command to trigger a one-shot synthesis from the CLI, and export `runSynthesis` and `buildSynthesisTools` from `@membank/mcp` for use outside the MCP server.
+
+### Patch Changes
+
+- e4f8cfd: Fix in-flight synthesis markers getting permanently stuck after a process crash on non-dirty scopes. Engine now clears stale markers at startup using the same timeout threshold as the debounce loop.
+- Updated dependencies [e4f8cfd]
+  - @membank/core@0.9.2
+
 ## 0.11.2
 
 ### Patch Changes
