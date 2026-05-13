@@ -1,5 +1,20 @@
 # @membank/dashboard
 
+## 0.6.0
+
+### Minor Changes
+
+- cf7ae76: Added standalone `membank-dashboard` binary — users can now run `npx @membank/dashboard` directly with `--port` support, without installing the full CLI package.
+
+### Patch Changes
+
+- 8ad48f1: Restructured all business logic into a layered domain/application/infrastructure architecture in core, making presentation packages (cli, mcp, dashboard) thin adapters with no SQL, no heavy native dependencies, and no direct infrastructure imports.
+- cf7ae76: Added ora spinner and styled ready message to the membank-dashboard bin; added --open flag to opt into browser auto-open on startup.
+- 8ad48f1: Optimized published bundles: externalized `zod` from `core` and `mcp` to prevent duplicate instances in consumer projects, removed unused `@anthropic-ai/claude-agent-sdk` dependency from `mcp`, added `@membank/dashboard` to CLI's never-bundle list, and enabled minification on library outputs.
+- Updated dependencies [8ad48f1]
+- Updated dependencies [8ad48f1]
+  - @membank/core@0.10.0
+
 ## 0.5.5
 
 ### Patch Changes
