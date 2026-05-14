@@ -111,37 +111,9 @@ Changelog and release notes are generated automatically by changesets from the c
 
 After completing any implementation task, run `/simplify` to review the changes for reuse, quality, and efficiency before considering the work done.
 
-## Subagent worktree cleanup
-
-After any wave of subagents using `isolation: "worktree"`, clean up leftover worktrees:
-
-```bash
-git worktree list                        # identify stale entries
-git worktree remove -f -f <path>         # unregister (use -f -f to override lock)
-git worktree prune                       # remove stale refs
-rm -rf <path>                            # delete directory if still present
-```
-
-**Before removing a worktree**, ensure all changes are committed on its branch — uncommitted work is lost when the worktree is deleted. Verify with `git -C <path> status` and commit if needed before cleanup.
-
-Worktrees that made no changes are auto-cleaned by the framework. Ones that made changes (or were locked) need manual removal after their branches are merged.
-
-## Known subagent worktree pitfalls
-
-These failure modes have been observed in practice — check for them after every wave:
-
-**Pitfall 1 — Agent edits the main checkout instead of its worktree.**
-The `isolation: "worktree"` framework creates a separate working tree, but an agent can resolve relative file paths back to the main checkout (e.g. if it uses the repo root path directly). Result: `git worktree list` shows the worktree is gone (auto-cleaned as "no changes"), but `git diff HEAD` in the main checkout shows uncommitted modifications.
-- **Detect**: after agents complete, run `git status` and `git diff HEAD --stat` in the main checkout.
-- **Recover**: create a feature branch (`git checkout -b <branch>`), stage only the issue-specific files, write the changeset manually, commit, push, and open the PR.
-
-**Pitfall 2 — Agent finishes code/tests but stops before changeset + commit + PR.**
-Agents may report "tests pass" and exit without completing steps 6–8 (changeset, commit, PR). The worktree stays locked because it has uncommitted changes but never opened a PR.
-- **Detect**: after agents complete, run `gh pr list` — if the expected PRs are absent, check worktree status with `git -C <worktree-path> status`.
-- **Recover**: create the changeset file manually in `.changeset/` (format: frontmatter with package + bump type, then one-sentence description), then `git -C <path> add -A && git -C <path> commit -m "..."`, push the branch, and `gh pr create`.
-
-**Pitfall 3 — Agent is no longer addressable after it returns.**
-`SendMessage` to a named agent fails once it has exited. The orchestrator must complete any unfinished steps directly rather than re-dispatching.
+@CLAUDE.local.md is your state management tool! Keep track of what you are working on in this file so that you can maintain a working state of what you have just done.
+It is git ignored so you don't have to commit it or worry about what you are storing in here too much. Use the best format so you can keep track of what you have just completed
+and what is next on the list. Make sure to clean up after yourself though!
 
 **Changeset file format** (for manual creation):
 ```markdown
