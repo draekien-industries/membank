@@ -15,6 +15,7 @@ const badgeVariants = cva(
         decision: "bg-[var(--type-decision)]/15 text-[var(--type-decision)]",
         learning: "bg-[var(--type-learning)]/15 text-[var(--type-learning)]",
         fact: "bg-[var(--type-fact)]/15 text-[var(--type-fact)]",
+        stale: "bg-[var(--stale)]/15 text-[var(--stale)]",
       },
     },
     defaultVariants: {

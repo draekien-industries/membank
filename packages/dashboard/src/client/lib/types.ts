@@ -61,3 +61,17 @@ export interface Filters {
   pinned: boolean;
   needsReview: boolean;
 }
+
+export const SYNTHESIS_PENDING = "pending" as const;
+
+export interface Synthesis {
+  id: string;
+  scope: string;
+  content: string;
+  sourceMemoryHash: string;
+  synthesizedAt: string;
+  expiresAt: string;
+  inFlightSince: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

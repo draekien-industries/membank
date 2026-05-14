@@ -1,4 +1,4 @@
-import type { Filters, Memory, MemoryType, Project, Stats } from "./types";
+import type { Filters, Memory, MemoryType, Project, Stats, Synthesis } from "./types";
 
 const BASE = "/api";
 
@@ -71,4 +71,12 @@ export function removeMemoryProject(memoryId: string, projectId: string): Promis
   return request<void>(`/memories/${memoryId}/projects/${projectId}`, {
     method: "DELETE",
   });
+}
+
+export function listSyntheses(): Promise<Synthesis[]> {
+  return request<Synthesis[]>("/syntheses");
+}
+
+export function runProjectSynthesis(projectId: string): Promise<void> {
+  return request<void>(`/projects/${projectId}/synthesis`, { method: "POST" });
 }

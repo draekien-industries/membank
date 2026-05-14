@@ -1,8 +1,12 @@
 import { MagnifyingGlass } from "@phosphor-icons/react";
+import { useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute } from "@tanstack/react-router";
+import { projectsCollection } from "@/lib/collections";
+import { Route as MemoriesRoute } from "@/routes/memories";
+import { ProjectSynthesisPanel } from "@/views/ProjectSynthesisPanel";
 
 export const Route = createFileRoute("/memories/")({
-  component: EmptyDetail,
+  component: MemoriesIndexPanel,
 });
 
 function EmptyDetail() {
@@ -17,4 +21,18 @@ function EmptyDetail() {
       </p>
     </div>
   );
+}
+
+function MemoriesIndexPanel() {
+  const { projectId } = MemoriesRoute.useSearch();
+  const { data: allProjects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
+
+  if (projectId && projectId !== "global") {
+    const project = allProjects.find((p) => p.id === projectId);
+    if (project) {
+      return <ProjectSynthesisPanel project={project} />;
+    }
+  }
+
+  return <EmptyDetail />;
 }

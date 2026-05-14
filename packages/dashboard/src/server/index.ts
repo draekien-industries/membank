@@ -3,18 +3,46 @@ import { createServer } from "node:net";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import type { Embedder, MemoryRepository, MemoryType, ProjectRepository } from "@membank/core";
+import type {
+  Embedder,
+  MemoryRepository,
+  MemoryType,
+  ProjectRepository,
+  Querier,
+  SynthesisRepository,
+  SynthesisTools,
+} from "@membank/core";
 import {
   createMemoryRepository,
   createProjectRepository,
+  createSynthesisAgentRunner,
+  createSynthesisRepository,
   DatabaseManager,
   EmbeddingService,
+  isSynthesisEnabled,
+  QueryEngine,
+  runSynthesis,
   updateMemory,
 } from "@membank/core";
 import { Hono } from "hono";
 import open from "open";
 
 const PREFERRED_PORT = 3847;
+
+function buildSynthesisTools(repo: MemoryRepository, querier: Querier): SynthesisTools {
+  return {
+    queryMemory: async (args) => {
+      const results = await querier.query({
+        query: args.query,
+        projectHash: args.global === true ? undefined : args.projectHash,
+        limit: args.limit ?? 20,
+        includePinned: true,
+      });
+      return JSON.stringify(results);
+    },
+    getMemorySummary: async () => JSON.stringify(repo.stats()),
+  };
+}
 
 const MIME: Record<string, string> = {
   ".js": "application/javascript",
@@ -58,7 +86,9 @@ async function findFreePort(preferred: number): Promise<number> {
 export function createApiApp(
   repo: MemoryRepository,
   projectRepo: ProjectRepository,
-  embedder: Embedder
+  embedder: Embedder,
+  queryEngine: QueryEngine,
+  synthRepo: SynthesisRepository
 ): Hono {
   const app = new Hono();
 
@@ -142,6 +172,27 @@ export function createApiApp(
     return c.json({ byType, total, needsReview });
   });
 
+  app.get("/api/syntheses", (c) => {
+    return c.json(synthRepo.listAll());
+  });
+
+  app.get("/api/projects/:id/synthesis", (c) => {
+    const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
+    if (!project) return c.json({ error: "Not found" }, 404);
+    return c.json(synthRepo.getSynthesis(project.scopeHash) ?? null);
+  });
+
+  app.post("/api/projects/:id/synthesis", (c) => {
+    if (!isSynthesisEnabled()) return c.json({ error: "Synthesis is disabled" }, 503);
+    const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
+    if (!project) return c.json({ error: "Not found" }, 404);
+    const agentRunner = createSynthesisAgentRunner(buildSynthesisTools(repo, queryEngine), {
+      enabled: true,
+    });
+    void runSynthesis(project.scopeHash, { synthRepo, agentRunner });
+    return c.json({ ok: true }, 202);
+  });
+
   return app;
 }
 
@@ -156,8 +207,10 @@ export async function startDashboard(opts?: {
   const embedding = new EmbeddingService();
   const projects = createProjectRepository(db);
   const repo = createMemoryRepository(db, projects);
+  const queryEngine = new QueryEngine(db, embedding, repo);
+  const synthRepo = createSynthesisRepository(db);
 
-  const app = createApiApp(repo, projects, embedding);
+  const app = createApiApp(repo, projects, embedding, queryEngine, synthRepo);
 
   const __dir = dirname(fileURLToPath(import.meta.url));
   const clientDir = join(__dir, "client");
