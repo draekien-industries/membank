@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import type {
   Embedder,
+  Memory,
   MemoryRepository,
   MemoryType,
   ProjectRepository,
@@ -81,6 +82,25 @@ async function findFreePort(preferred: number): Promise<number> {
       });
     });
   }
+}
+
+function aggregateActivity(memories: Memory[], days: number): { date: string; count: number }[] {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  const dayCounts: Record<string, number> = {};
+  for (const m of memories) {
+    const day = m.createdAt.slice(0, 10);
+    if (day >= cutoffStr) dayCounts[day] = (dayCounts[day] ?? 0) + 1;
+    const updateDay = m.updatedAt.slice(0, 10);
+    if (updateDay !== day && updateDay >= cutoffStr)
+      dayCounts[updateDay] = (dayCounts[updateDay] ?? 0) + 1;
+  }
+
+  return Object.entries(dayCounts)
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export function createApiApp(
@@ -212,8 +232,8 @@ export function createApiApp(
         ? (Object.entries(byType).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null)
         : null;
 
-    const needsReview = repo.list({ projectId: project.id, needsReview: true }).length;
-    const pinned = repo.list({ projectId: project.id, pinned: true }).length;
+    const needsReview = memories.filter((m) => m.reviewEvents.length > 0).length;
+    const pinned = memories.filter((m) => m.pinned).length;
 
     const lastActive = memories.reduce((latest, m) => {
       const d = m.updatedAt > m.createdAt ? m.updatedAt : m.createdAt;
@@ -246,50 +266,12 @@ export function createApiApp(
     if (!project) return c.json({ error: "Not found" }, 404);
 
     const daysParam = Math.max(1, parseInt(c.req.query("days") ?? "365", 10));
-    const memories = repo.list({ projectId: project.id });
-
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - daysParam);
-    const cutoffStr = cutoff.toISOString().slice(0, 10);
-
-    const dayCounts: Record<string, number> = {};
-    for (const m of memories) {
-      const day = m.createdAt.slice(0, 10);
-      if (day >= cutoffStr) dayCounts[day] = (dayCounts[day] ?? 0) + 1;
-      const updateDay = m.updatedAt.slice(0, 10);
-      if (updateDay !== day && updateDay >= cutoffStr)
-        dayCounts[updateDay] = (dayCounts[updateDay] ?? 0) + 1;
-    }
-
-    const activity = Object.entries(dayCounts)
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    return c.json(activity);
+    return c.json(aggregateActivity(repo.list({ projectId: project.id }), daysParam));
   });
 
   app.get("/api/activity", (c) => {
     const daysParam = Math.max(1, parseInt(c.req.query("days") ?? "365", 10));
-    const memories = repo.list();
-
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - daysParam);
-    const cutoffStr = cutoff.toISOString().slice(0, 10);
-
-    const dayCounts: Record<string, number> = {};
-    for (const m of memories) {
-      const day = m.createdAt.slice(0, 10);
-      if (day >= cutoffStr) dayCounts[day] = (dayCounts[day] ?? 0) + 1;
-      const updateDay = m.updatedAt.slice(0, 10);
-      if (updateDay !== day && updateDay >= cutoffStr)
-        dayCounts[updateDay] = (dayCounts[updateDay] ?? 0) + 1;
-    }
-
-    const activity = Object.entries(dayCounts)
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    return c.json(activity);
+    return c.json(aggregateActivity(repo.list(), daysParam));
   });
 
   return app;

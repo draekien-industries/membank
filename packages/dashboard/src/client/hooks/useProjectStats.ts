@@ -8,10 +8,18 @@ export function useProjectStats(projectId: string | null) {
 
   useEffect(() => {
     if (!projectId) return;
+    let cancelled = false;
     setLoading(true);
     getProjectStats(projectId)
-      .then(setStats)
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (!cancelled) setStats(data);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [projectId]);
 
   return { stats, loading };

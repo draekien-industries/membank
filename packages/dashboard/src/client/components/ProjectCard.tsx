@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useProjectActivity } from "@/hooks/useProjectActivity";
 import { useProjectStats } from "@/hooks/useProjectStats";
 import type { MemoryType, ProjectStats } from "@/lib/types";
-import { capitalize, cn, formatRelativeTime } from "@/lib/utils";
+import { capitalize, cn, formatRelativeTime, truncate } from "@/lib/utils";
 
 interface ProjectCardProps {
   projectId: string;
@@ -39,10 +39,6 @@ function StatCell({ label, children }: StatCellProps) {
       <div className="text-sm font-mono font-medium text-foreground">{children}</div>
     </div>
   );
-}
-
-function truncate(s: string, max: number): string {
-  return s.length > max ? `${s.slice(0, max)}…` : s;
 }
 
 export function ProjectCard({ projectId, projectName, href, statsOverride }: ProjectCardProps) {

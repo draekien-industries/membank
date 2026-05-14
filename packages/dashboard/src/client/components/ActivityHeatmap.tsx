@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ActivityDay } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -41,7 +41,6 @@ function buildHeatmapGrid(activity: ActivityDay[], days: number): HeatmapCell[][
       cur.setDate(cur.getDate() + 1);
     }
     weeks.push(week);
-    if (cur > today) break;
   }
   return weeks;
 }
@@ -91,7 +90,7 @@ const HeatmapCellItem = React.memo(function HeatmapCellItem({ cell }: HeatmapCel
 });
 
 export function ActivityHeatmap({ activity, days }: ActivityHeatmapProps) {
-  const weeks = buildHeatmapGrid(activity, days);
+  const weeks = useMemo(() => buildHeatmapGrid(activity, days), [activity, days]);
 
   return (
     <TooltipProvider>
