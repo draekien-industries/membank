@@ -1,13 +1,53 @@
 import { runExtraction } from "@membank/mcp";
 import { z } from "zod";
 
-const StopHookInputSchema = z.object({
+const ExtractionHarnessSchema = z.enum(["claude-code"]);
+export type ExtractionHarness = z.infer<typeof ExtractionHarnessSchema>;
+
+// Stdin schema for Claude Code's Stop hook. Other harnesses will need their own schema
+// (e.g. copilot-cli, codex) — add cases to parseHookPayload() when those land.
+const ClaudeCodeStopInputSchema = z.object({
   session_id: z.string(),
   transcript_path: z.string(),
   cwd: z.string().optional(),
   hook_event_name: z.string().optional(),
   stop_hook_active: z.boolean().optional(),
 });
+
+interface ParsedHookPayload {
+  sessionId: string;
+  transcriptPath: string;
+  stopHookActive: boolean;
+}
+
+function parseHookPayload(
+  harness: ExtractionHarness,
+  raw: string
+): { ok: true; value: ParsedHookPayload } | { ok: false; reason: string } {
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(raw);
+  } catch {
+    return { ok: false, reason: "stdin is not valid JSON" };
+  }
+
+  if (harness === "claude-code") {
+    const parsed = ClaudeCodeStopInputSchema.safeParse(parsedJson);
+    if (!parsed.success) {
+      return { ok: false, reason: `invalid hook payload: ${parsed.error.message}` };
+    }
+    return {
+      ok: true,
+      value: {
+        sessionId: parsed.data.session_id,
+        transcriptPath: parsed.data.transcript_path,
+        stopHookActive: parsed.data.stop_hook_active === true,
+      },
+    };
+  }
+
+  return { ok: false, reason: `unsupported harness: ${harness as string}` };
+}
 
 async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return "";
@@ -19,9 +59,19 @@ async function readStdin(): Promise<string> {
 }
 
 export async function extractCommand(opts: {
+  harness?: string;
   sessionId?: string;
   transcript?: string;
 }): Promise<void> {
+  const harnessResult = ExtractionHarnessSchema.safeParse(opts.harness ?? "claude-code");
+  if (!harnessResult.success) {
+    process.stderr.write(
+      `membank extract: unsupported harness "${opts.harness}". Supported: ${ExtractionHarnessSchema.options.join(", ")}\n`
+    );
+    return;
+  }
+  const harness = harnessResult.data;
+
   let sessionId = opts.sessionId;
   let transcriptPath = opts.transcript;
   let stopHookActive = false;
@@ -29,21 +79,14 @@ export async function extractCommand(opts: {
   if (sessionId === undefined || transcriptPath === undefined) {
     const raw = await readStdin();
     if (raw.trim().length > 0) {
-      let parsedJson: unknown;
-      try {
-        parsedJson = JSON.parse(raw);
-      } catch {
-        process.stderr.write("membank extract: stdin is not valid JSON; skipping.\n");
+      const parsed = parseHookPayload(harness, raw);
+      if (!parsed.ok) {
+        process.stderr.write(`membank extract: ${parsed.reason}; skipping.\n`);
         return;
       }
-      const parsed = StopHookInputSchema.safeParse(parsedJson);
-      if (!parsed.success) {
-        process.stderr.write(`membank extract: invalid hook payload: ${parsed.error.message}\n`);
-        return;
-      }
-      sessionId = sessionId ?? parsed.data.session_id;
-      transcriptPath = transcriptPath ?? parsed.data.transcript_path;
-      stopHookActive = parsed.data.stop_hook_active === true;
+      sessionId = sessionId ?? parsed.value.sessionId;
+      transcriptPath = transcriptPath ?? parsed.value.transcriptPath;
+      stopHookActive = parsed.value.stopHookActive;
     }
   }
 

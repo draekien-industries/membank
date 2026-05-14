@@ -128,7 +128,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
           },
           {
             event: "Stop",
-            command: "npx -y @membank/cli extract",
+            command: "npx -y @membank/cli extract --harness claude-code",
             existingCommand: extractInjectCommand(stopInner) || null,
           },
         ],
@@ -189,7 +189,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
             hooks: [
               {
                 type: "command",
-                command: "npx -y @membank/cli extract",
+                command: "npx -y @membank/cli extract --harness claude-code",
                 async: true,
                 timeout: 600,
               },

@@ -87,6 +87,27 @@ describe("extractCommand", () => {
     expect(stderr).toContain("boom");
   });
 
+  it("rejects an unsupported harness without invoking the runner", async () => {
+    const { extractCommand } = await import("./extract.js");
+    const stderr = await captureStderr(() =>
+      extractCommand({ harness: "codex", sessionId: "abc", transcript: "/tmp/t.jsonl" })
+    );
+    expect(runExtractionMock).not.toHaveBeenCalled();
+    expect(stderr).toContain("unsupported harness");
+    expect(stderr).toContain("codex");
+  });
+
+  it("defaults to claude-code when --harness is omitted", async () => {
+    runExtractionMock.mockResolvedValue({ status: "completed" });
+    pushStdin(JSON.stringify({ session_id: "abc", transcript_path: "/tmp/t.jsonl" }));
+    const { extractCommand } = await import("./extract.js");
+    await extractCommand({});
+    expect(runExtractionMock).toHaveBeenCalledWith({
+      sessionId: "abc",
+      transcriptPath: "/tmp/t.jsonl",
+    });
+  });
+
   it("ignores invalid JSON on stdin without throwing", async () => {
     pushStdin("not json");
     const { extractCommand } = await import("./extract.js");

@@ -228,13 +228,19 @@ program
 program
   .command("extract")
   .description(
-    "(internal) run session-end memory extraction; reads Claude Code Stop hook JSON from stdin"
+    "(internal) run session-end memory extraction; reads the harness's Stop hook payload from stdin"
+  )
+  .option(
+    "--harness <name>",
+    "harness whose stop-hook payload is on stdin (only claude-code is supported today)",
+    "claude-code"
   )
   .option("--session <id>", "session id (otherwise read from stdin)")
   .option("--transcript <path>", "transcript JSONL path (otherwise read from stdin)")
-  .action(async (cmdOptions: { session?: string; transcript?: string }) => {
+  .action(async (cmdOptions: { harness?: string; session?: string; transcript?: string }) => {
     try {
       await extractCommand({
+        harness: cmdOptions.harness,
         sessionId: cmdOptions.session,
         transcript: cmdOptions.transcript,
       });

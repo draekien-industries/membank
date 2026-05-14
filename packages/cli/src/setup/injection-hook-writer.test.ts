@@ -181,7 +181,7 @@ describe("claude-code", () => {
     const hooks = cfg.hooks as Record<string, unknown>;
     type GroupHooks = { hooks: { command: string; async?: boolean; timeout?: number }[] }[];
     const entry = (hooks.Stop as GroupHooks)[0]?.hooks[0];
-    expect(entry?.command).toBe("npx -y @membank/cli extract");
+    expect(entry?.command).toBe("npx -y @membank/cli extract --harness claude-code");
     expect(entry?.async).toBe(true);
     expect(entry?.timeout).toBeGreaterThanOrEqual(60);
   });
@@ -193,7 +193,13 @@ describe("claude-code", () => {
         Stop: [
           {
             matcher: "",
-            hooks: [{ type: "command", command: "npx @membank/cli extract", async: true }],
+            hooks: [
+              {
+                type: "command",
+                command: "npx @membank/cli extract --harness claude-code",
+                async: true,
+              },
+            ],
           },
         ],
       },
@@ -202,7 +208,7 @@ describe("claude-code", () => {
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
     const stop = result.hooks.find((h) => h.event === "Stop");
-    expect(stop?.existingCommand).toBe("npx @membank/cli extract");
+    expect(stop?.existingCommand).toBe("npx @membank/cli extract --harness claude-code");
   });
 
   it("prunes legacy Stop entry (inject --event session-stop) even when writing only SessionStart", () => {
