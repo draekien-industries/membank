@@ -1,0 +1,326 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-14T00:00:00Z",
+  "title": "Design System: Membank Dashboard",
+  "extensions": {
+    "colorMeta": {
+      "context-green": {
+        "role": "primary",
+        "displayName": "Context Green",
+        "canonical": "oklch(0.55 0.14 165)",
+        "tonalRamp": [
+          "oklch(0.15 0.04 165)",
+          "oklch(0.25 0.07 165)",
+          "oklch(0.35 0.10 165)",
+          "oklch(0.45 0.12 165)",
+          "oklch(0.55 0.14 165)",
+          "oklch(0.65 0.11 165)",
+          "oklch(0.78 0.08 165)",
+          "oklch(0.92 0.04 165)"
+        ]
+      },
+      "context-green-light": {
+        "role": "primary",
+        "displayName": "Context Green (Light Mode)",
+        "canonical": "oklch(0.48 0.12 165)",
+        "tonalRamp": [
+          "oklch(0.15 0.04 165)",
+          "oklch(0.25 0.07 165)",
+          "oklch(0.35 0.10 165)",
+          "oklch(0.45 0.12 165)",
+          "oklch(0.55 0.14 165)",
+          "oklch(0.65 0.11 165)",
+          "oklch(0.78 0.08 165)",
+          "oklch(0.92 0.04 165)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Terminal Surface",
+        "canonical": "oklch(0.13 0.008 165)",
+        "tonalRamp": [
+          "oklch(0.08 0.004 165)",
+          "oklch(0.13 0.008 165)",
+          "oklch(0.18 0.008 165)",
+          "oklch(0.25 0.007 165)",
+          "oklch(0.40 0.007 165)",
+          "oklch(0.60 0.006 165)",
+          "oklch(0.80 0.005 165)",
+          "oklch(0.96 0.004 165)"
+        ]
+      },
+      "surface-raised": {
+        "role": "neutral",
+        "displayName": "Raised Surface",
+        "canonical": "oklch(0.18 0.008 165)",
+        "tonalRamp": [
+          "oklch(0.08 0.004 165)",
+          "oklch(0.13 0.008 165)",
+          "oklch(0.18 0.008 165)",
+          "oklch(0.25 0.007 165)",
+          "oklch(0.40 0.007 165)",
+          "oklch(0.60 0.006 165)",
+          "oklch(0.80 0.005 165)",
+          "oklch(0.96 0.004 165)"
+        ]
+      },
+      "destructive": {
+        "role": "semantic",
+        "displayName": "Destructive Orange-Red",
+        "canonical": "oklch(0.7 0.19 22)",
+        "tonalRamp": [
+          "oklch(0.15 0.06 22)",
+          "oklch(0.25 0.10 22)",
+          "oklch(0.35 0.14 22)",
+          "oklch(0.45 0.17 22)",
+          "oklch(0.55 0.19 22)",
+          "oklch(0.65 0.19 22)",
+          "oklch(0.75 0.17 22)",
+          "oklch(0.90 0.09 22)"
+        ]
+      },
+      "type-correction": {
+        "role": "semantic",
+        "displayName": "Correction Orange",
+        "canonical": "oklch(0.72 0.16 25)",
+        "tonalRamp": [
+          "oklch(0.15 0.05 25)",
+          "oklch(0.25 0.09 25)",
+          "oklch(0.35 0.12 25)",
+          "oklch(0.45 0.14 25)",
+          "oklch(0.55 0.15 25)",
+          "oklch(0.65 0.15 25)",
+          "oklch(0.75 0.14 25)",
+          "oklch(0.90 0.07 25)"
+        ]
+      },
+      "type-preference": {
+        "role": "semantic",
+        "displayName": "Preference Blue",
+        "canonical": "oklch(0.68 0.14 250)",
+        "tonalRamp": [
+          "oklch(0.15 0.05 250)",
+          "oklch(0.25 0.09 250)",
+          "oklch(0.35 0.12 250)",
+          "oklch(0.45 0.13 250)",
+          "oklch(0.55 0.14 250)",
+          "oklch(0.65 0.14 250)",
+          "oklch(0.75 0.12 250)",
+          "oklch(0.90 0.06 250)"
+        ]
+      },
+      "type-decision": {
+        "role": "semantic",
+        "displayName": "Decision Violet",
+        "canonical": "oklch(0.65 0.14 300)",
+        "tonalRamp": [
+          "oklch(0.15 0.05 300)",
+          "oklch(0.25 0.09 300)",
+          "oklch(0.35 0.12 300)",
+          "oklch(0.45 0.13 300)",
+          "oklch(0.55 0.14 300)",
+          "oklch(0.65 0.14 300)",
+          "oklch(0.75 0.12 300)",
+          "oklch(0.90 0.06 300)"
+        ]
+      },
+      "type-learning": {
+        "role": "semantic",
+        "displayName": "Learning Green",
+        "canonical": "oklch(0.65 0.14 165)",
+        "tonalRamp": [
+          "oklch(0.15 0.04 165)",
+          "oklch(0.25 0.07 165)",
+          "oklch(0.35 0.10 165)",
+          "oklch(0.45 0.12 165)",
+          "oklch(0.55 0.14 165)",
+          "oklch(0.65 0.14 165)",
+          "oklch(0.78 0.10 165)",
+          "oklch(0.92 0.05 165)"
+        ]
+      },
+      "type-stale": {
+        "role": "semantic",
+        "displayName": "Stale Amber",
+        "canonical": "oklch(0.75 0.14 75)",
+        "tonalRamp": [
+          "oklch(0.15 0.05 75)",
+          "oklch(0.25 0.09 75)",
+          "oklch(0.35 0.12 75)",
+          "oklch(0.50 0.14 75)",
+          "oklch(0.62 0.14 75)",
+          "oklch(0.72 0.13 75)",
+          "oklch(0.82 0.10 75)",
+          "oklch(0.93 0.06 75)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "body": {
+        "displayName": "Body Mono",
+        "purpose": "All list content, search results, metadata, filter controls. The default register for the entire tool."
+      },
+      "label": {
+        "displayName": "Label Mono",
+        "purpose": "Section group headers (uppercase, tracked), field labels, count footers. Always uppercase, always 0.6875rem."
+      },
+      "title": {
+        "displayName": "Content Sans",
+        "purpose": "Textarea for memory content only. The deliberate register shift: tool speaks mono, user speaks in prose."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "ease-state",
+        "value": "150ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default for background-color and opacity transitions (hover, focus, selection states)."
+      },
+      {
+        "name": "ease-press",
+        "value": "translateY(1px)",
+        "purpose": "Button :active press — 1px downward, no duration, immediate physical metaphor."
+      }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one action that matters on a screen. Context Green fill, near-black text.",
+      "html": "<button class=\"ds-btn-primary\">Save</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 1.75rem; padding: 0 0.5rem; gap: 0.25rem; background-color: oklch(0.55 0.14 165); color: oklch(0.14 0.01 165); border-radius: 0.36rem; border: 1px solid transparent; font-family: 'Geist Mono Variable', monospace; font-size: 0.75rem; font-weight: 500; line-height: 1.625; white-space: nowrap; cursor: pointer; transition: background-color 150ms, transform 150ms; outline: none; user-select: none; } .ds-btn-primary:hover { background-color: oklch(0.55 0.14 165 / 0.8); } .ds-btn-primary:focus-visible { border-color: oklch(0.5 0.006 165); box-shadow: 0 0 0 2px oklch(0.5 0.006 165 / 0.3); } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "The invisible-until-needed control. Used for icon actions in list rows, theme toggle, filter toggles.",
+      "html": "<button class=\"ds-btn-ghost\" aria-label=\"Pin memory\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\"><path d=\"M234.1,69.9l-48-48a12,12,0,0,0-17,17L180.7,50.5,133.9,97.3A60,60,0,0,0,64,160H40a12,12,0,0,0-8.5,20.5l44,44A12,12,0,0,0,84,228a12.2,12.2,0,0,0,8.5-3.5l24-24H160a12,12,0,0,0,8.5-20.5l-8.5-8.5,46.8-46.8,11.6,11.6a12,12,0,0,0,17-17Z\"/></svg></button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; width: 1.5rem; height: 1.5rem; padding: 0; background-color: transparent; color: oklch(0.62 0.008 165); border-radius: 0.36rem; border: 1px solid transparent; cursor: pointer; transition: background-color 150ms, color 150ms; outline: none; } .ds-btn-ghost:hover { background-color: oklch(0.22 0.007 165 / 0.5); color: oklch(0.96 0.006 165); } .ds-btn-ghost:focus-visible { border-color: oklch(0.5 0.006 165); box-shadow: 0 0 0 2px oklch(0.5 0.006 165 / 0.3); } .ds-btn-ghost:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary confirm-style actions. Mark reviewed, Keep editing, Cancel.",
+      "html": "<button class=\"ds-btn-outline\">Mark reviewed</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; height: 1.5rem; padding: 0 0.5rem; gap: 0.25rem; background-color: oklch(1 0 0 / 0.12); color: oklch(0.96 0.006 165); border-radius: 0.36rem; border: 1px solid oklch(1 0 0 / 0.10); font-family: 'Geist Mono Variable', monospace; font-size: 0.75rem; font-weight: 500; line-height: 1.625; cursor: pointer; transition: background-color 150ms; outline: none; } .ds-btn-outline:hover { background-color: oklch(1 0 0 / 0.18); } .ds-btn-outline:focus-visible { border-color: oklch(0.5 0.006 165); box-shadow: 0 0 0 2px oklch(0.5 0.006 165 / 0.3); } .ds-btn-outline:active { transform: translateY(1px); } .ds-btn-outline:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }"
+    },
+    {
+      "name": "Type Badge — Correction",
+      "kind": "chip",
+      "refersTo": "badge-type",
+      "description": "Classification chip for correction-type memories. 15% opacity fill in type color.",
+      "html": "<span class=\"ds-badge-correction\">Correction</span>",
+      "css": ".ds-badge-correction { display: inline-flex; align-items: center; border-radius: 0.27rem; padding: 0.125rem 0.375rem; font-family: 'Geist Mono Variable', monospace; font-size: 0.625rem; font-weight: 500; line-height: 1; white-space: nowrap; background-color: oklch(0.72 0.16 25 / 0.15); color: oklch(0.72 0.16 25); transition: background-color 150ms; }"
+    },
+    {
+      "name": "Type Badge — Learning",
+      "kind": "chip",
+      "refersTo": "badge-type",
+      "description": "Classification chip for learning-type memories. Uses Context Green — the primary accent.",
+      "html": "<span class=\"ds-badge-learning\">Learning</span>",
+      "css": ".ds-badge-learning { display: inline-flex; align-items: center; border-radius: 0.27rem; padding: 0.125rem 0.375rem; font-family: 'Geist Mono Variable', monospace; font-size: 0.625rem; font-weight: 500; line-height: 1; white-space: nowrap; background-color: oklch(0.65 0.14 165 / 0.15); color: oklch(0.65 0.14 165); transition: background-color 150ms; }"
+    },
+    {
+      "name": "Tag Badge (Outline)",
+      "kind": "chip",
+      "refersTo": "badge-outline",
+      "description": "Freeform tag on memory rows. Carries content, not classification. No fill.",
+      "html": "<span class=\"ds-badge-outline\">typescript</span>",
+      "css": ".ds-badge-outline { display: inline-flex; align-items: center; border-radius: 0.27rem; padding: 0.125rem 0.375rem; font-family: 'Geist Mono Variable', monospace; font-size: 0.625rem; font-weight: 500; line-height: 1; white-space: nowrap; background-color: transparent; color: oklch(0.62 0.008 165); border: 1px solid oklch(1 0 0 / 0.10); }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "The visual focal point of the list pane. Leading magnifying glass icon, monospace, minimal fill.",
+      "html": "<div class=\"ds-input-search-wrap\"><svg class=\"ds-input-search-icon\" xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 256 256\" fill=\"currentColor\"><path d=\"M229.66,218.34l-50.07-50.07a88.19,88.19,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.31ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z\"/></svg><input class=\"ds-input-search\" type=\"search\" placeholder=\"Search…\" /></div>",
+      "css": ".ds-input-search-wrap { position: relative; } .ds-input-search-icon { position: absolute; left: 0.625rem; top: 50%; transform: translateY(-50%); color: oklch(0.62 0.008 165); pointer-events: none; } .ds-input-search { display: block; width: 100%; height: 1.75rem; padding: 0.125rem 0.5rem 0.125rem 1.75rem; background-color: oklch(1 0 0 / 0.12); color: oklch(0.96 0.006 165); border: 1px solid oklch(1 0 0 / 0.12); border-radius: 0.36rem; font-family: 'Geist Mono Variable', monospace; font-size: 0.75rem; line-height: 1.625; outline: none; transition: border-color 150ms, box-shadow 150ms; } .ds-input-search::placeholder { color: oklch(0.62 0.008 165); } .ds-input-search:focus { border-color: oklch(0.5 0.006 165); box-shadow: 0 0 0 2px oklch(0.5 0.006 165 / 0.3); }"
+    },
+    {
+      "name": "Memory Row",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "The signature content surface. Two-row list item: badge + preview text / tags + metadata.",
+      "html": "<li class=\"ds-memory-row\"><div class=\"ds-memory-row__top\"><span class=\"ds-badge-correction\">Correction</span><p class=\"ds-memory-row__preview\">Never define subcomponents inside a React parent's render body — each render creates a new function identity, causing remount and lost focus state.</p></div><div class=\"ds-memory-row__meta\"><span class=\"ds-badge-outline\">react</span><span class=\"ds-badge-outline\">hooks</span><span class=\"ds-memory-row__scope\">global</span><span class=\"ds-memory-row__date\">5/14/2026</span></div></li>",
+      "css": ".ds-memory-row { position: relative; display: flex; flex-direction: column; gap: 0.375rem; border-bottom: 1px solid oklch(1 0 0 / 0.10); padding: 0.75rem 1rem; background-color: transparent; list-style: none; cursor: pointer; transition: background-color 150ms; } .ds-memory-row:hover { background-color: oklch(0.22 0.007 165 / 0.4); } .ds-memory-row.selected { background-color: oklch(0.22 0.007 165 / 0.6); } .ds-memory-row.focused { outline: none; box-shadow: inset 0 0 0 1px oklch(0.55 0.14 165 / 0.4); } .ds-memory-row__top { display: flex; align-items: flex-start; gap: 0.5rem; } .ds-memory-row__preview { flex: 1; font-family: 'Geist Mono Variable', monospace; font-size: 0.75rem; line-height: 1.625; color: oklch(0.96 0.006 165); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-align: left; } .ds-memory-row__meta { display: flex; align-items: center; gap: 0.25rem; padding-left: 2.625rem; flex-wrap: wrap; } .ds-memory-row__scope { margin-left: auto; font-family: 'Geist Mono Variable', monospace; font-size: 0.6875rem; color: oklch(0.62 0.008 165); } .ds-memory-row__date { font-family: 'Geist Mono Variable', monospace; font-size: 0.6875rem; color: oklch(0.62 0.008 165); }"
+    },
+    {
+      "name": "Group Header",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "Sticky time-group section divider. Collapse toggle. Uppercase tracked label left, count right.",
+      "html": "<button class=\"ds-group-header\" type=\"button\"><span>This week</span><span>12</span></button>",
+      "css": ".ds-group-header { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0.375rem 1rem; background-color: oklch(0.13 0.008 165 / 0.95); backdrop-filter: blur(8px); border-bottom: 1px solid oklch(1 0 0 / 0.10); border: none; font-family: 'Geist Mono Variable', monospace; font-size: 0.6875rem; font-weight: 400; text-transform: uppercase; letter-spacing: 0.05em; color: oklch(0.62 0.008 165); cursor: pointer; transition: color 150ms; } .ds-group-header:hover { color: oklch(0.96 0.006 165); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Terminal Curator",
+    "overview": "Membank Dashboard is a tool that earned its UI. It lives in the same environment as the terminals and code editors that generate its data — and it looks like it belongs there. Dark-first, monospace-bodied, information-dense without clutter. The design priority is trust: developers need to see their personal AI context clearly, scan it quickly, and modify it confidently. Decoration is a liability.\n\nThe system rejects the visual language of consumer SaaS: no gradient text, no glassmorphism, no hero-metric tiles, no dashboard clichés that signal 'data tool' before the data does. It also explicitly rejects the aesthetic of Datasette — deliberately plain, zero design investment. This is the opposite: Datasette-class function, Raycast-class finish.\n\nColor is a single green-tinted axis (oklch hue 165) with one muted accent and a five-color semantic vocabulary for memory classification. Type-badge colors are classification signals, not decoration.",
+    "keyCharacteristics": [
+      "Monospace body text throughout — the terminal is the reference frame",
+      "Keyboard-first; search box is always /, navigation is ↑↓, delete requires two deliberate presses",
+      "Five-color semantic palette encoding memory type classification",
+      "Tonal depth only — no box shadows at any surface",
+      "Dual-mode with genuine dark-first character; light mode is a real alternative, not a token-swap afterthought"
+    ],
+    "rules": [
+      {
+        "name": "The One Accent Rule",
+        "body": "Context Green appears on at most 10% of any screen. Badge fills use 15% opacity. If you can call a surface 'green' at a glance, the rule has been violated.",
+        "section": "colors"
+      },
+      {
+        "name": "The Semantic Palette Rule",
+        "body": "The five type colors are classification signals, never decorative fills. Do not reuse correction orange for generic warnings. Do not reuse preference blue for links. Each color has exactly one meaning.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono-First Rule",
+        "body": "If you reach for Space Grotesk outside of memory content in the textarea, stop. The mono register is the system's identity.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Scale Rule",
+        "body": "There is no display or headline size. Hierarchy is achieved through weight, case, tracking, and color — never through font size alone.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Shadow Rule",
+        "body": "If you reach for box-shadow (excluding focus rings), the design has broken. Add a tonal background step instead. Shadows do not exist in this vocabulary.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Flat-at-Rest Rule",
+        "body": "Surfaces do not lift on hover. Background tint changes; geometry does not. The translate-y-px on button :active is the only physical metaphor permitted.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use Context Green exclusively for interactive state — active buttons, pin indicators, keyboard focus rings. Its rarity makes it mean something.",
+      "Do build depth through opacity tiers (15%, 20%, 40%, 60%) off a single base color rather than reaching for new fills.",
+      "Do keep all body and label text in Geist Mono Variable. The mono register is the design's identity.",
+      "Do use the two-click delete pattern for every destructive action.",
+      "Do reveal list row actions (Pin, Trash) on hover/focus-within via opacity-0 to opacity-100.",
+      "Do use 11px uppercase tracking-wide text-muted-foreground for all section labels and field headers.",
+      "Do keep the semantic type palette exclusive: correction orange only on corrections, preference blue only on preferences.",
+      "Do make Space Grotesk Variable the signal that this is editable memory content. Reserve it for the textarea only."
+    ],
+    "donts": [
+      "Don't add box shadows to any surface. This design is tonal-only.",
+      "Don't use border-left or border-right as a colored stripe accent.",
+      "Don't use gradient text (background-clip: text).",
+      "Don't use glassmorphism decoratively. The one legitimate use is backdrop-blur on sticky group headers.",
+      "Don't let the design drift toward Datasette: plain, raw, zero design investment.",
+      "Don't use Space Grotesk Variable outside of memory content in the textarea.",
+      "Don't reuse the five type-badge colors for non-classification purposes.",
+      "Don't build card grids. Primary content surfaces are lists and split-pane detail views.",
+      "Don't animate layout properties. State transitions may animate opacity, transform, and background-color only.",
+      "Don't make the interface feel like a SaaS marketing dashboard: no hero metrics, no identical icon-grid cards."
+    ]
+  }
+}
