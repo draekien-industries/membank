@@ -116,6 +116,12 @@
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
+  --color-correction: var(--type-correction);
+  --color-preference: var(--type-preference);
+  --color-decision: var(--type-decision);
+  --color-learning: var(--type-learning);
+  --color-fact: var(--type-fact);
+  --color-stale: var(--stale);
 }
 
 @layer base {

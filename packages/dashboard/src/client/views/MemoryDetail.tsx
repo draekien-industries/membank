@@ -144,7 +144,7 @@ function MemoryDetailForm({
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                   rows={8}
-                  className="min-h-32 font-[var(--font-heading)] text-sm"
+                  className="min-h-32 font-heading text-sm"
                   aria-invalid={field.state.meta.isTouched && !field.state.meta.isValid}
                 />
               </FormField>
