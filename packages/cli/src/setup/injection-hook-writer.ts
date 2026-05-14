@@ -128,7 +128,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
           },
           {
             event: "Stop",
-            command: "npx -y @membank/cli inject --harness claude-code --event session-stop",
+            command: "npx -y @membank/cli extract",
             existingCommand: extractInjectCommand(stopInner) || null,
           },
         ],
@@ -143,6 +143,9 @@ const writers: Record<string, HarnessInjectionWriter> = {
 
       // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
       pruneNestedEvent(newHooks, "PostToolUseFailure");
+      // Stop slot may contain a legacy `inject --event session-stop` entry from the previous
+      // attempt at this issue (caused infinite loops). Always strip it; re-add only if requested.
+      pruneNestedEvent(newHooks, "Stop");
 
       if (events.includes("SessionStart")) {
         const existing = Array.isArray(hooks.SessionStart) ? hooks.SessionStart : [];
@@ -186,7 +189,9 @@ const writers: Record<string, HarnessInjectionWriter> = {
             hooks: [
               {
                 type: "command",
-                command: "npx -y @membank/cli inject --harness claude-code --event session-stop",
+                command: "npx -y @membank/cli extract",
+                async: true,
+                timeout: 600,
               },
             ],
           },
@@ -208,7 +213,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
       const userPromptSubmitted = Array.isArray(hooks.userPromptSubmitted)
         ? hooks.userPromptSubmitted
         : [];
-      const sessionEnd = Array.isArray(hooks.sessionEnd) ? hooks.sessionEnd : [];
 
       return {
         status: "ready",
@@ -224,11 +228,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
             command: "npx -y @membank/cli inject --harness copilot-cli --event user-prompt-submit",
             existingCommand: extractInjectCommand(userPromptSubmitted) || null,
           },
-          {
-            event: "sessionEnd",
-            command: "npx -y @membank/cli inject --harness copilot-cli --event session-stop",
-            existingCommand: extractInjectCommand(sessionEnd) || null,
-          },
         ],
       };
     },
@@ -241,6 +240,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
 
       // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
       pruneFlatEvent(newHooks, "postToolUseFailure");
+      pruneFlatEvent(newHooks, "sessionEnd");
 
       if (events.includes("sessionStart")) {
         const existing = Array.isArray(hooks.sessionStart) ? hooks.sessionStart : [];
@@ -261,18 +261,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
           {
             type: "command",
             bash: "npx -y @membank/cli inject --harness copilot-cli --event user-prompt-submit",
-            timeoutSec: 30,
-          },
-        ];
-      }
-
-      if (events.includes("sessionEnd")) {
-        const existing = Array.isArray(hooks.sessionEnd) ? hooks.sessionEnd : [];
-        newHooks.sessionEnd = [
-          ...filterOutMembankFlat(existing),
-          {
-            type: "command",
-            bash: "npx -y @membank/cli inject --harness copilot-cli --event session-stop",
             timeoutSec: 30,
           },
         ];
@@ -301,8 +289,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
         Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : []
       ).flatMap(getHooksArray);
 
-      const stopInner = (Array.isArray(hooks.Stop) ? hooks.Stop : []).flatMap(getHooksArray);
-
       return {
         status: "ready",
         configPath: cfgPath,
@@ -317,11 +303,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
             command: "npx -y @membank/cli inject --harness codex --event user-prompt-submit",
             existingCommand: extractInjectCommand(userPromptSubmitInner) || null,
           },
-          {
-            event: "Stop",
-            command: "npx -y @membank/cli inject --harness codex --event session-stop",
-            existingCommand: extractInjectCommand(stopInner) || null,
-          },
         ],
       };
     },
@@ -334,6 +315,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
 
       // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
       pruneNestedEvent(newHooks, "PostToolUse");
+      pruneNestedEvent(newHooks, "Stop");
 
       if (events.includes("SessionStart")) {
         const existing = Array.isArray(hooks.SessionStart) ? hooks.SessionStart : [];
@@ -362,23 +344,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
               {
                 type: "command",
                 command: "npx -y @membank/cli inject --harness codex --event user-prompt-submit",
-                timeout: 30,
-              },
-            ],
-          },
-        ];
-      }
-
-      if (events.includes("Stop")) {
-        const existing = Array.isArray(hooks.Stop) ? hooks.Stop : [];
-        newHooks.Stop = [
-          ...filterOutMembank(existing),
-          {
-            matcher: "",
-            hooks: [
-              {
-                type: "command",
-                command: "npx -y @membank/cli inject --harness codex --event session-stop",
                 timeout: 30,
               },
             ],

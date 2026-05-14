@@ -70,7 +70,17 @@ class ClaudeAgentRunner implements AgentRunner {
         model: "claude-haiku-4-5-20251001",
         systemPrompt: SYNTHESIS_SYSTEM_PROMPT,
         mcpServers: { "membank-synthesis-tools": mcpServer },
-        allowedTools: ["query_memory", "get_memory_summary"],
+        allowedTools: [
+          "mcp__membank-synthesis-tools__query_memory",
+          "mcp__membank-synthesis-tools__get_memory_summary",
+        ],
+        // Disallow the host's globally-configured membank MCP server, which would otherwise
+        // shadow our in-process tools and read from the user's real memory.db instead of the
+        // services we wired up here.
+        disallowedTools: ["mcp__membank__*"],
+        // Block inheriting Claude Code's user/project settings (which load the host's MCP
+        // servers, slash commands, etc.). The synthesis agent must only see what we pass.
+        settingSources: [],
         permissionMode: "bypassPermissions",
         env,
       },

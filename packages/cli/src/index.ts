@@ -9,6 +9,7 @@ import { addCommand } from "./commands/add.js";
 import { configGetCommand, configSetCommand, configShowCommand } from "./commands/config.js";
 import { deleteCommand } from "./commands/delete.js";
 import { exportCommand } from "./commands/export.js";
+import { extractCommand } from "./commands/extract.js";
 import { importCommand } from "./commands/import.js";
 import { injectCommand } from "./commands/inject.js";
 import { listCommand } from "./commands/list.js";
@@ -222,6 +223,25 @@ program
       process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
       process.exit(2);
     }
+  });
+
+program
+  .command("extract")
+  .description(
+    "(internal) run session-end memory extraction; reads Claude Code Stop hook JSON from stdin"
+  )
+  .option("--session <id>", "session id (otherwise read from stdin)")
+  .option("--transcript <path>", "transcript JSONL path (otherwise read from stdin)")
+  .action(async (cmdOptions: { session?: string; transcript?: string }) => {
+    try {
+      await extractCommand({
+        sessionId: cmdOptions.session,
+        transcript: cmdOptions.transcript,
+      });
+    } catch (err) {
+      process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    }
+    process.exit(0);
   });
 
 const setupCmd = program

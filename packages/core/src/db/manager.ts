@@ -175,6 +175,21 @@ COMMIT;
 PRAGMA foreign_keys = ON;
 `,
   ],
+  [
+    6,
+    `
+CREATE TABLE IF NOT EXISTS extraction_runs (
+  session_id   TEXT PRIMARY KEY,
+  started_at   TEXT NOT NULL,
+  completed_at TEXT,
+  status       TEXT NOT NULL CHECK(status IN ('in_flight', 'completed', 'failed')),
+  error        TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_extraction_runs_status
+  ON extraction_runs(status) WHERE status = 'in_flight';
+`,
+  ],
 ];
 
 export class DatabaseManager {

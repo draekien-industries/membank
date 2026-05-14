@@ -1,5 +1,9 @@
 import {
+  runExtraction as coreExtraction,
   runSynthesis as coreSynthesis,
+  createClaudeCodeTranscriptReader,
+  createExtractionAgentRunner,
+  createExtractionRunRepository,
   createMemoryRepository,
   createProjectRepository,
   createSynthesisAgentRunner,
@@ -8,10 +12,13 @@ import {
   EmbeddingService,
   isSynthesisEnabled,
   QueryEngine,
+  type RunExtractionInput,
+  type RunExtractionResult,
+  resolveProject,
 } from "@membank/core";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CoreServices } from "./server.js";
-import { buildSynthesisTools, createServer, initCore } from "./server.js";
+import { buildExtractionTools, buildSynthesisTools, createServer, initCore } from "./server.js";
 
 export async function startServer(): Promise<void> {
   let core: CoreServices;
@@ -76,6 +83,43 @@ export async function runSynthesis(scope: string): Promise<string> {
 
   try {
     return await coreSynthesis(resolvedScope, { synthRepo, agentRunner });
+  } finally {
+    db.close();
+  }
+}
+
+export interface RunExtractionOptions {
+  sessionId: string;
+  transcriptPath: string;
+  projectHash?: string;
+}
+
+export async function runExtraction(opts: RunExtractionOptions): Promise<RunExtractionResult> {
+  const db = DatabaseManager.open();
+  try {
+    const embedding = new EmbeddingService();
+    const projects = createProjectRepository(db);
+    const repo = createMemoryRepository(db, projects);
+    const queryEngine = new QueryEngine(db, embedding, repo);
+    const runRepo = createExtractionRunRepository(db);
+    const tools = buildExtractionTools(repo, queryEngine, embedding);
+    const agent = createExtractionAgentRunner(tools);
+    const transcripts = createClaudeCodeTranscriptReader();
+
+    const projectHash = opts.projectHash ?? (await resolveProject()).hash;
+
+    const input: RunExtractionInput = {
+      sessionId: opts.sessionId,
+      transcriptPath: opts.transcriptPath,
+      projectHash,
+    };
+
+    return await coreExtraction(input, {
+      repo: runRepo,
+      transcripts,
+      agent,
+      config: {},
+    });
   } finally {
     db.close();
   }
