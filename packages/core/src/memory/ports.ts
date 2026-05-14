@@ -59,10 +59,10 @@ export interface MemoryRepository {
   }): Memory[];
   listPinnedGlobal(): Memory[];
   listPinnedForProject(projectHash: string): Memory[];
-  listFlagged(): Memory[];
+  listFlagged(projectHash?: string): Memory[];
   listReviewEvents(memoryId: string, opts?: { unresolvedOnly?: boolean }): ReviewEvent[];
-  getPinnedCharCount(): number;
-  stats(): StatsResult;
+  getPinnedCharCount(projectHash?: string): number;
+  stats(projectHash?: string): StatsResult;
 
   create(opts: CreateMemoryOpts): Memory;
   overwrite(id: string, content: string, embedding: Float32Array): Memory;

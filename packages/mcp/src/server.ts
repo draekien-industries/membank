@@ -143,7 +143,10 @@ export function buildSynthesisTools(repo: MemoryRepository, query: Querier): Syn
       });
       return JSON.stringify(results);
     },
-    getMemorySummary: async () => JSON.stringify(repo.stats()),
+    getMemorySummary: async () => {
+      const project = await resolveProject();
+      return JSON.stringify(repo.stats(project.hash));
+    },
   };
 }
 
@@ -521,7 +524,8 @@ export function createServer(core: CoreServices): Server {
         const memory = core.repo.setPin(args.id, pinned);
 
         if (pinned) {
-          const charCount = core.repo.getPinnedCharCount();
+          const { hash } = await resolveProject();
+          const charCount = core.repo.getPinnedCharCount(hash);
           if (charCount > PIN_BUDGET_THRESHOLD && !isSynthesisEnabled()) {
             const result = {
               ...memory,
@@ -540,7 +544,8 @@ export function createServer(core: CoreServices): Server {
 
     if (request.params.name === "get_memory_summary") {
       try {
-        return { content: [{ type: "text", text: JSON.stringify(core.repo.stats()) }] };
+        const { hash } = await resolveProject();
+        return { content: [{ type: "text", text: JSON.stringify(core.repo.stats(hash)) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: message }], isError: true };
@@ -549,7 +554,8 @@ export function createServer(core: CoreServices): Server {
 
     if (request.params.name === "list_flagged_memories") {
       try {
-        const memories = core.repo.listFlagged();
+        const { hash } = await resolveProject();
+        const memories = core.repo.listFlagged(hash);
         return { content: [{ type: "text", text: JSON.stringify(memories) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
