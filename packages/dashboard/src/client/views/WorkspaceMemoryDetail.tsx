@@ -1,6 +1,6 @@
 import { X } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
-import { useBlocker } from "@tanstack/react-router";
+import { useBlocker, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import * as z from "zod";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { memoriesCollection } from "@/lib/collections";
 import type { Memory, MemoryType } from "@/lib/types";
 import { MEMORY_TYPES, TYPE_DESCRIPTIONS } from "@/lib/types";
 import { capitalize } from "@/lib/utils";
+import { Route as WorkspaceRoute } from "@/routes/$projectId";
 
 const memoryFormSchema = z.object({
   content: z.string().min(1, "Content is required."),
@@ -64,7 +65,7 @@ interface WorkspaceMemoryDetailFormProps {
   handleClose: () => void;
 }
 
-function WorkspaceMemoryDetailForm({
+export function WorkspaceMemoryDetailForm({
   memory,
   availableProjects,
   handleApprove,
@@ -363,6 +364,11 @@ interface WorkspaceMemoryDetailProps {
 }
 
 export function WorkspaceMemoryDetail({ id }: WorkspaceMemoryDetailProps) {
+  const { projectId } = WorkspaceRoute.useParams();
+  const navigate = useNavigate();
+  const onClose = () =>
+    void navigate({ to: "/$projectId", params: { projectId }, search: (prev) => prev });
+
   const {
     memory,
     isLoading,
@@ -371,7 +377,7 @@ export function WorkspaceMemoryDetail({ id }: WorkspaceMemoryDetailProps) {
     handleAddProject,
     handleRemoveProject,
     handleClose,
-  } = useWorkspaceMemoryDetail(id);
+  } = useWorkspaceMemoryDetail(id, onClose);
 
   if (isLoading || !memory) {
     return (

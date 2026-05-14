@@ -1,14 +1,9 @@
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { addMemoryProject, patchMemory, removeMemoryProject } from "@/lib/api";
 import { memoriesCollection, projectsCollection, queryClient } from "@/lib/collections";
-import { Route as WorkspaceRoute } from "@/routes/$projectId";
 
-export function useWorkspaceMemoryDetail(id: string) {
-  const { projectId } = WorkspaceRoute.useParams();
-  const navigate = useNavigate();
-
+export function useWorkspaceMemoryDetail(id: string, onClose: () => void) {
   const { data: results = [], isLoading } = useLiveQuery(
     (q) => q.from({ m: memoriesCollection }).where(({ m }) => eq(m.id, id)),
     [id]
@@ -43,9 +38,6 @@ export function useWorkspaceMemoryDetail(id: string) {
     }
   };
 
-  const handleClose = () =>
-    void navigate({ to: "/$projectId", params: { projectId }, search: (prev) => prev });
-
   const availableProjects = allProjects.filter(
     (p) => !memory?.projects.some((mp) => mp.id === p.id)
   );
@@ -57,6 +49,6 @@ export function useWorkspaceMemoryDetail(id: string) {
     handleApprove,
     handleAddProject,
     handleRemoveProject,
-    handleClose,
+    handleClose: onClose,
   };
 }

@@ -3,11 +3,10 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { memoriesCollection } from "@/lib/collections";
 import type { Memory } from "@/lib/types";
-import { Route as WorkspaceRoute } from "@/routes/$projectId";
+import { Route as GlobalRoute } from "@/routes/global";
 
-export function useWorkspaceMemoryList(selectedId: string | null) {
-  const { projectId } = WorkspaceRoute.useParams();
-  const search = WorkspaceRoute.useSearch();
+export function useGlobalMemoryList(selectedId: string | null) {
+  const search = GlobalRoute.useSearch();
   const navigate = useNavigate();
 
   const [searchInput, setSearchInput] = useState(search.search);
@@ -22,7 +21,7 @@ export function useWorkspaceMemoryList(selectedId: string | null) {
     []
   );
 
-  let filtered = allMemories.filter((m: Memory) => m.projects.some((p) => p.id === projectId));
+  let filtered = allMemories.filter((m: Memory) => m.projects.length === 0);
   if (search.type) filtered = filtered.filter((m) => m.type === search.type);
   if (search.pinned) filtered = filtered.filter((m) => m.pinned);
   if (search.needsReview) filtered = filtered.filter((m) => m.reviewEvents.length > 0);
@@ -51,8 +50,7 @@ export function useWorkspaceMemoryList(selectedId: string | null) {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       void navigate({
-        to: "/$projectId",
-        params: { projectId },
+        to: "/global",
         search: (prev) => ({ ...prev, search: value }),
       });
     }, 300);
@@ -67,7 +65,7 @@ export function useWorkspaceMemoryList(selectedId: string | null) {
   const handleDelete = (id: string) => {
     memoriesCollection.delete(id);
     if (selectedId === id) {
-      void navigate({ to: "/$projectId", params: { projectId }, search: (prev) => prev });
+      void navigate({ to: "/global", search: (prev) => prev });
     }
   };
 
@@ -75,11 +73,11 @@ export function useWorkspaceMemoryList(selectedId: string | null) {
     const idx = filtered.findIndex((m) => m.id === id);
     if (idx >= 0) setFocusedIndex(idx);
     if (selectedId === id) {
-      void navigate({ to: "/$projectId", params: { projectId }, search: (prev) => prev });
+      void navigate({ to: "/global", search: (prev) => prev });
     } else {
       void navigate({
-        to: "/$projectId/$memoryId",
-        params: { projectId, memoryId: id },
+        to: "/global/$memoryId",
+        params: { memoryId: id },
         search: (prev) => prev,
       });
     }
@@ -90,11 +88,10 @@ export function useWorkspaceMemoryList(selectedId: string | null) {
   const handleClearFilters = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setSearchInput("");
-    void navigate({ to: "/$projectId", params: { projectId }, search: () => ({}) });
+    void navigate({ to: "/global", search: () => ({}) });
   };
 
   return {
-    projectId,
     search,
     searchInput,
     inputRef,

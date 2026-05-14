@@ -1,16 +1,36 @@
 import { Eraser, MagnifyingGlass } from "@phosphor-icons/react";
+import type { MutableRefObject, RefObject } from "react";
 import { MemoryRow } from "@/components/MemoryRow";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
-import { useWorkspaceMemoryList } from "@/hooks/useWorkspaceMemoryList";
+import type { Memory, MemoryType } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+export interface WorkspaceListState {
+  search: { search: string; type?: MemoryType; pinned: boolean; needsReview: boolean };
+  searchInput: string;
+  inputRef: RefObject<HTMLInputElement | null>;
+  isLoading: boolean;
+  filtered: Memory[];
+  focusedIndex: number;
+  confirmingId: string | null;
+  setConfirmingId: (id: string | null) => void;
+  rowRefs: MutableRefObject<Array<HTMLLIElement | null>>;
+  hasActiveFilters: boolean;
+  handleSearchChange: (value: string) => void;
+  handleClearFilters: () => void;
+  handlePin: (id: string, pinned: boolean) => void;
+  handleDelete: (id: string) => void;
+  handleSelect: (id: string) => void;
+}
 
 interface WorkspaceCenterProps {
   selectedId: string | null;
+  list: WorkspaceListState;
 }
 
-export function WorkspaceCenter({ selectedId }: WorkspaceCenterProps) {
+export function WorkspaceCenter({ selectedId, list }: WorkspaceCenterProps) {
   const {
     search,
     searchInput,
@@ -27,7 +47,7 @@ export function WorkspaceCenter({ selectedId }: WorkspaceCenterProps) {
     handlePin,
     handleDelete,
     handleSelect,
-  } = useWorkspaceMemoryList(selectedId);
+  } = list;
 
   return (
     <div className="flex flex-col h-full">
@@ -82,9 +102,7 @@ export function WorkspaceCenter({ selectedId }: WorkspaceCenterProps) {
                 </Button>
               </>
             ) : (
-              <EmptyTitle className="text-xs font-mono font-normal">
-                No memories in this project
-              </EmptyTitle>
+              <EmptyTitle className="text-xs font-mono font-normal">No memories</EmptyTitle>
             )}
             {(search.type || search.pinned || search.needsReview) && (
               <EmptyDescription className="text-[11px] font-mono">

@@ -46,7 +46,7 @@ export function ProjectsLanding() {
           <ProjectCard
             projectId="global"
             projectName="Global"
-            linkOptions={{ to: "/" }}
+            linkOptions={{ to: "/global" }}
             statsOverride={globalStats}
           />
           {sortedProjects.map((project) => (

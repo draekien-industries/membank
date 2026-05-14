@@ -9,11 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as GlobalRouteImport } from './routes/global'
 import { Route as ProjectIdRouteImport } from './routes/$projectId'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GlobalIndexRouteImport } from './routes/global.index'
 import { Route as ProjectIdIndexRouteImport } from './routes/$projectId.index'
+import { Route as GlobalMemoryIdRouteImport } from './routes/global.$memoryId'
 import { Route as ProjectIdMemoryIdRouteImport } from './routes/$projectId.$memoryId'
 
+const GlobalRoute = GlobalRouteImport.update({
+  id: '/global',
+  path: '/global',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectIdRoute = ProjectIdRouteImport.update({
   id: '/$projectId',
   path: '/$projectId',
@@ -24,10 +32,20 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GlobalIndexRoute = GlobalIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => GlobalRoute,
+} as any)
 const ProjectIdIndexRoute = ProjectIdIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => ProjectIdRoute,
+} as any)
+const GlobalMemoryIdRoute = GlobalMemoryIdRouteImport.update({
+  id: '/$memoryId',
+  path: '/$memoryId',
+  getParentRoute: () => GlobalRoute,
 } as any)
 const ProjectIdMemoryIdRoute = ProjectIdMemoryIdRouteImport.update({
   id: '/$memoryId',
@@ -38,41 +56,72 @@ const ProjectIdMemoryIdRoute = ProjectIdMemoryIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$projectId': typeof ProjectIdRouteWithChildren
+  '/global': typeof GlobalRouteWithChildren
   '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
+  '/global/$memoryId': typeof GlobalMemoryIdRoute
   '/$projectId/': typeof ProjectIdIndexRoute
+  '/global/': typeof GlobalIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
+  '/global/$memoryId': typeof GlobalMemoryIdRoute
   '/$projectId': typeof ProjectIdIndexRoute
+  '/global': typeof GlobalIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$projectId': typeof ProjectIdRouteWithChildren
+  '/global': typeof GlobalRouteWithChildren
   '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
+  '/global/$memoryId': typeof GlobalMemoryIdRoute
   '/$projectId/': typeof ProjectIdIndexRoute
+  '/global/': typeof GlobalIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$projectId' | '/$projectId/$memoryId' | '/$projectId/'
+  fullPaths:
+    | '/'
+    | '/$projectId'
+    | '/global'
+    | '/$projectId/$memoryId'
+    | '/global/$memoryId'
+    | '/$projectId/'
+    | '/global/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$projectId/$memoryId' | '/$projectId'
+  to:
+    | '/'
+    | '/$projectId/$memoryId'
+    | '/global/$memoryId'
+    | '/$projectId'
+    | '/global'
   id:
     | '__root__'
     | '/'
     | '/$projectId'
+    | '/global'
     | '/$projectId/$memoryId'
+    | '/global/$memoryId'
     | '/$projectId/'
+    | '/global/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProjectIdRoute: typeof ProjectIdRouteWithChildren
+  GlobalRoute: typeof GlobalRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/global': {
+      id: '/global'
+      path: '/global'
+      fullPath: '/global'
+      preLoaderRoute: typeof GlobalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/$projectId': {
       id: '/$projectId'
       path: '/$projectId'
@@ -87,12 +136,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/global/': {
+      id: '/global/'
+      path: '/'
+      fullPath: '/global/'
+      preLoaderRoute: typeof GlobalIndexRouteImport
+      parentRoute: typeof GlobalRoute
+    }
     '/$projectId/': {
       id: '/$projectId/'
       path: '/'
       fullPath: '/$projectId/'
       preLoaderRoute: typeof ProjectIdIndexRouteImport
       parentRoute: typeof ProjectIdRoute
+    }
+    '/global/$memoryId': {
+      id: '/global/$memoryId'
+      path: '/$memoryId'
+      fullPath: '/global/$memoryId'
+      preLoaderRoute: typeof GlobalMemoryIdRouteImport
+      parentRoute: typeof GlobalRoute
     }
     '/$projectId/$memoryId': {
       id: '/$projectId/$memoryId'
@@ -118,9 +181,23 @@ const ProjectIdRouteWithChildren = ProjectIdRoute._addFileChildren(
   ProjectIdRouteChildren,
 )
 
+interface GlobalRouteChildren {
+  GlobalMemoryIdRoute: typeof GlobalMemoryIdRoute
+  GlobalIndexRoute: typeof GlobalIndexRoute
+}
+
+const GlobalRouteChildren: GlobalRouteChildren = {
+  GlobalMemoryIdRoute: GlobalMemoryIdRoute,
+  GlobalIndexRoute: GlobalIndexRoute,
+}
+
+const GlobalRouteWithChildren =
+  GlobalRoute._addFileChildren(GlobalRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProjectIdRoute: ProjectIdRouteWithChildren,
+  GlobalRoute: GlobalRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

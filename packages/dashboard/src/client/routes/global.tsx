@@ -1,45 +1,36 @@
-import { useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { z } from "zod";
-import { useWorkspaceMemoryList } from "@/hooks/useWorkspaceMemoryList";
-import { projectsCollection } from "@/lib/collections";
+import { useGlobalMemoryList } from "@/hooks/useGlobalMemoryList";
 import { MEMORY_TYPES } from "@/lib/types";
+import { GlobalWorkspaceNav } from "@/views/GlobalWorkspaceNav";
 import { WorkspaceCenter } from "@/views/WorkspaceCenter";
-import { WorkspaceNav } from "@/views/WorkspaceNav";
 
-const workspaceSearchSchema = z.object({
+const globalSearchSchema = z.object({
   search: z.string().default("").catch(""),
   type: z.enum(MEMORY_TYPES).optional().catch(undefined),
   pinned: z.boolean().default(false).catch(false),
   needsReview: z.boolean().default(false).catch(false),
 });
 
-export const Route = createFileRoute("/$projectId")({
-  validateSearch: workspaceSearchSchema,
-  component: WorkspaceLayout,
+export const Route = createFileRoute("/global")({
+  validateSearch: globalSearchSchema,
+  component: GlobalWorkspaceLayout,
 });
 
-function WorkspaceLayout() {
-  const { projectId } = Route.useParams();
-
-  const { data: projects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
-  const project = projects.find((p) => p.id === projectId);
-  const projectName = project?.name ?? projectId;
-
+function GlobalWorkspaceLayout() {
   const selectedId = useRouterState({
     select: (s) => {
       const p = s.location.pathname;
-      const prefix = `/${projectId}/`;
-      return p.startsWith(prefix) ? p.slice(prefix.length) : null;
+      return p.startsWith("/global/") ? p.slice("/global/".length) : null;
     },
   });
 
-  const list = useWorkspaceMemoryList(selectedId);
+  const list = useGlobalMemoryList(selectedId);
 
   return (
     <div className="flex flex-1 min-h-0 w-full">
       <div className="w-[200px] shrink-0 overflow-hidden flex flex-col">
-        <WorkspaceNav projectName={projectName} />
+        <GlobalWorkspaceNav />
       </div>
       <div className="flex-1 min-w-0 border-x border-border overflow-hidden flex flex-col">
         <WorkspaceCenter selectedId={selectedId} list={list} />
