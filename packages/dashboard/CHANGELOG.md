@@ -1,5 +1,23 @@
 # @membank/dashboard
 
+## 0.7.0
+
+### Minor Changes
+
+- 8772d37: Added a project synthesis panel to the dashboard: selecting a project in the memory filter now shows the AI-generated synthesis for that project in the detail pane, with Generate/Regenerate controls and live in-flight state.
+- 8772d37: Added v2 dashboard with project-picker landing page and three-column workspace. The new UI is accessible at `/v2` and introduces per-project activity heatmaps, stats cards, and a workspace with a dedicated navigation sidebar, memory list, and detail panel — all scoped to a single project context.
+- 8772d37: Added a /global route to the dashboard for browsing and managing global memories (memories not associated with any project). The Global card on the projects landing page now navigates into this workspace.
+
+### Patch Changes
+
+- 8772d37: Fixed the Global project card on the dashboard showing the total memory count across all projects instead of only global-scoped memories.
+- 8772d37: Project cards now navigate to their workspace when clicked, using correctly typed TanStack Router link options instead of plain href strings.
+- 8772d37: Removed the legacy v1 memories route and promoted the v2 workspace as the default home page. Project cards now use shadcn Card primitives and flex-wrap layout for better desktop density.
+- 8772d37: Added a reset mechanism for stuck synthesis: after 60 seconds in-flight, a "Taking too long? Reset" affordance appears that clears the flag and allows retriggering.
+- 8772d37: Added Lightning icon buttons to project group headers and the project filter bar so the synthesis panel is discoverable without prior knowledge of the filter mechanic.
+- Updated dependencies [d68b4ca]
+  - @membank/core@0.11.0
+
 ## 0.6.0
 
 ### Minor Changes
