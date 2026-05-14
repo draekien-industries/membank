@@ -1,3 +1,4 @@
+import { cva } from "class-variance-authority";
 import { useState } from "react";
 import { ActivityHeatmap } from "@/components/ActivityHeatmap";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +12,7 @@ interface ProjectCardProps {
   projectName: string;
   href: string;
   statsOverride?: ProjectStats;
+  className?: string;
 }
 
 const TYPE_COLORS: Record<MemoryType, string> = {
@@ -24,6 +26,16 @@ const TYPE_COLORS: Record<MemoryType, string> = {
 type DaysOption = 365 | 30 | 7;
 
 const DAY_OPTIONS = [365, 30, 7] as const satisfies readonly DaysOption[];
+
+const dayToggleVariants = cva("text-[11px] font-mono px-1.5 py-0.5 rounded transition-colors", {
+  variants: {
+    active: {
+      true: "bg-muted text-foreground",
+      false: "text-muted-foreground hover:text-foreground",
+    },
+  },
+  defaultVariants: { active: false },
+});
 
 interface StatCellProps {
   label: string;
@@ -41,7 +53,13 @@ function StatCell({ label, children }: StatCellProps) {
   );
 }
 
-export function ProjectCard({ projectId, projectName, href, statsOverride }: ProjectCardProps) {
+export function ProjectCard({
+  projectId,
+  projectName,
+  href,
+  statsOverride,
+  className,
+}: ProjectCardProps) {
   const [days, setDays] = useState<DaysOption>(365);
 
   const { stats: fetchedStats, loading: statsLoading } = useProjectStats(
@@ -55,7 +73,12 @@ export function ProjectCard({ projectId, projectName, href, statsOverride }: Pro
   const reviewCount = stats?.needsReview ?? 0;
 
   return (
-    <div className="rounded-lg border border-border bg-card hover:bg-muted/20 transition-colors">
+    <div
+      className={cn(
+        "rounded-lg border border-border bg-card hover:bg-muted/20 transition-colors",
+        className
+      )}
+    >
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
         <a
           href={href}
@@ -68,12 +91,7 @@ export function ProjectCard({ projectId, projectName, href, statsOverride }: Pro
             <button
               key={d}
               type="button"
-              className={cn(
-                "text-[11px] font-mono px-1.5 py-0.5 rounded transition-colors",
-                days === d
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
+              className={dayToggleVariants({ active: days === d })}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();

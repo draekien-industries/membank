@@ -1,6 +1,6 @@
 import { useLiveQuery } from "@tanstack/react-db";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { memoriesCollection } from "@/lib/collections";
 import type { Memory } from "@/lib/types";
 import { Route as WorkspaceRoute } from "@/routes/v2.$projectId";
@@ -22,22 +22,15 @@ export function useWorkspaceMemoryList(selectedId: string | null) {
     []
   );
 
-  const projectMemories = useMemo(
-    () => allMemories.filter((m: Memory) => m.projects.some((p) => p.id === projectId)),
-    [allMemories, projectId]
-  );
-
-  const filtered = useMemo(() => {
-    let ms = projectMemories;
-    if (search.type) ms = ms.filter((m) => m.type === search.type);
-    if (search.pinned) ms = ms.filter((m) => m.pinned);
-    if (search.needsReview) ms = ms.filter((m) => m.reviewEvents.length > 0);
-    if (search.search) {
-      const q = search.search.toLowerCase();
-      ms = ms.filter((m) => m.content.toLowerCase().includes(q));
-    }
-    return ms;
-  }, [projectMemories, search]);
+  let ms = allMemories.filter((m: Memory) => m.projects.some((p) => p.id === projectId));
+  if (search.type) ms = ms.filter((m) => m.type === search.type);
+  if (search.pinned) ms = ms.filter((m) => m.pinned);
+  if (search.needsReview) ms = ms.filter((m) => m.reviewEvents.length > 0);
+  if (search.search) {
+    const q = search.search.toLowerCase();
+    ms = ms.filter((m) => m.content.toLowerCase().includes(q));
+  }
+  const filtered = ms;
 
   useEffect(() => {
     if (filtered.length === 0) setFocusedIndex(-1);

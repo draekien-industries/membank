@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { cva } from "class-variance-authority";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ActivityDay } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 interface ActivityHeatmapProps {
   activity: ActivityDay[];
   days: 365 | 30 | 7;
+  className?: string;
 }
 
 interface HeatmapCell {
@@ -13,6 +14,33 @@ interface HeatmapCell {
   count: number;
   inRange: boolean;
 }
+
+type CellIntensity = "zero" | "low" | "mid" | "high" | "max";
+
+function countToIntensity(count: number): CellIntensity {
+  if (count === 0) return "zero";
+  if (count <= 3) return "low";
+  if (count <= 7) return "mid";
+  if (count <= 15) return "high";
+  return "max";
+}
+
+const heatmapCellVariants = cva("w-1.5 h-1.5 rounded-[2px]", {
+  variants: {
+    intensity: {
+      zero: "bg-muted",
+      low: "bg-primary/20",
+      mid: "bg-primary/40",
+      high: "bg-primary/65",
+      max: "bg-primary/85",
+    },
+    inRange: {
+      true: "",
+      false: "opacity-30",
+    },
+  },
+  defaultVariants: { intensity: "zero", inRange: true },
+});
 
 function buildHeatmapGrid(activity: ActivityDay[], days: number): HeatmapCell[][] {
   const activityMap = new Map(activity.map((a) => [a.date, a.count]));
@@ -45,14 +73,6 @@ function buildHeatmapGrid(activity: ActivityDay[], days: number): HeatmapCell[][
   return weeks;
 }
 
-function cellColorClass(count: number): string {
-  if (count === 0) return "bg-muted";
-  if (count <= 3) return "bg-primary/20";
-  if (count <= 7) return "bg-primary/40";
-  if (count <= 15) return "bg-primary/65";
-  return "bg-primary/85";
-}
-
 function formatTooltip(date: string, count: number): string {
   const label = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
     month: "short",
@@ -66,12 +86,11 @@ interface HeatmapCellItemProps {
   cell: HeatmapCell;
 }
 
-const HeatmapCellItem = React.memo(function HeatmapCellItem({ cell }: HeatmapCellItemProps) {
-  const base = cn(
-    "w-1.5 h-1.5 rounded-[2px]",
-    cellColorClass(cell.count),
-    !cell.inRange && "opacity-30"
-  );
+function HeatmapCellItem({ cell }: HeatmapCellItemProps) {
+  const base = heatmapCellVariants({
+    intensity: countToIntensity(cell.count),
+    inRange: cell.inRange,
+  });
 
   if (!cell.inRange) {
     return <div className={base} />;
@@ -87,14 +106,14 @@ const HeatmapCellItem = React.memo(function HeatmapCellItem({ cell }: HeatmapCel
       </TooltipContent>
     </Tooltip>
   );
-});
+}
 
-export function ActivityHeatmap({ activity, days }: ActivityHeatmapProps) {
-  const weeks = useMemo(() => buildHeatmapGrid(activity, days), [activity, days]);
+export function ActivityHeatmap({ activity, days, className }: ActivityHeatmapProps) {
+  const weeks = buildHeatmapGrid(activity, days);
 
   return (
     <TooltipProvider>
-      <div className="flex gap-[1px]">
+      <div className={cn("flex gap-[1px]", className)}>
         {weeks.map((week) => (
           <div key={week[0]?.date ?? week.length} className="flex flex-col gap-[1px]">
             {week.map((cell) => (

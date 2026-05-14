@@ -1,13 +1,42 @@
 import { ArrowLeft, PushPin, Warning } from "@phosphor-icons/react";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { cva } from "class-variance-authority";
 import type { MemoryType } from "@/lib/types";
 import { MEMORY_TYPES } from "@/lib/types";
-import { capitalize, cn } from "@/lib/utils";
+import { capitalize } from "@/lib/utils";
 import { Route as WorkspaceRoute } from "@/routes/v2.$projectId";
 
 interface WorkspaceNavProps {
   projectName: string;
 }
+
+const navFilterButtonVariants = cva(
+  "w-full text-left py-1 px-4 text-xs font-mono transition-colors",
+  {
+    variants: {
+      active: {
+        true: "text-primary bg-muted/50",
+        false: "text-muted-foreground hover:text-foreground hover:bg-muted/30",
+      },
+    },
+    defaultVariants: { active: false },
+  }
+);
+
+const navToggleButtonVariants = cva(
+  "flex items-center gap-2 px-4 py-1 text-xs font-mono transition-colors w-full text-left",
+  {
+    variants: {
+      active: { true: "", false: "text-muted-foreground hover:text-foreground" },
+      color: { primary: "", destructive: "" },
+    },
+    compoundVariants: [
+      { active: true, color: "primary", class: "text-primary" },
+      { active: true, color: "destructive", class: "text-destructive" },
+    ],
+    defaultVariants: { active: false, color: "primary" },
+  }
+);
 
 export function WorkspaceNav({ projectName }: WorkspaceNavProps) {
   const { projectId } = WorkspaceRoute.useParams();
@@ -57,12 +86,7 @@ export function WorkspaceNav({ projectName }: WorkspaceNavProps) {
         <button
           type="button"
           onClick={() => setType(undefined)}
-          className={cn(
-            "w-full text-left py-1 px-4 text-xs font-mono transition-colors",
-            !search.type
-              ? "text-primary bg-muted/50"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-          )}
+          className={navFilterButtonVariants({ active: !search.type })}
         >
           All
         </button>
@@ -71,12 +95,7 @@ export function WorkspaceNav({ projectName }: WorkspaceNavProps) {
             key={t}
             type="button"
             onClick={() => setType(t)}
-            className={cn(
-              "w-full text-left py-1 px-4 text-xs font-mono transition-colors",
-              search.type === t
-                ? "text-primary bg-muted/50"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-            )}
+            className={navFilterButtonVariants({ active: search.type === t })}
           >
             {capitalize(t)}
           </button>
@@ -88,10 +107,7 @@ export function WorkspaceNav({ projectName }: WorkspaceNavProps) {
       <button
         type="button"
         onClick={togglePinned}
-        className={cn(
-          "flex items-center gap-2 px-4 py-1 text-xs font-mono transition-colors w-full text-left",
-          search.pinned ? "text-primary" : "text-muted-foreground hover:text-foreground"
-        )}
+        className={navToggleButtonVariants({ active: search.pinned, color: "primary" })}
       >
         <PushPin weight={search.pinned ? "fill" : "regular"} className="size-3 shrink-0" />
         Pinned only
@@ -100,10 +116,7 @@ export function WorkspaceNav({ projectName }: WorkspaceNavProps) {
       <button
         type="button"
         onClick={toggleReview}
-        className={cn(
-          "flex items-center gap-2 px-4 py-1 text-xs font-mono transition-colors w-full text-left",
-          search.needsReview ? "text-destructive" : "text-muted-foreground hover:text-foreground"
-        )}
+        className={navToggleButtonVariants({ active: search.needsReview, color: "destructive" })}
       >
         <Warning weight={search.needsReview ? "fill" : "regular"} className="size-3 shrink-0" />
         Needs review
