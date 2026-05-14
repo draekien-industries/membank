@@ -1,6 +1,15 @@
+import { Link } from "@tanstack/react-router";
 import { cva } from "class-variance-authority";
 import { useState } from "react";
 import { ActivityHeatmap } from "@/components/ActivityHeatmap";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProjectActivity } from "@/hooks/useProjectActivity";
 import { useProjectStats } from "@/hooks/useProjectStats";
@@ -73,36 +82,38 @@ export function ProjectCard({
   const reviewCount = stats?.needsReview ?? 0;
 
   return (
-    <div className={cn("rounded-lg border border-border bg-card", className)}>
-      <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <span className="text-sm font-medium font-mono text-foreground">{projectName}</span>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-0.5">
-            {DAY_OPTIONS.map((d) => (
-              <button
-                key={d}
-                type="button"
-                className={dayToggleVariants({ active: days === d })}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setDays(d);
-                }}
-              >
-                {`${d}d`}
-              </button>
-            ))}
+    <Card className={cn("gap-0 py-0", className)}>
+      <CardHeader className="items-center pt-4 pb-3">
+        <CardTitle className="font-mono text-sm font-medium">{projectName}</CardTitle>
+        <CardAction>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-0.5">
+              {DAY_OPTIONS.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  className={dayToggleVariants({ active: days === d })}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDays(d);
+                  }}
+                >
+                  {`${d}d`}
+                </button>
+              ))}
+            </div>
+            <Link
+              to={href}
+              className="text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-muted"
+            >
+              Open →
+            </Link>
           </div>
-          <a
-            href={href}
-            className="text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-muted"
-          >
-            Open →
-          </a>
-        </div>
-      </div>
+        </CardAction>
+      </CardHeader>
 
-      <div className="grid grid-cols-4 gap-0 px-4 pb-3">
+      <CardContent className="grid grid-cols-4 gap-4 pb-3 pt-0">
         <StatCell label="Total">
           {loading ? <Skeleton className="h-3 w-8" /> : (stats?.total ?? 0)}
         </StatCell>
@@ -147,17 +158,17 @@ export function ProjectCard({
         <StatCell label="Corrections">
           {loading ? <Skeleton className="h-3 w-8" /> : (stats?.byType.correction ?? 0)}
         </StatCell>
-      </div>
+      </CardContent>
 
-      <div className="px-4 pb-3 overflow-hidden">
+      <CardContent className="overflow-hidden pb-3 pt-0">
         {activityLoading ? (
           <Skeleton className="h-12 w-full" />
         ) : (
           <ActivityHeatmap activity={activity} days={days} />
         )}
-      </div>
+      </CardContent>
 
-      <div className="px-4 pb-4">
+      <CardFooter className="pb-4 pt-0">
         {stats ? (
           reviewCount > 0 ? (
             <span className="text-[11px] text-muted-foreground font-mono">
@@ -171,7 +182,7 @@ export function ProjectCard({
             <span className="text-[11px] text-muted-foreground font-mono">No activity yet</span>
           )
         ) : null}
-      </div>
-    </div>
+      </CardFooter>
+    </Card>
   );
 }

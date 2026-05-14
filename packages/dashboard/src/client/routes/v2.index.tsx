@@ -1,10 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { V2ProjectsLanding } from "@/views/V2ProjectsLanding";
+import { ProjectsLanding } from "@/views/ProjectsLanding";
 
 export const Route = createFileRoute("/v2/")({
-  component: V2LandingPage,
+  component: ProjectsLanding,
 });
-
-function V2LandingPage() {
-  return <V2ProjectsLanding />;
-}

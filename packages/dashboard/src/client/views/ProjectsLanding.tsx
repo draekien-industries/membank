@@ -5,7 +5,7 @@ import { useStats } from "@/hooks/useStats";
 import { projectsCollection } from "@/lib/collections";
 import type { ProjectStats } from "@/lib/types";
 
-export function V2ProjectsLanding() {
+export function ProjectsLanding() {
   const { data: projects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
   const stats = useStats();
 
@@ -42,7 +42,7 @@ export function V2ProjectsLanding() {
           </EmptyDescription>
         </Empty>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <ProjectCard
             projectId="global"
             projectName="Global"
