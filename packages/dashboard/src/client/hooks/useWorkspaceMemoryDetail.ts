@@ -1,12 +1,9 @@
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { addMemoryProject, patchMemory, removeMemoryProject } from "@/lib/api";
 import { memoriesCollection, projectsCollection, queryClient } from "@/lib/collections";
 
-export function useMemoryDetail(id: string) {
-  const navigate = useNavigate();
-
+export function useWorkspaceMemoryDetail(id: string, onClose: () => void) {
   const { data: results = [], isLoading } = useLiveQuery(
     (q) => q.from({ m: memoriesCollection }).where(({ m }) => eq(m.id, id)),
     [id]
@@ -21,9 +18,9 @@ export function useMemoryDetail(id: string) {
     );
   };
 
-  const handleAddProject = async (projectId: string): Promise<boolean> => {
+  const handleAddProject = async (addProjectId: string): Promise<boolean> => {
     try {
-      await addMemoryProject(id, projectId);
+      await addMemoryProject(id, addProjectId);
       await queryClient.invalidateQueries({ queryKey: ["memories"] });
       return true;
     } catch {
@@ -32,16 +29,14 @@ export function useMemoryDetail(id: string) {
     }
   };
 
-  const handleRemoveProject = async (projectId: string) => {
+  const handleRemoveProject = async (removeProjectId: string) => {
     try {
-      await removeMemoryProject(id, projectId);
+      await removeMemoryProject(id, removeProjectId);
       await queryClient.invalidateQueries({ queryKey: ["memories"] });
     } catch {
       toast.error("Failed to remove project — try again");
     }
   };
-
-  const handleClose = () => void navigate({ to: "/memories" });
 
   const availableProjects = allProjects.filter(
     (p) => !memory?.projects.some((mp) => mp.id === p.id)
@@ -54,6 +49,6 @@ export function useMemoryDetail(id: string) {
     handleApprove,
     handleAddProject,
     handleRemoveProject,
-    handleClose,
+    handleClose: onClose,
   };
 }

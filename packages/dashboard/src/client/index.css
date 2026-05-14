@@ -41,6 +41,8 @@
   --type-decision: oklch(0.52 0.16 300);
   --type-learning: oklch(0.48 0.12 165);
   --type-fact: oklch(0.52 0.006 165);
+  /* synthesis states */
+  --stale: oklch(0.62 0.14 75);
 }
 
 .dark {
@@ -77,6 +79,8 @@
   --type-decision: oklch(0.65 0.14 300);
   --type-learning: oklch(0.65 0.14 165);
   --type-fact: oklch(0.62 0.006 165);
+  /* synthesis states */
+  --stale: oklch(0.75 0.14 75);
 }
 
 @theme inline {
@@ -112,6 +116,12 @@
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
+  --color-correction: var(--type-correction);
+  --color-preference: var(--type-preference);
+  --color-decision: var(--type-decision);
+  --color-learning: var(--type-learning);
+  --color-fact: var(--type-fact);
+  --color-stale: var(--stale);
 }
 
 @layer base {

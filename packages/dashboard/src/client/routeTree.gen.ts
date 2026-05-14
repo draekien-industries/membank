@@ -9,14 +9,22 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as MemoriesRouteImport } from './routes/memories'
+import { Route as GlobalRouteImport } from './routes/global'
+import { Route as ProjectIdRouteImport } from './routes/$projectId'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as MemoriesIndexRouteImport } from './routes/memories.index'
-import { Route as MemoriesIdRouteImport } from './routes/memories.$id'
+import { Route as GlobalIndexRouteImport } from './routes/global.index'
+import { Route as ProjectIdIndexRouteImport } from './routes/$projectId.index'
+import { Route as GlobalMemoryIdRouteImport } from './routes/global.$memoryId'
+import { Route as ProjectIdMemoryIdRouteImport } from './routes/$projectId.$memoryId'
 
-const MemoriesRoute = MemoriesRouteImport.update({
-  id: '/memories',
-  path: '/memories',
+const GlobalRoute = GlobalRouteImport.update({
+  id: '/global',
+  path: '/global',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectIdRoute = ProjectIdRouteImport.update({
+  id: '/$projectId',
+  path: '/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -24,55 +32,101 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MemoriesIndexRoute = MemoriesIndexRouteImport.update({
+const GlobalIndexRoute = GlobalIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => MemoriesRoute,
+  getParentRoute: () => GlobalRoute,
 } as any)
-const MemoriesIdRoute = MemoriesIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => MemoriesRoute,
+const ProjectIdIndexRoute = ProjectIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProjectIdRoute,
+} as any)
+const GlobalMemoryIdRoute = GlobalMemoryIdRouteImport.update({
+  id: '/$memoryId',
+  path: '/$memoryId',
+  getParentRoute: () => GlobalRoute,
+} as any)
+const ProjectIdMemoryIdRoute = ProjectIdMemoryIdRouteImport.update({
+  id: '/$memoryId',
+  path: '/$memoryId',
+  getParentRoute: () => ProjectIdRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/memories': typeof MemoriesRouteWithChildren
-  '/memories/$id': typeof MemoriesIdRoute
-  '/memories/': typeof MemoriesIndexRoute
+  '/$projectId': typeof ProjectIdRouteWithChildren
+  '/global': typeof GlobalRouteWithChildren
+  '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
+  '/global/$memoryId': typeof GlobalMemoryIdRoute
+  '/$projectId/': typeof ProjectIdIndexRoute
+  '/global/': typeof GlobalIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/memories/$id': typeof MemoriesIdRoute
-  '/memories': typeof MemoriesIndexRoute
+  '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
+  '/global/$memoryId': typeof GlobalMemoryIdRoute
+  '/$projectId': typeof ProjectIdIndexRoute
+  '/global': typeof GlobalIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/memories': typeof MemoriesRouteWithChildren
-  '/memories/$id': typeof MemoriesIdRoute
-  '/memories/': typeof MemoriesIndexRoute
+  '/$projectId': typeof ProjectIdRouteWithChildren
+  '/global': typeof GlobalRouteWithChildren
+  '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
+  '/global/$memoryId': typeof GlobalMemoryIdRoute
+  '/$projectId/': typeof ProjectIdIndexRoute
+  '/global/': typeof GlobalIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/memories' | '/memories/$id' | '/memories/'
+  fullPaths:
+    | '/'
+    | '/$projectId'
+    | '/global'
+    | '/$projectId/$memoryId'
+    | '/global/$memoryId'
+    | '/$projectId/'
+    | '/global/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/memories/$id' | '/memories'
-  id: '__root__' | '/' | '/memories' | '/memories/$id' | '/memories/'
+  to:
+    | '/'
+    | '/$projectId/$memoryId'
+    | '/global/$memoryId'
+    | '/$projectId'
+    | '/global'
+  id:
+    | '__root__'
+    | '/'
+    | '/$projectId'
+    | '/global'
+    | '/$projectId/$memoryId'
+    | '/global/$memoryId'
+    | '/$projectId/'
+    | '/global/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  MemoriesRoute: typeof MemoriesRouteWithChildren
+  ProjectIdRoute: typeof ProjectIdRouteWithChildren
+  GlobalRoute: typeof GlobalRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/memories': {
-      id: '/memories'
-      path: '/memories'
-      fullPath: '/memories'
-      preLoaderRoute: typeof MemoriesRouteImport
+    '/global': {
+      id: '/global'
+      path: '/global'
+      fullPath: '/global'
+      preLoaderRoute: typeof GlobalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$projectId': {
+      id: '/$projectId'
+      path: '/$projectId'
+      fullPath: '/$projectId'
+      preLoaderRoute: typeof ProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -82,40 +136,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/memories/': {
-      id: '/memories/'
+    '/global/': {
+      id: '/global/'
       path: '/'
-      fullPath: '/memories/'
-      preLoaderRoute: typeof MemoriesIndexRouteImport
-      parentRoute: typeof MemoriesRoute
+      fullPath: '/global/'
+      preLoaderRoute: typeof GlobalIndexRouteImport
+      parentRoute: typeof GlobalRoute
     }
-    '/memories/$id': {
-      id: '/memories/$id'
-      path: '/$id'
-      fullPath: '/memories/$id'
-      preLoaderRoute: typeof MemoriesIdRouteImport
-      parentRoute: typeof MemoriesRoute
+    '/$projectId/': {
+      id: '/$projectId/'
+      path: '/'
+      fullPath: '/$projectId/'
+      preLoaderRoute: typeof ProjectIdIndexRouteImport
+      parentRoute: typeof ProjectIdRoute
+    }
+    '/global/$memoryId': {
+      id: '/global/$memoryId'
+      path: '/$memoryId'
+      fullPath: '/global/$memoryId'
+      preLoaderRoute: typeof GlobalMemoryIdRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/$projectId/$memoryId': {
+      id: '/$projectId/$memoryId'
+      path: '/$memoryId'
+      fullPath: '/$projectId/$memoryId'
+      preLoaderRoute: typeof ProjectIdMemoryIdRouteImport
+      parentRoute: typeof ProjectIdRoute
     }
   }
 }
 
-interface MemoriesRouteChildren {
-  MemoriesIdRoute: typeof MemoriesIdRoute
-  MemoriesIndexRoute: typeof MemoriesIndexRoute
+interface ProjectIdRouteChildren {
+  ProjectIdMemoryIdRoute: typeof ProjectIdMemoryIdRoute
+  ProjectIdIndexRoute: typeof ProjectIdIndexRoute
 }
 
-const MemoriesRouteChildren: MemoriesRouteChildren = {
-  MemoriesIdRoute: MemoriesIdRoute,
-  MemoriesIndexRoute: MemoriesIndexRoute,
+const ProjectIdRouteChildren: ProjectIdRouteChildren = {
+  ProjectIdMemoryIdRoute: ProjectIdMemoryIdRoute,
+  ProjectIdIndexRoute: ProjectIdIndexRoute,
 }
 
-const MemoriesRouteWithChildren = MemoriesRoute._addFileChildren(
-  MemoriesRouteChildren,
+const ProjectIdRouteWithChildren = ProjectIdRoute._addFileChildren(
+  ProjectIdRouteChildren,
 )
+
+interface GlobalRouteChildren {
+  GlobalMemoryIdRoute: typeof GlobalMemoryIdRoute
+  GlobalIndexRoute: typeof GlobalIndexRoute
+}
+
+const GlobalRouteChildren: GlobalRouteChildren = {
+  GlobalMemoryIdRoute: GlobalMemoryIdRoute,
+  GlobalIndexRoute: GlobalIndexRoute,
+}
+
+const GlobalRouteWithChildren =
+  GlobalRoute._addFileChildren(GlobalRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  MemoriesRoute: MemoriesRouteWithChildren,
+  ProjectIdRoute: ProjectIdRouteWithChildren,
+  GlobalRoute: GlobalRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

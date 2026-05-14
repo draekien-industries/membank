@@ -2,8 +2,8 @@ import { QueryClient } from "@tanstack/query-core";
 import { queryCollectionOptions } from "@tanstack/query-db-collection";
 import { createCollection } from "@tanstack/react-db";
 import { toast } from "sonner";
-import { deleteMemory, listProjects, patchMemory, renameProject } from "./api.js";
-import type { Memory, MemoryType, Project } from "./types.js";
+import { deleteMemory, listProjects, listSyntheses, patchMemory, renameProject } from "./api.js";
+import type { Memory, MemoryType, Project, Synthesis } from "./types.js";
 
 export const queryClient = new QueryClient();
 
@@ -41,6 +41,15 @@ export const memoriesCollection = createCollection(
         toast.error("Failed to delete — try again");
       }
     },
+  })
+);
+
+export const synthesisCollection = createCollection(
+  queryCollectionOptions<Synthesis>({
+    queryKey: ["syntheses"],
+    queryFn: listSyntheses,
+    queryClient,
+    getKey: (s) => s.id,
   })
 );
 

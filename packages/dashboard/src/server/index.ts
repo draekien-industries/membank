@@ -3,18 +3,47 @@ import { createServer } from "node:net";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import type { Embedder, MemoryRepository, MemoryType, ProjectRepository } from "@membank/core";
+import type {
+  Embedder,
+  Memory,
+  MemoryRepository,
+  MemoryType,
+  ProjectRepository,
+  Querier,
+  SynthesisRepository,
+  SynthesisTools,
+} from "@membank/core";
 import {
   createMemoryRepository,
   createProjectRepository,
+  createSynthesisAgentRunner,
+  createSynthesisRepository,
   DatabaseManager,
   EmbeddingService,
+  isSynthesisEnabled,
+  QueryEngine,
+  runSynthesis,
   updateMemory,
 } from "@membank/core";
 import { Hono } from "hono";
 import open from "open";
 
 const PREFERRED_PORT = 3847;
+
+function buildSynthesisTools(repo: MemoryRepository, querier: Querier): SynthesisTools {
+  return {
+    queryMemory: async (args) => {
+      const results = await querier.query({
+        query: args.query,
+        projectHash: args.global === true ? undefined : args.projectHash,
+        limit: args.limit ?? 20,
+        includePinned: true,
+      });
+      return JSON.stringify(results);
+    },
+    getMemorySummary: async () => JSON.stringify(repo.stats()),
+  };
+}
 
 const MIME: Record<string, string> = {
   ".js": "application/javascript",
@@ -55,10 +84,31 @@ async function findFreePort(preferred: number): Promise<number> {
   }
 }
 
+function aggregateActivity(memories: Memory[], days: number): { date: string; count: number }[] {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  const dayCounts: Record<string, number> = {};
+  for (const m of memories) {
+    const day = m.createdAt.slice(0, 10);
+    if (day >= cutoffStr) dayCounts[day] = (dayCounts[day] ?? 0) + 1;
+    const updateDay = m.updatedAt.slice(0, 10);
+    if (updateDay !== day && updateDay >= cutoffStr)
+      dayCounts[updateDay] = (dayCounts[updateDay] ?? 0) + 1;
+  }
+
+  return Object.entries(dayCounts)
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 export function createApiApp(
   repo: MemoryRepository,
   projectRepo: ProjectRepository,
-  embedder: Embedder
+  embedder: Embedder,
+  queryEngine: QueryEngine,
+  synthRepo: SynthesisRepository
 ): Hono {
   const app = new Hono();
 
@@ -142,6 +192,95 @@ export function createApiApp(
     return c.json({ byType, total, needsReview });
   });
 
+  app.get("/api/syntheses", (c) => {
+    return c.json(synthRepo.listAll());
+  });
+
+  app.get("/api/projects/:id/synthesis", (c) => {
+    const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
+    if (!project) return c.json({ error: "Not found" }, 404);
+    return c.json(synthRepo.getSynthesis(project.scopeHash) ?? null);
+  });
+
+  app.post("/api/projects/:id/synthesis", (c) => {
+    if (!isSynthesisEnabled()) return c.json({ error: "Synthesis is disabled" }, 503);
+    const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
+    if (!project) return c.json({ error: "Not found" }, 404);
+    const agentRunner = createSynthesisAgentRunner(buildSynthesisTools(repo, queryEngine), {
+      enabled: true,
+    });
+    void runSynthesis(project.scopeHash, { synthRepo, agentRunner });
+    return c.json({ ok: true }, 202);
+  });
+
+  app.delete("/api/projects/:id/synthesis/in-flight", (c) => {
+    const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
+    if (!project) return c.json({ error: "Not found" }, 404);
+    synthRepo.clearInFlight(project.scopeHash);
+    return c.json({ ok: true });
+  });
+
+  app.get("/api/projects/:id/stats", (c) => {
+    const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
+    if (!project) return c.json({ error: "Not found" }, 404);
+
+    const memories = repo.list({ projectId: project.id });
+    const byType: Record<string, number> = {
+      correction: 0,
+      preference: 0,
+      decision: 0,
+      learning: 0,
+      fact: 0,
+    };
+    for (const m of memories) byType[m.type] = (byType[m.type] ?? 0) + 1;
+
+    const mostCommonType =
+      memories.length > 0
+        ? (Object.entries(byType).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null)
+        : null;
+
+    const needsReview = memories.filter((m) => m.reviewEvents.length > 0).length;
+    const pinned = memories.filter((m) => m.pinned).length;
+
+    const lastActive = memories.reduce((latest, m) => {
+      const d = m.updatedAt > m.createdAt ? m.updatedAt : m.createdAt;
+      return d > latest ? d : latest;
+    }, "");
+
+    const activeDaySet = new Set(memories.map((m) => m.createdAt.slice(0, 10)));
+
+    const harnessCounts: Record<string, number> = {};
+    for (const m of memories) {
+      if (m.sourceHarness)
+        harnessCounts[m.sourceHarness] = (harnessCounts[m.sourceHarness] ?? 0) + 1;
+    }
+    const harness = Object.entries(harnessCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+    return c.json({
+      total: memories.length,
+      byType,
+      needsReview,
+      pinned,
+      mostCommonType,
+      lastActive: lastActive || null,
+      harness,
+      activeDays: activeDaySet.size,
+    });
+  });
+
+  app.get("/api/projects/:id/activity", (c) => {
+    const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
+    if (!project) return c.json({ error: "Not found" }, 404);
+
+    const daysParam = Math.max(1, parseInt(c.req.query("days") ?? "365", 10));
+    return c.json(aggregateActivity(repo.list({ projectId: project.id }), daysParam));
+  });
+
+  app.get("/api/activity", (c) => {
+    const daysParam = Math.max(1, parseInt(c.req.query("days") ?? "365", 10));
+    return c.json(aggregateActivity(repo.list(), daysParam));
+  });
+
   return app;
 }
 
@@ -156,8 +295,10 @@ export async function startDashboard(opts?: {
   const embedding = new EmbeddingService();
   const projects = createProjectRepository(db);
   const repo = createMemoryRepository(db, projects);
+  const queryEngine = new QueryEngine(db, embedding, repo);
+  const synthRepo = createSynthesisRepository(db);
 
-  const app = createApiApp(repo, projects, embedding);
+  const app = createApiApp(repo, projects, embedding, queryEngine, synthRepo);
 
   const __dir = dirname(fileURLToPath(import.meta.url));
   const clientDir = join(__dir, "client");

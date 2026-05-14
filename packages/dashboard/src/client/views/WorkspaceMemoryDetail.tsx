@@ -1,6 +1,6 @@
 import { X } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
-import { useBlocker } from "@tanstack/react-router";
+import { useBlocker, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import * as z from "zod";
 import { Badge } from "@/components/ui/badge";
@@ -10,11 +10,12 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
-import { useMemoryDetail } from "@/hooks/useMemoryDetail";
+import { useWorkspaceMemoryDetail } from "@/hooks/useWorkspaceMemoryDetail";
 import { memoriesCollection } from "@/lib/collections";
 import type { Memory, MemoryType } from "@/lib/types";
 import { MEMORY_TYPES, TYPE_DESCRIPTIONS } from "@/lib/types";
 import { capitalize } from "@/lib/utils";
+import { Route as WorkspaceRoute } from "@/routes/$projectId";
 
 const memoryFormSchema = z.object({
   content: z.string().min(1, "Content is required."),
@@ -55,7 +56,7 @@ function FormField({ field, label, description, children }: FormFieldProps) {
   );
 }
 
-interface MemoryDetailFormProps {
+interface WorkspaceMemoryDetailFormProps {
   memory: Memory;
   availableProjects: Memory["projects"];
   handleApprove: () => void;
@@ -64,14 +65,14 @@ interface MemoryDetailFormProps {
   handleClose: () => void;
 }
 
-function MemoryDetailForm({
+export function WorkspaceMemoryDetailForm({
   memory,
   availableProjects,
   handleApprove,
   handleAddProject,
   handleRemoveProject,
   handleClose,
-}: MemoryDetailFormProps) {
+}: WorkspaceMemoryDetailFormProps) {
   const [saved, setSaved] = useState(false);
   const [addProjectId, setAddProjectId] = useState("");
 
@@ -144,7 +145,7 @@ function MemoryDetailForm({
                   onBlur={field.handleBlur}
                   onChange={(e) => field.handleChange(e.target.value)}
                   rows={8}
-                  className="min-h-32 font-[var(--font-heading)] text-sm"
+                  className="min-h-32 font-heading text-sm"
                   aria-invalid={field.state.meta.isTouched && !field.state.meta.isValid}
                 />
               </FormField>
@@ -200,10 +201,14 @@ function MemoryDetailForm({
         </FieldGroup>
 
         <div className="space-y-1.5">
-          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Projects</p>
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-mono">
+            Projects
+          </p>
           <div className="flex flex-wrap gap-1">
             {memory.projects.length === 0 && (
-              <span className="text-[11px] text-muted-foreground">Global (no project)</span>
+              <span className="text-[11px] font-mono text-muted-foreground">
+                Global (no project)
+              </span>
             )}
             {memory.projects.map((p) => (
               <Badge key={p.id} variant="secondary" className="gap-1 rounded-full text-[11px]">
@@ -265,7 +270,7 @@ function MemoryDetailForm({
                     <span>{new Date(event.createdAt).toLocaleString()}</span>
                   </div>
                   {event.conflictingMemoryId ? (
-                    <div className="text-muted-foreground">
+                    <div className="text-muted-foreground font-mono">
                       Conflicting memory:{" "}
                       <span className="font-mono text-[10px]">{event.conflictingMemoryId}</span>
                     </div>
@@ -278,7 +283,7 @@ function MemoryDetailForm({
                         Show conflicting content ›
                       </CollapsibleTrigger>
                       <CollapsibleContent>
-                        <p className="mt-1 text-foreground bg-muted rounded px-2 py-1 whitespace-pre-wrap">
+                        <p className="mt-1 text-foreground bg-muted rounded px-2 py-1 whitespace-pre-wrap font-mono">
                           {event.conflictContentSnapshot}
                         </p>
                       </CollapsibleContent>
@@ -297,20 +302,20 @@ function MemoryDetailForm({
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-1 mt-2">
             {memory.sourceHarness && (
-              <div className="flex justify-between text-[11px] text-muted-foreground">
+              <div className="flex justify-between text-[11px] font-mono text-muted-foreground">
                 <span>Source</span>
                 <span>{memory.sourceHarness}</span>
               </div>
             )}
-            <div className="flex justify-between text-[11px] text-muted-foreground">
+            <div className="flex justify-between text-[11px] font-mono text-muted-foreground">
               <span>Accessed</span>
               <span>{memory.accessCount}×</span>
             </div>
-            <div className="flex justify-between text-[11px] text-muted-foreground">
+            <div className="flex justify-between text-[11px] font-mono text-muted-foreground">
               <span>Updated</span>
               <span>{new Date(memory.updatedAt).toLocaleString()}</span>
             </div>
-            <div className="flex justify-between text-[11px] text-muted-foreground">
+            <div className="flex justify-between text-[11px] font-mono text-muted-foreground">
               <span>Created</span>
               <span>{new Date(memory.createdAt).toLocaleString()}</span>
             </div>
@@ -321,7 +326,7 @@ function MemoryDetailForm({
       <div className="flex items-center gap-2 px-4 py-3 border-t border-border shrink-0">
         {blocker.status === "blocked" && (
           <>
-            <span className="text-xs text-destructive">Unsaved changes</span>
+            <span className="text-xs font-mono text-destructive">Unsaved changes</span>
             <Button variant="ghost" size="sm" onClick={() => blocker.proceed()}>
               Discard
             </Button>
@@ -354,11 +359,16 @@ function MemoryDetailForm({
   );
 }
 
-interface MemoryDetailProps {
+interface WorkspaceMemoryDetailProps {
   id: string;
 }
 
-export function MemoryDetail({ id }: MemoryDetailProps) {
+export function WorkspaceMemoryDetail({ id }: WorkspaceMemoryDetailProps) {
+  const { projectId } = WorkspaceRoute.useParams();
+  const navigate = useNavigate();
+  const onClose = () =>
+    void navigate({ to: "/$projectId", params: { projectId }, search: (prev) => prev });
+
   const {
     memory,
     isLoading,
@@ -367,18 +377,18 @@ export function MemoryDetail({ id }: MemoryDetailProps) {
     handleAddProject,
     handleRemoveProject,
     handleClose,
-  } = useMemoryDetail(id);
+  } = useWorkspaceMemoryDetail(id, onClose);
 
   if (isLoading || !memory) {
     return (
-      <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
+      <div className="flex items-center justify-center h-full text-xs font-mono text-muted-foreground">
         {isLoading ? "Loading…" : "Memory not found"}
       </div>
     );
   }
 
   return (
-    <MemoryDetailForm
+    <WorkspaceMemoryDetailForm
       key={memory.id}
       memory={memory}
       availableProjects={availableProjects}

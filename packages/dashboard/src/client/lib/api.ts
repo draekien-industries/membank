@@ -1,4 +1,13 @@
-import type { Filters, Memory, MemoryType, Project, Stats } from "./types";
+import type {
+  ActivityDay,
+  Filters,
+  Memory,
+  MemoryType,
+  Project,
+  ProjectStats,
+  Stats,
+  Synthesis,
+} from "./types";
 
 const BASE = "/api";
 
@@ -71,4 +80,30 @@ export function removeMemoryProject(memoryId: string, projectId: string): Promis
   return request<void>(`/memories/${memoryId}/projects/${projectId}`, {
     method: "DELETE",
   });
+}
+
+export function listSyntheses(): Promise<Synthesis[]> {
+  return request<Synthesis[]>("/syntheses");
+}
+
+export function runProjectSynthesis(projectId: string): Promise<void> {
+  return request<void>(`/projects/${projectId}/synthesis`, { method: "POST" });
+}
+
+export function resetProjectSynthesis(projectId: string): Promise<void> {
+  return request<void>(`/projects/${projectId}/synthesis/in-flight`, { method: "DELETE" });
+}
+
+export function getProjectStats(projectId: string): Promise<ProjectStats> {
+  return request<ProjectStats>(`/projects/${projectId}/stats`);
+}
+
+export function getProjectActivity(projectId: string, days?: number): Promise<ActivityDay[]> {
+  const qs = days !== undefined ? `?days=${days}` : "";
+  return request<ActivityDay[]>(`/projects/${projectId}/activity${qs}`);
+}
+
+export function getGlobalActivity(days?: number): Promise<ActivityDay[]> {
+  const qs = days !== undefined ? `?days=${days}` : "";
+  return request<ActivityDay[]>(`/activity${qs}`);
 }
