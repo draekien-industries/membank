@@ -38,13 +38,13 @@ function WorkspaceLayout() {
 
   return (
     <div className="flex flex-1 min-h-0 w-full">
-      <div className="w-[200px] shrink-0 overflow-hidden flex flex-col">
+      <div className="w-50 shrink-0 overflow-hidden flex flex-col">
         <WorkspaceNav projectName={projectName} />
       </div>
       <div className="flex-1 min-w-0 border-x border-border overflow-hidden flex flex-col">
         <WorkspaceCenter selectedId={selectedId} list={list} />
       </div>
-      <div className="w-[420px] shrink-0 overflow-hidden flex flex-col">
+      <div className="max-w-prose shrink-0 overflow-hidden flex flex-col">
         <Outlet />
       </div>
     </div>
