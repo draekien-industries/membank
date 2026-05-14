@@ -270,17 +270,32 @@ export class SqliteMemoryRepository implements MemoryRepository {
     return rows.map((row) => rowToMemory(row, []));
   }
 
-  listFlagged(): Memory[] {
-    const rows = this.#db.db
-      .prepare<[], MemoryRow>(
-        `SELECT * FROM memories
-         WHERE EXISTS (
-           SELECT 1 FROM memory_review_events e
-           WHERE e.memory_id = memories.id AND e.resolved_at IS NULL
-         )
-         ORDER BY created_at DESC`
-      )
-      .all();
+  listFlagged(projectHash?: string): Memory[] {
+    let rows: MemoryRow[];
+    if (projectHash !== undefined) {
+      rows = this.#db.db
+        .prepare<[string], MemoryRow>(
+          `SELECT * FROM memories
+           WHERE EXISTS (
+             SELECT 1 FROM memory_review_events e
+             WHERE e.memory_id = memories.id AND e.resolved_at IS NULL
+           )
+           AND ${this.#projectScopeClause()}
+           ORDER BY created_at DESC`
+        )
+        .all(projectHash);
+    } else {
+      rows = this.#db.db
+        .prepare<[], MemoryRow>(
+          `SELECT * FROM memories
+           WHERE EXISTS (
+             SELECT 1 FROM memory_review_events e
+             WHERE e.memory_id = memories.id AND e.resolved_at IS NULL
+           )
+           ORDER BY created_at DESC`
+        )
+        .all();
+    }
 
     if (rows.length === 0) return [];
 
@@ -334,7 +349,16 @@ export class SqliteMemoryRepository implements MemoryRepository {
       .run(now, memoryId);
   }
 
-  getPinnedCharCount(): number {
+  getPinnedCharCount(projectHash?: string): number {
+    if (projectHash !== undefined) {
+      const row = this.#db.db
+        .prepare<[string], { total: number }>(
+          `SELECT COALESCE(SUM(LENGTH(content)), 0) as total FROM memories
+           WHERE pinned = 1 AND ${this.#projectScopeClause()}`
+        )
+        .get(projectHash) ?? { total: 0 };
+      return row.total;
+    }
     const row = this.#db.db
       .prepare<[], { total: number }>(
         `SELECT COALESCE(SUM(LENGTH(content)), 0) as total FROM memories WHERE pinned = 1`
@@ -343,11 +367,52 @@ export class SqliteMemoryRepository implements MemoryRepository {
     return row.total;
   }
 
-  stats(): StatsResult {
+  stats(projectHash?: string): StatsResult {
     const byType = Object.fromEntries(MEMORY_TYPE_VALUES.map((t) => [t, 0])) as Record<
       MemoryType,
       number
     >;
+
+    if (projectHash !== undefined) {
+      const typeRows = this.#db.db
+        .prepare<[string], { type: string; count: number }>(
+          `SELECT type, COUNT(*) as count FROM memories
+           WHERE ${this.#projectScopeClause()}
+           GROUP BY type`
+        )
+        .all(projectHash);
+
+      for (const row of typeRows) {
+        const parsed = MemoryTypeSchema.safeParse(row.type);
+        if (parsed.success) byType[parsed.data] = row.count;
+      }
+
+      const aggregates = this.#db.db
+        .prepare<[string], { total: number; pinned: number | null; pinBudgetChars: number }>(
+          `SELECT COUNT(*) as total, SUM(pinned) as pinned,
+           COALESCE(SUM(CASE WHEN pinned = 1 THEN LENGTH(content) ELSE 0 END), 0) as pinBudgetChars
+           FROM memories WHERE ${this.#projectScopeClause()}`
+        )
+        .get(projectHash) ?? { total: 0, pinned: 0, pinBudgetChars: 0 };
+
+      const reviewRow = this.#db.db
+        .prepare<[string], { needsReview: number }>(
+          `SELECT COUNT(DISTINCT e.memory_id) as needsReview
+           FROM memory_review_events e
+           JOIN memories m ON m.id = e.memory_id
+           WHERE e.resolved_at IS NULL
+           AND ${this.#projectScopeClause("m")}`
+        )
+        .get(projectHash) ?? { needsReview: 0 };
+
+      return {
+        byType,
+        total: aggregates.total,
+        pinned: aggregates.pinned ?? 0,
+        needsReview: reviewRow.needsReview,
+        pinBudgetChars: aggregates.pinBudgetChars,
+      };
+    }
 
     const typeRows = this.#db.db
       .prepare<[], { type: string; count: number }>(
@@ -357,9 +422,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
     for (const row of typeRows) {
       const parsed = MemoryTypeSchema.safeParse(row.type);
-      if (parsed.success) {
-        byType[parsed.data] = row.count;
-      }
+      if (parsed.success) byType[parsed.data] = row.count;
     }
 
     const aggregates = this.#db.db
@@ -469,6 +532,14 @@ export class SqliteMemoryRepository implements MemoryRepository {
         }
       }
     })();
+  }
+
+  #projectScopeClause(tableAlias = "memories"): string {
+    return `(${tableAlias}.id NOT IN (SELECT memory_id FROM memory_projects)
+      OR EXISTS (
+        SELECT 1 FROM memory_projects mp JOIN projects p ON p.id = mp.project_id
+        WHERE mp.memory_id = ${tableAlias}.id AND p.scope_hash = ?
+      ))`;
   }
 
   #getEventsForMemories(

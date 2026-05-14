@@ -5,7 +5,7 @@ export function getSessionContext(
   opts: { projectHash: string; synthesis?: string },
   deps: { repo: MemoryRepository }
 ): SessionContext {
-  const s = deps.repo.stats();
+  const s = deps.repo.stats(opts.projectHash);
   if (opts.synthesis !== undefined && opts.synthesis.length > 0) {
     return { stats: s.byType, pinnedGlobal: [], pinnedProject: [], synthesis: opts.synthesis };
   }
