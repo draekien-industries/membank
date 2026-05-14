@@ -13,7 +13,7 @@ const workspaceSearchSchema = z.object({
   needsReview: z.boolean().default(false).catch(false),
 });
 
-export const Route = createFileRoute("/v2/$projectId")({
+export const Route = createFileRoute("/$projectId")({
   validateSearch: workspaceSearchSchema,
   component: WorkspaceLayout,
 });
@@ -28,7 +28,7 @@ function WorkspaceLayout() {
   const selectedId = useRouterState({
     select: (s) => {
       const p = s.location.pathname;
-      const prefix = `/v2/${projectId}/`;
+      const prefix = `/${projectId}/`;
       return p.startsWith(prefix) ? p.slice(prefix.length) : null;
     },
   });

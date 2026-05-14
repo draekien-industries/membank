@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { addMemoryProject, patchMemory, removeMemoryProject } from "@/lib/api";
 import { memoriesCollection, projectsCollection, queryClient } from "@/lib/collections";
-import { Route as WorkspaceRoute } from "@/routes/v2.$projectId";
+import { Route as WorkspaceRoute } from "@/routes/$projectId";
 
 export function useWorkspaceMemoryDetail(id: string) {
   const { projectId } = WorkspaceRoute.useParams();
@@ -44,7 +44,7 @@ export function useWorkspaceMemoryDetail(id: string) {
   };
 
   const handleClose = () =>
-    void navigate({ to: "/v2/$projectId", params: { projectId }, search: (prev) => prev });
+    void navigate({ to: "/$projectId", params: { projectId }, search: (prev) => prev });
 
   const availableProjects = allProjects.filter(
     (p) => !memory?.projects.some((mp) => mp.id === p.id)

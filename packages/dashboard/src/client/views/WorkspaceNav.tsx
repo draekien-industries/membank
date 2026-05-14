@@ -4,7 +4,7 @@ import { cva } from "class-variance-authority";
 import type { MemoryType } from "@/lib/types";
 import { MEMORY_TYPES } from "@/lib/types";
 import { capitalize } from "@/lib/utils";
-import { Route as WorkspaceRoute } from "@/routes/v2.$projectId";
+import { Route as WorkspaceRoute } from "@/routes/$projectId";
 
 interface WorkspaceNavProps {
   projectName: string;
@@ -45,21 +45,21 @@ export function WorkspaceNav({ projectName }: WorkspaceNavProps) {
 
   const setType = (type: MemoryType | undefined) =>
     void navigate({
-      to: "/v2/$projectId",
+      to: "/$projectId",
       params: { projectId },
       search: (prev) => ({ ...prev, type }),
     });
 
   const togglePinned = () =>
     void navigate({
-      to: "/v2/$projectId",
+      to: "/$projectId",
       params: { projectId },
       search: (prev) => ({ ...prev, pinned: !prev.pinned }),
     });
 
   const toggleReview = () =>
     void navigate({
-      to: "/v2/$projectId",
+      to: "/$projectId",
       params: { projectId },
       search: (prev) => ({ ...prev, needsReview: !prev.needsReview }),
     });
@@ -68,7 +68,7 @@ export function WorkspaceNav({ projectName }: WorkspaceNavProps) {
     <nav className="flex flex-col h-full bg-background border-r border-border py-3 overflow-y-auto">
       <div className="px-4">
         <Link
-          to="/v2"
+          to="/"
           className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft weight="regular" className="size-3" />

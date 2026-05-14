@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { memoriesCollection } from "@/lib/collections";
 import type { Memory } from "@/lib/types";
-import { Route as WorkspaceRoute } from "@/routes/v2.$projectId";
+import { Route as WorkspaceRoute } from "@/routes/$projectId";
 
 export function useWorkspaceMemoryList(selectedId: string | null) {
   const { projectId } = WorkspaceRoute.useParams();
@@ -46,7 +46,7 @@ export function useWorkspaceMemoryList(selectedId: string | null) {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       void navigate({
-        to: "/v2/$projectId",
+        to: "/$projectId",
         params: { projectId },
         search: (prev) => ({ ...prev, search: value }),
       });
@@ -62,7 +62,7 @@ export function useWorkspaceMemoryList(selectedId: string | null) {
   const handleDelete = (id: string) => {
     memoriesCollection.delete(id);
     if (selectedId === id) {
-      void navigate({ to: "/v2/$projectId", params: { projectId }, search: (prev) => prev });
+      void navigate({ to: "/$projectId", params: { projectId }, search: (prev) => prev });
     }
   };
 
@@ -70,10 +70,10 @@ export function useWorkspaceMemoryList(selectedId: string | null) {
     const idx = filtered.findIndex((m) => m.id === id);
     if (idx >= 0) setFocusedIndex(idx);
     if (selectedId === id) {
-      void navigate({ to: "/v2/$projectId", params: { projectId }, search: (prev) => prev });
+      void navigate({ to: "/$projectId", params: { projectId }, search: (prev) => prev });
     } else {
       void navigate({
-        to: "/v2/$projectId/$memoryId",
+        to: "/$projectId/$memoryId",
         params: { projectId, memoryId: id },
         search: (prev) => prev,
       });
@@ -85,7 +85,7 @@ export function useWorkspaceMemoryList(selectedId: string | null) {
   const handleClearFilters = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setSearchInput("");
-    void navigate({ to: "/v2/$projectId", params: { projectId }, search: () => ({}) });
+    void navigate({ to: "/$projectId", params: { projectId }, search: () => ({}) });
   };
 
   return {

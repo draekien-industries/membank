@@ -4,7 +4,7 @@ import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { projectsCollection } from "@/lib/collections";
 import { ProjectSynthesisPanel } from "@/views/ProjectSynthesisPanel";
 
-export const Route = createFileRoute("/v2/$projectId/")({
+export const Route = createFileRoute("/$projectId/")({
   component: WorkspaceIndexPanel,
 });
 

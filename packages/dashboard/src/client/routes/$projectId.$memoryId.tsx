@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { WorkspaceMemoryDetail } from "@/views/WorkspaceMemoryDetail";
 
-export const Route = createFileRoute("/v2/$projectId/$memoryId")({
+export const Route = createFileRoute("/$projectId/$memoryId")({
   component: WorkspaceMemoryDetailPage,
 });
 

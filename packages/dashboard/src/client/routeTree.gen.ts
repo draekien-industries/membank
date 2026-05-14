@@ -9,86 +9,77 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ProjectIdRouteImport } from './routes/$projectId'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as V2IndexRouteImport } from './routes/v2.index'
-import { Route as V2ProjectIdRouteImport } from './routes/v2.$projectId'
-import { Route as V2ProjectIdIndexRouteImport } from './routes/v2.$projectId.index'
-import { Route as V2ProjectIdMemoryIdRouteImport } from './routes/v2.$projectId.$memoryId'
+import { Route as ProjectIdIndexRouteImport } from './routes/$projectId.index'
+import { Route as ProjectIdMemoryIdRouteImport } from './routes/$projectId.$memoryId'
 
+const ProjectIdRoute = ProjectIdRouteImport.update({
+  id: '/$projectId',
+  path: '/$projectId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const V2IndexRoute = V2IndexRouteImport.update({
-  id: '/v2/',
-  path: '/v2/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const V2ProjectIdRoute = V2ProjectIdRouteImport.update({
-  id: '/v2/$projectId',
-  path: '/v2/$projectId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const V2ProjectIdIndexRoute = V2ProjectIdIndexRouteImport.update({
+const ProjectIdIndexRoute = ProjectIdIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => V2ProjectIdRoute,
+  getParentRoute: () => ProjectIdRoute,
 } as any)
-const V2ProjectIdMemoryIdRoute = V2ProjectIdMemoryIdRouteImport.update({
+const ProjectIdMemoryIdRoute = ProjectIdMemoryIdRouteImport.update({
   id: '/$memoryId',
   path: '/$memoryId',
-  getParentRoute: () => V2ProjectIdRoute,
+  getParentRoute: () => ProjectIdRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/v2/$projectId': typeof V2ProjectIdRouteWithChildren
-  '/v2/': typeof V2IndexRoute
-  '/v2/$projectId/$memoryId': typeof V2ProjectIdMemoryIdRoute
-  '/v2/$projectId/': typeof V2ProjectIdIndexRoute
+  '/$projectId': typeof ProjectIdRouteWithChildren
+  '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
+  '/$projectId/': typeof ProjectIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/v2': typeof V2IndexRoute
-  '/v2/$projectId/$memoryId': typeof V2ProjectIdMemoryIdRoute
-  '/v2/$projectId': typeof V2ProjectIdIndexRoute
+  '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
+  '/$projectId': typeof ProjectIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/v2/$projectId': typeof V2ProjectIdRouteWithChildren
-  '/v2/': typeof V2IndexRoute
-  '/v2/$projectId/$memoryId': typeof V2ProjectIdMemoryIdRoute
-  '/v2/$projectId/': typeof V2ProjectIdIndexRoute
+  '/$projectId': typeof ProjectIdRouteWithChildren
+  '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
+  '/$projectId/': typeof ProjectIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/v2/$projectId'
-    | '/v2/'
-    | '/v2/$projectId/$memoryId'
-    | '/v2/$projectId/'
+  fullPaths: '/' | '/$projectId' | '/$projectId/$memoryId' | '/$projectId/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/v2' | '/v2/$projectId/$memoryId' | '/v2/$projectId'
+  to: '/' | '/$projectId/$memoryId' | '/$projectId'
   id:
     | '__root__'
     | '/'
-    | '/v2/$projectId'
-    | '/v2/'
-    | '/v2/$projectId/$memoryId'
-    | '/v2/$projectId/'
+    | '/$projectId'
+    | '/$projectId/$memoryId'
+    | '/$projectId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  V2ProjectIdRoute: typeof V2ProjectIdRouteWithChildren
-  V2IndexRoute: typeof V2IndexRoute
+  ProjectIdRoute: typeof ProjectIdRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/$projectId': {
+      id: '/$projectId'
+      path: '/$projectId'
+      fullPath: '/$projectId'
+      preLoaderRoute: typeof ProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -96,55 +87,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/v2/': {
-      id: '/v2/'
-      path: '/v2'
-      fullPath: '/v2/'
-      preLoaderRoute: typeof V2IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/v2/$projectId': {
-      id: '/v2/$projectId'
-      path: '/v2/$projectId'
-      fullPath: '/v2/$projectId'
-      preLoaderRoute: typeof V2ProjectIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/v2/$projectId/': {
-      id: '/v2/$projectId/'
+    '/$projectId/': {
+      id: '/$projectId/'
       path: '/'
-      fullPath: '/v2/$projectId/'
-      preLoaderRoute: typeof V2ProjectIdIndexRouteImport
-      parentRoute: typeof V2ProjectIdRoute
+      fullPath: '/$projectId/'
+      preLoaderRoute: typeof ProjectIdIndexRouteImport
+      parentRoute: typeof ProjectIdRoute
     }
-    '/v2/$projectId/$memoryId': {
-      id: '/v2/$projectId/$memoryId'
+    '/$projectId/$memoryId': {
+      id: '/$projectId/$memoryId'
       path: '/$memoryId'
-      fullPath: '/v2/$projectId/$memoryId'
-      preLoaderRoute: typeof V2ProjectIdMemoryIdRouteImport
-      parentRoute: typeof V2ProjectIdRoute
+      fullPath: '/$projectId/$memoryId'
+      preLoaderRoute: typeof ProjectIdMemoryIdRouteImport
+      parentRoute: typeof ProjectIdRoute
     }
   }
 }
 
-interface V2ProjectIdRouteChildren {
-  V2ProjectIdMemoryIdRoute: typeof V2ProjectIdMemoryIdRoute
-  V2ProjectIdIndexRoute: typeof V2ProjectIdIndexRoute
+interface ProjectIdRouteChildren {
+  ProjectIdMemoryIdRoute: typeof ProjectIdMemoryIdRoute
+  ProjectIdIndexRoute: typeof ProjectIdIndexRoute
 }
 
-const V2ProjectIdRouteChildren: V2ProjectIdRouteChildren = {
-  V2ProjectIdMemoryIdRoute: V2ProjectIdMemoryIdRoute,
-  V2ProjectIdIndexRoute: V2ProjectIdIndexRoute,
+const ProjectIdRouteChildren: ProjectIdRouteChildren = {
+  ProjectIdMemoryIdRoute: ProjectIdMemoryIdRoute,
+  ProjectIdIndexRoute: ProjectIdIndexRoute,
 }
 
-const V2ProjectIdRouteWithChildren = V2ProjectIdRoute._addFileChildren(
-  V2ProjectIdRouteChildren,
+const ProjectIdRouteWithChildren = ProjectIdRoute._addFileChildren(
+  ProjectIdRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  V2ProjectIdRoute: V2ProjectIdRouteWithChildren,
-  V2IndexRoute: V2IndexRoute,
+  ProjectIdRoute: ProjectIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
