@@ -1,5 +1,13 @@
 # @membank/mcp
 
+## 0.14.1
+
+### Patch Changes
+
+- bbd64ef: Scoped stats(), listFlagged(), and getPinnedCharCount() to the current project so session-start stats, get_memory_summary, list_flagged_memories, and the pin budget check no longer report inflated global counts when operating within a project context.
+- Updated dependencies [bbd64ef]
+  - @membank/core@0.11.1
+
 ## 0.14.0
 
 ### Minor Changes

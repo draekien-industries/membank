@@ -1,5 +1,12 @@
 # @membank/dashboard
 
+## 0.7.1
+
+### Patch Changes
+
+- Updated dependencies [bbd64ef]
+  - @membank/core@0.11.1
+
 ## 0.7.0
 
 ### Minor Changes
