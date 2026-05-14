@@ -46,7 +46,7 @@ export function ProjectsLanding() {
           <ProjectCard
             projectId="global"
             projectName="Global"
-            href="/"
+            linkOptions={{ to: "/" }}
             statsOverride={globalStats}
           />
           {sortedProjects.map((project) => (
@@ -54,7 +54,7 @@ export function ProjectsLanding() {
               key={project.id}
               projectId={project.id}
               projectName={project.name}
-              href={`/${project.id}`}
+              linkOptions={{ to: "/$projectId", params: { projectId: project.id } }}
             />
           ))}
         </div>
