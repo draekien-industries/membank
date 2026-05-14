@@ -23,9 +23,9 @@ const TYPE_COLORS: Record<MemoryType, string> = {
   fact: "var(--type-fact, oklch(0.60 0.008 165))",
 };
 
-type DaysOption = 365 | 30 | 7;
+type DaysOption = 30 | 14 | 7;
 
-const DAY_OPTIONS = [365, 30, 7] as const satisfies readonly DaysOption[];
+const DAY_OPTIONS = [30, 14, 7] as const satisfies readonly DaysOption[];
 
 const dayToggleVariants = cva("text-[11px] font-mono px-1.5 py-0.5 rounded transition-colors", {
   variants: {
@@ -60,7 +60,7 @@ export function ProjectCard({
   statsOverride,
   className,
 }: ProjectCardProps) {
-  const [days, setDays] = useState<DaysOption>(365);
+  const [days, setDays] = useState<DaysOption>(30);
 
   const { stats: fetchedStats, loading: statsLoading } = useProjectStats(
     statsOverride ? null : projectId
@@ -73,34 +73,32 @@ export function ProjectCard({
   const reviewCount = stats?.needsReview ?? 0;
 
   return (
-    <div
-      className={cn(
-        "rounded-lg border border-border bg-card hover:bg-muted/20 transition-colors",
-        className
-      )}
-    >
+    <div className={cn("rounded-lg border border-border bg-card", className)}>
       <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <a
-          href={href}
-          className="text-sm font-medium font-mono text-foreground hover:underline underline-offset-2"
-        >
-          {projectName}
-        </a>
-        <div className="flex gap-0.5">
-          {DAY_OPTIONS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              className={dayToggleVariants({ active: days === d })}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setDays(d);
-              }}
-            >
-              {d === 365 ? "All" : `${d}d`}
-            </button>
-          ))}
+        <span className="text-sm font-medium font-mono text-foreground">{projectName}</span>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-0.5">
+            {DAY_OPTIONS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                className={dayToggleVariants({ active: days === d })}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setDays(d);
+                }}
+              >
+                {`${d}d`}
+              </button>
+            ))}
+          </div>
+          <a
+            href={href}
+            className="text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-muted"
+          >
+            Open →
+          </a>
         </div>
       </div>
 

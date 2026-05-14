@@ -12,6 +12,11 @@
       "style": {
         "noNonNullAssertion": "warn"
       }
+    },
+    "domains": {
+      "react": "recommended",
+      "turborepo": "all",
+      "drizzle": "all"
     }
   },
   "formatter": {

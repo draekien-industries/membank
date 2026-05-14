@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 interface ActivityHeatmapProps {
   activity: ActivityDay[];
-  days: 365 | 30 | 7;
+  days: 30 | 14 | 7;
   className?: string;
 }
 
@@ -25,7 +25,7 @@ function countToIntensity(count: number): CellIntensity {
   return "max";
 }
 
-const heatmapCellVariants = cva("w-1.5 h-1.5 rounded-[2px]", {
+const heatmapCellVariants = cva("w-3 h-3 rounded-[2px]", {
   variants: {
     intensity: {
       zero: "bg-muted",
@@ -42,18 +42,23 @@ const heatmapCellVariants = cva("w-1.5 h-1.5 rounded-[2px]", {
   defaultVariants: { intensity: "zero", inRange: true },
 });
 
-function buildHeatmapGrid(activity: ActivityDay[], days: number): HeatmapCell[][] {
+const GRID_DAYS = 30;
+
+function buildHeatmapGrid(activity: ActivityDay[], filterDays: number): HeatmapCell[][] {
   const activityMap = new Map(activity.map((a) => [a.date, a.count]));
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const rangeStart = new Date(today);
-  rangeStart.setDate(today.getDate() - days + 1);
+  rangeStart.setDate(today.getDate() - filterDays + 1);
 
-  const dow = rangeStart.getDay();
+  const gridRangeStart = new Date(today);
+  gridRangeStart.setDate(today.getDate() - GRID_DAYS + 1);
+
+  const dow = gridRangeStart.getDay();
   const toMonday = dow === 0 ? 6 : dow - 1;
-  const gridStart = new Date(rangeStart);
-  gridStart.setDate(rangeStart.getDate() - toMonday);
+  const gridStart = new Date(gridRangeStart);
+  gridStart.setDate(gridRangeStart.getDate() - toMonday);
 
   const weeks: HeatmapCell[][] = [];
   const cur = new Date(gridStart);
@@ -64,7 +69,7 @@ function buildHeatmapGrid(activity: ActivityDay[], days: number): HeatmapCell[][
       week.push({
         date: dateStr,
         count: activityMap.get(dateStr) ?? 0,
-        inRange: cur >= rangeStart && cur <= today,
+        inRange: cur >= rangeStart,
       });
       cur.setDate(cur.getDate() + 1);
     }
@@ -113,9 +118,9 @@ export function ActivityHeatmap({ activity, days, className }: ActivityHeatmapPr
 
   return (
     <TooltipProvider>
-      <div className={cn("flex gap-[1px]", className)}>
+      <div className={cn("flex gap-[2px]", className)}>
         {weeks.map((week) => (
-          <div key={week[0]?.date ?? week.length} className="flex flex-col gap-[1px]">
+          <div key={week[0]?.date ?? week.length} className="flex flex-col gap-[2px]">
             {week.map((cell) => (
               <HeatmapCellItem key={cell.date} cell={cell} />
             ))}
