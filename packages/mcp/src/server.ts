@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type {
   Embedder,
+  ExtractionTools,
   MemoryRepository,
   ProjectRepository,
   Querier,
@@ -19,6 +20,7 @@ import {
   isSynthesisEnabled,
   listMemoryTypes,
   MEMORY_TYPE_VALUES,
+  MemoryTypeSchema,
   MIGRATIONS,
   PIN_BUDGET_THRESHOLD,
   QueryEngine,
@@ -80,6 +82,52 @@ function loadSynthesisConfig(): SynthesisConfig {
   } catch {
     return { enabled: false };
   }
+}
+
+export function buildExtractionTools(
+  repo: MemoryRepository,
+  query: Querier,
+  embedder: Embedder
+): ExtractionTools {
+  return {
+    queryMemory: async (args) => {
+      const projectHash =
+        args.global === true ? undefined : (args.projectHash ?? (await resolveProject()).hash);
+      const results = await query.query({
+        query: args.query,
+        projectHash,
+        limit: args.limit ?? 10,
+        includePinned: true,
+      });
+      return JSON.stringify(results);
+    },
+    saveMemory: async (args) => {
+      const projectScope = args.global === true ? undefined : await resolveProject();
+      const memory = await saveMemory(
+        {
+          content: args.content,
+          type: MemoryTypeSchema.parse(args.type),
+          tags: args.tags,
+          projectScope,
+          sourceHarness: "membank-extraction",
+        },
+        { repo, embedder }
+      );
+      return JSON.stringify(memory);
+    },
+    updateMemory: async (args) => {
+      const memory = await updateMemory(
+        args.id,
+        {
+          content: args.content,
+          type: args.type === undefined ? undefined : MemoryTypeSchema.parse(args.type),
+          tags: args.tags,
+        },
+        { repo, embedder }
+      );
+      return JSON.stringify(memory);
+    },
+  };
 }
 
 export function buildSynthesisTools(repo: MemoryRepository, query: Querier): SynthesisTools {

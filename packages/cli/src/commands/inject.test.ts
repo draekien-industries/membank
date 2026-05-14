@@ -37,23 +37,21 @@ async function captureStdout(fn: () => Promise<void>): Promise<string> {
   return chunks.join("");
 }
 
-describe("injectCommand — session-stop routing", () => {
-  it.each([
-    "session-stop",
-    "stop",
-  ])("accepts --event %s and writes output without error", async (event) => {
+describe("injectCommand — legacy event values", () => {
+  it.each(["session-stop", "stop"])("treats legacy --event %s as a no-op", async (event) => {
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((_code?: number) => {
+      throw new Error("exit");
+    }) as never);
     const { injectCommand } = await import("./inject.js");
-    const output = await captureStdout(() => injectCommand({ event }));
-    expect(output.length).toBeGreaterThan(0);
-  });
-
-  it.each([
-    "session-stop",
-    "stop",
-  ])("claude-code harness outputs valid {} for --event %s", async (event) => {
-    const { injectCommand } = await import("./inject.js");
-    const output = await captureStdout(() => injectCommand({ harness: "claude-code", event }));
-    expect(output).toBe("{}");
+    const output = await captureStdout(async () => {
+      try {
+        await injectCommand({ event });
+      } catch {
+        // process.exit is mocked to throw — swallow
+      }
+    });
+    expect(output).toBe("");
+    exitSpy.mockRestore();
   });
 });
 

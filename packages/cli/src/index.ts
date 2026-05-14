@@ -9,6 +9,7 @@ import { addCommand } from "./commands/add.js";
 import { configGetCommand, configSetCommand, configShowCommand } from "./commands/config.js";
 import { deleteCommand } from "./commands/delete.js";
 import { exportCommand } from "./commands/export.js";
+import { extractCommand } from "./commands/extract.js";
 import { importCommand } from "./commands/import.js";
 import { injectCommand } from "./commands/inject.js";
 import { listCommand } from "./commands/list.js";
@@ -222,6 +223,31 @@ program
       process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
       process.exit(2);
     }
+  });
+
+program
+  .command("extract")
+  .description(
+    "(internal) run session-end memory extraction; reads the harness's Stop hook payload from stdin"
+  )
+  .option(
+    "--harness <name>",
+    "harness whose stop-hook payload is on stdin (only claude-code is supported today)",
+    "claude-code"
+  )
+  .option("--session <id>", "session id (otherwise read from stdin)")
+  .option("--transcript <path>", "transcript JSONL path (otherwise read from stdin)")
+  .action(async (cmdOptions: { harness?: string; session?: string; transcript?: string }) => {
+    try {
+      await extractCommand({
+        harness: cmdOptions.harness,
+        sessionId: cmdOptions.session,
+        transcript: cmdOptions.transcript,
+      });
+    } catch (err) {
+      process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+    }
+    process.exit(0);
   });
 
 const setupCmd = program

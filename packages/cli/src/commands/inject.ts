@@ -109,11 +109,6 @@ async function handleEvent(
   harness: InjectionHarness | undefined,
   eventName: string
 ): Promise<void> {
-  if (harness === "claude-code" && eventName === "Stop") {
-    // Stop hooks have no hookSpecificOutput schema — output a valid empty response.
-    process.stdout.write("{}");
-    return;
-  }
   const text = await buildText().catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     process.stderr.write(`membank inject: ${msg}\n`);
@@ -136,10 +131,6 @@ export async function injectCommand(opts: { harness?: string; event?: string }):
   }
   if (opts.event === "user-prompt-submit") {
     await handleEvent(harness, "UserPromptSubmit");
-    return;
-  }
-  if (opts.event === "session-stop" || opts.event === "stop") {
-    await handleEvent(harness, "Stop");
     return;
   }
   // Legacy --event values from stale hooks: silently no-op.

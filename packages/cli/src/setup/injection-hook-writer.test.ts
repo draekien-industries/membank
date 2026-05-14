@@ -173,18 +173,45 @@ describe("claude-code", () => {
     expect(result.hooks[2]?.existingCommand).toBeNull();
   });
 
-  it("writes the Stop hook with the correct command", () => {
+  it("writes the Stop hook with the async extract command", () => {
     const result = writer.write("claude-code", ["Stop"]);
     expect(result.status).toBe("written");
 
     const cfg = readJson(join(dir, ".claude", "settings.json"));
     const hooks = cfg.hooks as Record<string, unknown>;
-    type GroupHooks = { hooks: { command: string }[] }[];
-    const cmd = (hooks.Stop as GroupHooks)[0]?.hooks[0]?.command ?? "";
-    expect(cmd).toBe("npx -y @membank/cli inject --harness claude-code --event session-stop");
+    type GroupHooks = { hooks: { command: string; async?: boolean; timeout?: number }[] }[];
+    const entry = (hooks.Stop as GroupHooks)[0]?.hooks[0];
+    expect(entry?.command).toBe("npx -y @membank/cli extract --harness claude-code");
+    expect(entry?.async).toBe(true);
+    expect(entry?.timeout).toBeGreaterThanOrEqual(60);
   });
 
   it("inspect detects existing Stop command", () => {
+    const cfgPath = join(dir, ".claude", "settings.json");
+    writeJson(cfgPath, {
+      hooks: {
+        Stop: [
+          {
+            matcher: "",
+            hooks: [
+              {
+                type: "command",
+                command: "npx @membank/cli extract --harness claude-code",
+                async: true,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const result = writer.inspect("claude-code");
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+    const stop = result.hooks.find((h) => h.event === "Stop");
+    expect(stop?.existingCommand).toBe("npx @membank/cli extract --harness claude-code");
+  });
+
+  it("prunes legacy Stop entry (inject --event session-stop) even when writing only SessionStart", () => {
     const cfgPath = join(dir, ".claude", "settings.json");
     writeJson(cfgPath, {
       hooks: {
@@ -201,13 +228,10 @@ describe("claude-code", () => {
         ],
       },
     });
-    const result = writer.inspect("claude-code");
-    expect(result.status).toBe("ready");
-    if (result.status !== "ready") return;
-    const stop = result.hooks.find((h) => h.event === "Stop");
-    expect(stop?.existingCommand).toBe(
-      "npx @membank/cli inject --harness claude-code --event session-stop"
-    );
+    writer.write("claude-code", ["SessionStart"]);
+    const cfg = readJson(cfgPath);
+    const hooks = cfg.hooks as Record<string, unknown>;
+    expect(hooks.Stop).toBeUndefined();
   });
 
   it("writes the UserPromptSubmit hook with the correct command", () => {
@@ -356,38 +380,24 @@ describe("copilot-cli", () => {
     const result = writer.inspect("copilot-cli");
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
-    expect(result.hooks).toHaveLength(3);
+    expect(result.hooks).toHaveLength(2);
     expect(result.hooks[0]?.existingCommand).toBe("npx @membank/cli inject --harness copilot-cli");
     expect(result.hooks[1]?.event).toBe("userPromptSubmitted");
     expect(result.hooks[1]?.existingCommand).toBeNull();
-    expect(result.hooks[2]?.event).toBe("sessionEnd");
-    expect(result.hooks[2]?.existingCommand).toBeNull();
   });
 
-  it("inspect returns three hook entries when not configured", () => {
+  it("inspect returns two hook entries when not configured", () => {
     const result = writer.inspect("copilot-cli");
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
-    expect(result.hooks).toHaveLength(3);
+    expect(result.hooks).toHaveLength(2);
     expect(result.hooks[0]?.event).toBe("sessionStart");
     expect(result.hooks[0]?.existingCommand).toBeNull();
     expect(result.hooks[1]?.event).toBe("userPromptSubmitted");
     expect(result.hooks[1]?.existingCommand).toBeNull();
-    expect(result.hooks[2]?.event).toBe("sessionEnd");
-    expect(result.hooks[2]?.existingCommand).toBeNull();
   });
 
-  it("writes the sessionEnd hook with the correct command", () => {
-    const result = writer.write("copilot-cli", ["sessionEnd"]);
-    expect(result.status).toBe("written");
-    const cfg = readJson(join(dir, ".copilot", "settings.json"));
-    const hooks = cfg.hooks as Record<string, unknown>;
-    type FlatHooks = { bash: string }[];
-    const bash = (hooks.sessionEnd as FlatHooks)[0]?.bash ?? "";
-    expect(bash).toBe("npx -y @membank/cli inject --harness copilot-cli --event session-stop");
-  });
-
-  it("inspect detects existing sessionEnd command", () => {
+  it("prunes legacy sessionEnd entry on any write", () => {
     const cfgPath = join(dir, ".copilot", "settings.json");
     writeJson(cfgPath, {
       version: 1,
@@ -401,13 +411,10 @@ describe("copilot-cli", () => {
         ],
       },
     });
-    const result = writer.inspect("copilot-cli");
-    expect(result.status).toBe("ready");
-    if (result.status !== "ready") return;
-    const end = result.hooks.find((h) => h.event === "sessionEnd");
-    expect(end?.existingCommand).toBe(
-      "npx @membank/cli inject --harness copilot-cli --event session-stop"
-    );
+    writer.write("copilot-cli", ["sessionStart"]);
+    const cfg = readJson(cfgPath);
+    const hooks = cfg.hooks as Record<string, unknown>;
+    expect(hooks.sessionEnd).toBeUndefined();
   });
 });
 
@@ -482,7 +489,7 @@ describe("codex", () => {
     expect(cmd).toBe("npx -y @membank/cli inject --harness codex --event user-prompt-submit");
   });
 
-  it("inspect returns three hook entries and detects existing SessionStart command", () => {
+  it("inspect returns two hook entries and detects existing SessionStart command", () => {
     const cfgPath = join(dir, ".codex", "hooks.json");
     writeJson(cfgPath, {
       hooks: {
@@ -503,25 +510,13 @@ describe("codex", () => {
     const result = writer.inspect("codex");
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
-    expect(result.hooks).toHaveLength(3);
+    expect(result.hooks).toHaveLength(2);
     expect(result.hooks[0]?.existingCommand).toBe("npx @membank/cli inject --harness codex");
     expect(result.hooks[1]?.event).toBe("UserPromptSubmit");
     expect(result.hooks[1]?.existingCommand).toBeNull();
-    expect(result.hooks[2]?.event).toBe("Stop");
-    expect(result.hooks[2]?.existingCommand).toBeNull();
   });
 
-  it("writes the Stop hook with the correct command", () => {
-    const result = writer.write("codex", ["Stop"]);
-    expect(result.status).toBe("written");
-    const cfg = readJson(join(dir, ".codex", "hooks.json"));
-    const hooks = cfg.hooks as Record<string, unknown>;
-    type GroupHooks = { hooks: { command: string }[] }[];
-    const cmd = (hooks.Stop as GroupHooks)[0]?.hooks[0]?.command ?? "";
-    expect(cmd).toBe("npx -y @membank/cli inject --harness codex --event session-stop");
-  });
-
-  it("inspect detects existing Stop command", () => {
+  it("prunes legacy Stop entry on any write", () => {
     const cfgPath = join(dir, ".codex", "hooks.json");
     writeJson(cfgPath, {
       hooks: {
@@ -539,13 +534,10 @@ describe("codex", () => {
         ],
       },
     });
-    const result = writer.inspect("codex");
-    expect(result.status).toBe("ready");
-    if (result.status !== "ready") return;
-    const stop = result.hooks.find((h) => h.event === "Stop");
-    expect(stop?.existingCommand).toBe(
-      "npx @membank/cli inject --harness codex --event session-stop"
-    );
+    writer.write("codex", ["SessionStart"]);
+    const cfg = readJson(cfgPath);
+    const hooks = cfg.hooks as Record<string, unknown>;
+    expect(hooks.Stop).toBeUndefined();
   });
 });
 
