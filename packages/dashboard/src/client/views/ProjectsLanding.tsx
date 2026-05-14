@@ -1,26 +1,41 @@
 import { useLiveQuery } from "@tanstack/react-db";
+import { useMemo } from "react";
 import { ProjectCard } from "@/components/ProjectCard";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
-import { useStats } from "@/hooks/useStats";
-import { projectsCollection } from "@/lib/collections";
-import type { ProjectStats } from "@/lib/types";
+import { memoriesCollection, projectsCollection } from "@/lib/collections";
+import type { MemoryType, ProjectStats } from "@/lib/types";
 
 export function ProjectsLanding() {
   const { data: projects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
-  const stats = useStats();
+  const { data: allMemories = [], isLoading: memoriesLoading } = useLiveQuery(
+    (q) => q.from({ m: memoriesCollection }),
+    []
+  );
 
-  const globalStats: ProjectStats | undefined = stats
-    ? {
-        total: stats.total,
-        byType: stats.byType,
-        needsReview: stats.needsReview,
-        pinned: 0,
-        mostCommonType: null,
-        lastActive: null,
-        harness: null,
-        activeDays: 0,
-      }
-    : undefined;
+  const globalStats = useMemo<ProjectStats | undefined>(() => {
+    if (memoriesLoading) return undefined;
+    const globals = allMemories.filter((m) => m.projects.length === 0);
+    const byType = { correction: 0, preference: 0, decision: 0, learning: 0, fact: 0 } as Record<
+      MemoryType,
+      number
+    >;
+    let needsReview = 0;
+    for (const m of globals) {
+      const t = m.type as MemoryType;
+      if (t in byType) byType[t]++;
+      if (m.reviewEvents.length > 0) needsReview++;
+    }
+    return {
+      total: globals.length,
+      byType,
+      needsReview,
+      pinned: 0,
+      mostCommonType: null,
+      lastActive: null,
+      harness: null,
+      activeDays: 0,
+    };
+  }, [allMemories, memoriesLoading]);
 
   const sortedProjects = [...projects].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -29,7 +44,7 @@ export function ProjectsLanding() {
       <header className="flex items-center justify-between">
         <h1 className="text-sm font-mono font-medium text-foreground">Projects</h1>
         <span className="text-[11px] font-mono text-muted-foreground">
-          {projects.length} project{projects.length !== 1 ? "s" : ""} · {stats?.total ?? 0} total
+          {projects.length} project{projects.length !== 1 ? "s" : ""} · {allMemories.length} total
         </span>
       </header>
 
