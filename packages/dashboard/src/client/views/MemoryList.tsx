@@ -1,4 +1,4 @@
-import { Eraser, MagnifyingGlass, PushPin, Warning } from "@phosphor-icons/react";
+import { Eraser, Lightning, MagnifyingGlass, PushPin, Warning } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { MemoryRow } from "@/components/MemoryRow";
 import { Button } from "@/components/ui/button";
@@ -127,6 +127,19 @@ export function MemoryList({ selectedId }: MemoryListProps) {
                 </NativeSelectOption>
               ))}
           </NativeSelect>
+          {search.projectId && search.projectId !== "global" && (
+            <Button
+              variant={selectedId === null ? "secondary" : "ghost"}
+              size="icon-sm"
+              onClick={() =>
+                selectedId !== null && void navigate({ to: "/memories", search: (prev) => prev })
+              }
+              aria-label="View project synthesis"
+              title="View project synthesis"
+            >
+              <Lightning weight={selectedId === null ? "fill" : "regular"} />
+            </Button>
+          )}
           <div className="ml-auto flex items-center gap-1">
             {hasActiveFilters && (
               <Button
@@ -221,18 +234,37 @@ export function MemoryList({ selectedId }: MemoryListProps) {
           const collapsed = collapsedGroups.has(group.label);
           return (
             <div key={group.label}>
-              <button
-                type="button"
-                onClick={() => toggleGroup(group.label)}
+              <div
                 className={cn(
-                  "sticky top-0 z-10 w-full flex items-center justify-between px-4 py-1.5",
-                  "bg-background/95 backdrop-blur border-b border-border",
-                  "text-[11px] uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+                  "sticky top-0 z-10 flex items-center",
+                  "bg-background/95 backdrop-blur border-b border-border"
                 )}
               >
-                <span>{group.label}</span>
-                <span>{group.memories.length}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.label)}
+                  className="flex-1 flex items-center justify-between pl-4 pr-2 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span>{group.label}</span>
+                  <span>{group.memories.length}</span>
+                </button>
+                {group.projectId !== null && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void navigate({
+                        to: "/memories",
+                        search: (prev) => ({ ...prev, projectId: group.projectId ?? undefined }),
+                      })
+                    }
+                    className="px-2 py-1.5 text-muted-foreground/40 hover:text-foreground transition-colors"
+                    title={`View ${group.label} synthesis`}
+                    aria-label={`View synthesis for ${group.label}`}
+                  >
+                    <Lightning weight="regular" className="size-3" />
+                  </button>
+                )}
+              </div>
               {!collapsed && (
                 <ul className="m-0 p-0">
                   {group.memories.map((memory) => {
