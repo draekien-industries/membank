@@ -1,0 +1,64 @@
+import { useLiveQuery } from "@tanstack/react-db";
+import { ProjectCard } from "@/components/ProjectCard";
+import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
+import { useStats } from "@/hooks/useStats";
+import { projectsCollection } from "@/lib/collections";
+import type { ProjectStats } from "@/lib/types";
+
+export function V2ProjectsLanding() {
+  const { data: projects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
+  const stats = useStats();
+
+  const globalStats: ProjectStats | undefined = stats
+    ? {
+        total: stats.total,
+        byType: stats.byType,
+        needsReview: stats.needsReview,
+        pinned: 0,
+        mostCommonType: null,
+        lastActive: null,
+        harness: null,
+        activeDays: 0,
+      }
+    : undefined;
+
+  const sortedProjects = [...projects].sort((a, b) => a.name.localeCompare(b.name));
+
+  return (
+    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <header className="flex items-center justify-between">
+        <h1 className="text-sm font-mono font-medium text-foreground">Projects</h1>
+        <span className="text-[11px] font-mono text-muted-foreground">
+          {projects.length} project{projects.length !== 1 ? "s" : ""} · {stats?.total ?? 0} total
+        </span>
+      </header>
+
+      {projects.length === 0 ? (
+        <Empty>
+          <EmptyTitle>No projects yet</EmptyTitle>
+          <EmptyDescription>
+            Memories are associated with projects automatically as your AI tools work in different
+            repositories.
+          </EmptyDescription>
+        </Empty>
+      ) : (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <ProjectCard
+            projectId="global"
+            projectName="Global"
+            href="/v2"
+            statsOverride={globalStats}
+          />
+          {sortedProjects.map((project) => (
+            <ProjectCard
+              key={project.id}
+              projectId={project.id}
+              projectName={project.name}
+              href={`/v2/${project.id}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

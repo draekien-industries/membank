@@ -1,4 +1,13 @@
-import type { Filters, Memory, MemoryType, Project, Stats, Synthesis } from "./types";
+import type {
+  ActivityDay,
+  Filters,
+  Memory,
+  MemoryType,
+  Project,
+  ProjectStats,
+  Stats,
+  Synthesis,
+} from "./types";
 
 const BASE = "/api";
 
@@ -79,4 +88,18 @@ export function listSyntheses(): Promise<Synthesis[]> {
 
 export function runProjectSynthesis(projectId: string): Promise<void> {
   return request<void>(`/projects/${projectId}/synthesis`, { method: "POST" });
+}
+
+export function getProjectStats(projectId: string): Promise<ProjectStats> {
+  return request<ProjectStats>(`/projects/${projectId}/stats`);
+}
+
+export function getProjectActivity(projectId: string, days?: number): Promise<ActivityDay[]> {
+  const qs = days !== undefined ? `?days=${days}` : "";
+  return request<ActivityDay[]>(`/projects/${projectId}/activity${qs}`);
+}
+
+export function getGlobalActivity(days?: number): Promise<ActivityDay[]> {
+  const qs = days !== undefined ? `?days=${days}` : "";
+  return request<ActivityDay[]>(`/activity${qs}`);
 }
