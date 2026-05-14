@@ -90,6 +90,10 @@ export function runProjectSynthesis(projectId: string): Promise<void> {
   return request<void>(`/projects/${projectId}/synthesis`, { method: "POST" });
 }
 
+export function resetProjectSynthesis(projectId: string): Promise<void> {
+  return request<void>(`/projects/${projectId}/synthesis/in-flight`, { method: "DELETE" });
+}
+
 export function getProjectStats(projectId: string): Promise<ProjectStats> {
   return request<ProjectStats>(`/projects/${projectId}/stats`);
 }

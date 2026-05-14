@@ -30,15 +30,37 @@ function SynthesisMetadata({ synthesis, isStale }: SynthesisMetadataProps) {
   );
 }
 
+function StuckResetButton({ onReset }: { onReset: () => Promise<void> }) {
+  return (
+    <button
+      type="button"
+      onClick={() => void onReset()}
+      className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors underline underline-offset-2"
+    >
+      Taking too long? Reset
+    </button>
+  );
+}
+
 interface SynthesisBlockProps {
   synthesis: Synthesis | null;
   isLoading: boolean;
   isStale: boolean;
+  isStuck: boolean;
   error: string | null;
   onRun: () => Promise<void>;
+  onReset: () => Promise<void>;
 }
 
-function SynthesisBlock({ synthesis, isLoading, isStale, error, onRun }: SynthesisBlockProps) {
+function SynthesisBlock({
+  synthesis,
+  isLoading,
+  isStale,
+  isStuck,
+  error,
+  onRun,
+  onReset,
+}: SynthesisBlockProps) {
   const isInFlight = synthesis?.inFlightSince !== null && synthesis?.inFlightSince !== undefined;
   const hasPriorContent = isInFlight && synthesis.content !== SYNTHESIS_PENDING;
   const isEmpty = !synthesis && !isLoading && !error;
@@ -93,9 +115,12 @@ function SynthesisBlock({ synthesis, isLoading, isStale, error, onRun }: Synthes
   if (isInFlight && !hasPriorContent) {
     return (
       <div className="rounded-md bg-muted/40 p-4 space-y-3">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Spinner className="size-3" />
-          <span className="text-[11px]">Synthesizing&hellip;</span>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Spinner className="size-3" />
+            <span className="text-[11px]">Synthesizing&hellip;</span>
+          </div>
+          {isStuck ? <StuckResetButton onReset={onReset} /> : null}
         </div>
         <div className="space-y-2">
           <Skeleton className="h-3 w-full" />
@@ -125,9 +150,12 @@ function SynthesisBlock({ synthesis, isLoading, isStale, error, onRun }: Synthes
         )}
       >
         {isInFlight ? (
-          <div className="flex items-center gap-2 mb-2 text-muted-foreground">
-            <Spinner className="size-3" />
-            <span className="text-[11px]">Synthesizing&hellip;</span>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Spinner className="size-3" />
+              <span className="text-[11px]">Synthesizing&hellip;</span>
+            </div>
+            {isStuck ? <StuckResetButton onReset={onReset} /> : null}
           </div>
         ) : null}
         {synthesis.content}
@@ -192,7 +220,8 @@ interface ProjectSynthesisPanelProps {
 }
 
 export function ProjectSynthesisPanel({ project }: ProjectSynthesisPanelProps) {
-  const { synthesis, isLoading, isStale, error, run } = useProjectSynthesis(project);
+  const { synthesis, isLoading, isStale, isStuck, error, run, reset } =
+    useProjectSynthesis(project);
 
   return (
     <div className="h-full overflow-y-auto p-6 space-y-5">
@@ -206,8 +235,10 @@ export function ProjectSynthesisPanel({ project }: ProjectSynthesisPanelProps) {
         synthesis={synthesis}
         isLoading={isLoading}
         isStale={isStale}
+        isStuck={isStuck}
         error={error}
         onRun={run}
+        onReset={reset}
       />
       <ProjectMemoryFooter projectId={project.id} />
     </div>

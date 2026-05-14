@@ -213,6 +213,13 @@ export function createApiApp(
     return c.json({ ok: true }, 202);
   });
 
+  app.delete("/api/projects/:id/synthesis/in-flight", (c) => {
+    const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
+    if (!project) return c.json({ error: "Not found" }, 404);
+    synthRepo.clearInFlight(project.scopeHash);
+    return c.json({ ok: true });
+  });
+
   app.get("/api/projects/:id/stats", (c) => {
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
