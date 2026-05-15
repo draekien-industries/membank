@@ -111,10 +111,6 @@ Changelog and release notes are generated automatically by changesets from the c
 
 After completing any implementation task, run `/simplify` to review the changes for reuse, quality, and efficiency before considering the work done.
 
-@CLAUDE.local.md is your state management tool! Keep track of what you are working on in this file so that you can maintain a working state of what you have just done.
-It is git ignored so you don't have to commit it or worry about what you are storing in here too much. Use the best format so you can keep track of what you have just completed
-and what is next on the list. Make sure to clean up after yourself though!
-
 **Changeset file format** (for manual creation):
 ```markdown
 ---

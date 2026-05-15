@@ -97,12 +97,12 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
     }
   });
 
-  it("applies all migrations and sets schema_version to 9 on a fresh file DB", () => {
+  it("applies all migrations and sets schema_version to 10 on a fresh file DB", () => {
     manager = DatabaseManager.open(dbPath);
     const row = manager.db
       .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
       .get();
-    expect(row?.value).toBe("9");
+    expect(row?.value).toBe("10");
   });
 
   it("data persists across close and reopen", () => {

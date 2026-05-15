@@ -50,18 +50,14 @@ export class SqliteActivityRepository implements ActivityRepository {
     payload: Record<string, unknown>;
     createdAt: string;
   }): void {
-    try {
-      this.#stmtInsert.run(
-        event.id,
-        event.projectHash,
-        event.eventType,
-        event.memoryId,
-        JSON.stringify(event.payload),
-        event.createdAt
-      );
-    } catch {
-      // FK violation: project_hash not yet in projects table — silently skip
-    }
+    this.#stmtInsert.run(
+      event.id,
+      event.projectHash,
+      event.eventType,
+      event.memoryId,
+      JSON.stringify(event.payload),
+      event.createdAt
+    );
   }
 
   list(filter: { scope?: string; type?: string; since?: string; limit?: number }): ActivityEvent[] {

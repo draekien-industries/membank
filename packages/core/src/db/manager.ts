@@ -257,6 +257,27 @@ CREATE INDEX idx_activity_project_created ON activity_events(project_hash, creat
 CREATE INDEX idx_activity_type_created    ON activity_events(event_type, created_at DESC);
 `,
   ],
+  [
+    10,
+    `
+ALTER TABLE activity_events RENAME TO activity_events_old;
+
+CREATE TABLE activity_events (
+  id           TEXT PRIMARY KEY,
+  project_hash TEXT NOT NULL,
+  event_type   TEXT NOT NULL,
+  memory_id    TEXT,
+  payload      TEXT NOT NULL,
+  created_at   TEXT NOT NULL
+);
+
+INSERT INTO activity_events SELECT * FROM activity_events_old;
+DROP TABLE activity_events_old;
+
+CREATE INDEX idx_activity_project_created ON activity_events(project_hash, created_at DESC);
+CREATE INDEX idx_activity_type_created    ON activity_events(event_type, created_at DESC);
+`,
+  ],
 ];
 
 export class DatabaseManager {
