@@ -120,7 +120,10 @@ describe("save_memory tool", () => {
       projects: unknown[];
     };
 
-    expect(memory.projects).toEqual([]);
+    expect(memory.projects).toHaveLength(1);
+    expect((memory.projects as Array<{ scopeHash: string }>)[0]?.scopeHash).toBe(
+      "0000000000000000"
+    );
   });
 
   it("saves tags when provided", async () => {
@@ -240,7 +243,7 @@ describe("save_memory tool", () => {
       arguments: { content: "some preference", type: "preference", global: true },
     });
 
-    expect(markDirty).toHaveBeenCalledWith("global");
+    expect(markDirty).toHaveBeenCalledWith("0000000000000000");
   });
 
   it("missing type returns a structured MCP error", async () => {

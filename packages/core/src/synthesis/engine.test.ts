@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseManager } from "../db/manager.js";
+import { GLOBAL_SCOPE_HASH } from "../project/domain/global-scope.js";
 import { SynthesisEngine } from "./application/engine.js";
 import { createSynthesisRepository } from "./infrastructure/sqlite-synthesis-repository.js";
 import type { AgentRunner, SynthesisConfig, SynthesisRepository } from "./ports.js";
+
+const EXTRA_SCOPE = "1234567890abcdef";
 
 function makeConfig(overrides?: Partial<SynthesisConfig>): SynthesisConfig {
   return {
@@ -48,7 +51,7 @@ describe("SynthesisEngine", () => {
     await engine.init();
     await engine.shutdown();
 
-    const globalSynth = synthRepo.getSynthesis("global");
+    const globalSynth = synthRepo.getSynthesis(GLOBAL_SCOPE_HASH);
     const projSynth = synthRepo.getSynthesis("abcdef0123456789");
 
     expect(globalSynth?.content).toBe("synthesized content");
@@ -57,6 +60,13 @@ describe("SynthesisEngine", () => {
   });
 
   it("markDirty() adds scope to dirty set so it gets processed next cycle", async () => {
+    db.db
+      .prepare(
+        `INSERT INTO projects (id, name, scope_hash, created_at, updated_at)
+         VALUES ('p2', 'extra', ?, datetime('now'), datetime('now'))`
+      )
+      .run(EXTRA_SCOPE);
+
     const freshRunner = makeAgentRunner();
     const freshEngine = new SynthesisEngine(synthRepo, makeConfig({ debounceMs: 50 }), freshRunner);
 
@@ -64,12 +74,12 @@ describe("SynthesisEngine", () => {
 
     vi.mocked(freshRunner.run).mockClear();
 
-    freshEngine.markDirty("extra-scope");
+    freshEngine.markDirty(EXTRA_SCOPE);
 
     await new Promise<void>((resolve) => setTimeout(resolve, 100));
     await freshEngine.shutdown();
 
-    expect(vi.mocked(freshRunner.run)).toHaveBeenCalledWith("extra-scope", "extra-scope");
+    expect(vi.mocked(freshRunner.run)).toHaveBeenCalledWith(EXTRA_SCOPE, EXTRA_SCOPE);
   });
 
   it("multiple markDirty() calls for the same scope result in one synthesis per cycle", async () => {
@@ -80,19 +90,21 @@ describe("SynthesisEngine", () => {
 
     const engine2 = new SynthesisEngine(synthRepo, makeConfig({ debounceMs: 50 }), agentRunner);
 
-    engine2.markDirty("global");
-    engine2.markDirty("global");
-    engine2.markDirty("global");
+    engine2.markDirty(GLOBAL_SCOPE_HASH);
+    engine2.markDirty(GLOBAL_SCOPE_HASH);
+    engine2.markDirty(GLOBAL_SCOPE_HASH);
 
     await engine2.init();
     await engine2.shutdown();
 
-    const callsForGlobal = vi.mocked(agentRunner.run).mock.calls.filter(([s]) => s === "global");
+    const callsForGlobal = vi
+      .mocked(agentRunner.run)
+      .mock.calls.filter(([s]) => s === GLOBAL_SCOPE_HASH);
     expect(callsForGlobal.length).toBe(1);
   });
 
   it("in-flight guard: skips scope if in_flight_since is recent", async () => {
-    synthRepo.markInFlight("global");
+    synthRepo.markInFlight(GLOBAL_SCOPE_HASH);
 
     const engine2 = new SynthesisEngine(
       synthRepo,
@@ -100,18 +112,20 @@ describe("SynthesisEngine", () => {
       agentRunner
     );
 
-    engine2.markDirty("global");
+    engine2.markDirty(GLOBAL_SCOPE_HASH);
     await engine2.init();
     await engine2.shutdown();
 
-    expect(vi.mocked(agentRunner.run)).not.toHaveBeenCalledWith("global", undefined);
+    expect(vi.mocked(agentRunner.run)).not.toHaveBeenCalledWith(GLOBAL_SCOPE_HASH, undefined);
   });
 
   it("in-flight guard: allows resynthesis if in_flight_since is stale", async () => {
-    synthRepo.saveSynthesis("global", "old content", "oldhash");
+    synthRepo.saveSynthesis(GLOBAL_SCOPE_HASH, "old content", "oldhash");
 
     const staleTime = new Date(Date.now() - 3 * 60 * 1000).toISOString();
-    db.db.prepare("UPDATE syntheses SET in_flight_since = ? WHERE scope = 'global'").run(staleTime);
+    db.db
+      .prepare(`UPDATE syntheses SET in_flight_since = ? WHERE scope = ?`)
+      .run(staleTime, GLOBAL_SCOPE_HASH);
 
     const engine2 = new SynthesisEngine(
       synthRepo,
@@ -119,18 +133,18 @@ describe("SynthesisEngine", () => {
       agentRunner
     );
 
-    engine2.markDirty("global");
+    engine2.markDirty(GLOBAL_SCOPE_HASH);
     await engine2.init();
     await engine2.shutdown();
 
-    expect(vi.mocked(agentRunner.run)).toHaveBeenCalledWith("global", undefined);
+    expect(vi.mocked(agentRunner.run)).toHaveBeenCalledWith(GLOBAL_SCOPE_HASH, undefined);
   });
 
   it("engine does not crash when agentRunner.run() throws", async () => {
     vi.mocked(agentRunner.run).mockRejectedValue(new Error("agent failed"));
 
     const errorEngine = new SynthesisEngine(synthRepo, makeConfig(), agentRunner);
-    errorEngine.markDirty("global");
+    errorEngine.markDirty(GLOBAL_SCOPE_HASH);
 
     await expect(errorEngine.init()).resolves.not.toThrow();
     await errorEngine.shutdown();
@@ -139,15 +153,15 @@ describe("SynthesisEngine", () => {
   it("error in agent runner clears in_flight_since on the synthesis row", async () => {
     vi.mocked(agentRunner.run).mockRejectedValue(new Error("agent failed"));
 
-    synthRepo.saveSynthesis("global", "content", "hash");
+    synthRepo.saveSynthesis(GLOBAL_SCOPE_HASH, "content", "hash");
 
     const errorEngine = new SynthesisEngine(synthRepo, makeConfig(), agentRunner);
-    errorEngine.markDirty("global");
+    errorEngine.markDirty(GLOBAL_SCOPE_HASH);
 
     await errorEngine.init();
     await errorEngine.shutdown();
 
-    const synth = synthRepo.getSynthesis("global");
+    const synth = synthRepo.getSynthesis(GLOBAL_SCOPE_HASH);
     expect(synth?.inFlightSince).toBeNull();
   });
 });

@@ -4,6 +4,7 @@ import {
   createProjectRepository,
   createSynthesisRepository,
   DatabaseManager,
+  GLOBAL_SCOPE_HASH,
   resolveProject,
   SessionContextBuilder,
 } from "@membank/core";
@@ -91,7 +92,7 @@ async function buildText(): Promise<string> {
     const builder = new SessionContextBuilder(repo);
     const synthRepo = createSynthesisRepository(db);
 
-    const globalRow = synthRepo.getSynthesis("global");
+    const globalRow = synthRepo.getSynthesis(GLOBAL_SCOPE_HASH);
     const projectRow = synthRepo.getSynthesis(resolved.hash);
 
     const globalSynthesis = globalRow?.inFlightSince === null ? globalRow.content : undefined;

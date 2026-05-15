@@ -1,3 +1,4 @@
+import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import {
   DEFAULT_DEBOUNCE_MS,
   IN_FLIGHT_TIMEOUT_MS,
@@ -93,7 +94,7 @@ export class SynthesisEngine {
     this.#synthRepo.markInFlight(scope);
 
     try {
-      const projectHash = scope === "global" ? undefined : scope;
+      const projectHash = scope === GLOBAL_SCOPE_HASH ? undefined : scope;
       const content = await this.#agentRunner.run(scope, projectHash);
       const sourceHash = this.#synthRepo.computeSourceMemoryHash(scope);
       this.#synthRepo.saveSynthesis(scope, content, sourceHash);

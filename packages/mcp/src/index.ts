@@ -10,6 +10,7 @@ import {
   createSynthesisRepository,
   DatabaseManager,
   EmbeddingService,
+  GLOBAL_SCOPE_HASH,
   isSynthesisEnabled,
   QueryEngine,
   type RunExtractionInput,
@@ -74,7 +75,9 @@ export async function runSynthesis(scope: string): Promise<string> {
   });
 
   let resolvedScope = scope;
-  if (scope !== "global" && !/^[0-9a-f]{16}$/.test(scope)) {
+  if (scope === "global") {
+    resolvedScope = GLOBAL_SCOPE_HASH;
+  } else if (!/^[0-9a-f]{16}$/.test(scope)) {
     const project = projects.getByName(scope);
     if (project !== undefined) {
       resolvedScope = project.scopeHash;

@@ -71,14 +71,15 @@ describe("add command integration — real in-memory SQLite", () => {
     expect(parsed.tags).toEqual(["typescript", "naming"]);
   });
 
-  it("--global saves with no project association", async () => {
+  it("--global saves with sentinel project association", async () => {
     const formatter = new Formatter(true);
     const output = await captureStdout(() =>
       addCommand("global rule", { type: "fact", global: true }, formatter, db, embeddingStub)
     );
 
-    const parsed = JSON.parse(output) as { projects: unknown[] };
-    expect(parsed.projects).toEqual([]);
+    const parsed = JSON.parse(output) as { projects: Array<{ scopeHash: string }> };
+    expect(parsed.projects).toHaveLength(1);
+    expect(parsed.projects[0]?.scopeHash).toBe("0000000000000000");
   });
 
   it("saved record has an id field", async () => {

@@ -17,6 +17,7 @@ import {
   createSynthesisRepository,
   DatabaseManager,
   EmbeddingService,
+  GLOBAL_SCOPE_HASH,
   isSynthesisEnabled,
   listMemoryTypes,
   MEMORY_TYPE_VALUES,
@@ -375,7 +376,9 @@ export function createServer(core: CoreServices): Server {
 
         if (core.synthEngine !== undefined) {
           const scope =
-            memory.projects.length > 0 ? (memory.projects[0]?.scopeHash ?? "global") : "global";
+            memory.projects.length > 0
+              ? (memory.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH)
+              : "global";
           core.synthEngine.markDirty(scope);
         }
 
@@ -400,7 +403,9 @@ export function createServer(core: CoreServices): Server {
 
         if (core.synthEngine !== undefined) {
           const scope =
-            memory.projects.length > 0 ? (memory.projects[0]?.scopeHash ?? "global") : "global";
+            memory.projects.length > 0
+              ? (memory.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH)
+              : "global";
           core.synthEngine.markDirty(scope);
         }
 
@@ -425,7 +430,9 @@ export function createServer(core: CoreServices): Server {
         }
 
         const memoryScopeBeforeDelete =
-          core.synthEngine !== undefined ? (memory.projects[0]?.scopeHash ?? "global") : undefined;
+          core.synthEngine !== undefined
+            ? (memory.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH)
+            : undefined;
 
         core.repo.delete(args.id);
 

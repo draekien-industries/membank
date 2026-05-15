@@ -202,6 +202,45 @@ FROM memories
 WHERE id NOT IN (SELECT memory_id FROM memory_projects);
 `,
   ],
+  [
+    8,
+    `
+PRAGMA foreign_keys = OFF;
+
+BEGIN;
+
+UPDATE syntheses SET scope = '0000000000000000' WHERE scope = 'global';
+
+DROP TABLE IF EXISTS syntheses_new;
+
+CREATE TABLE syntheses_new (
+  id                  TEXT PRIMARY KEY,
+  scope               TEXT NOT NULL REFERENCES projects(scope_hash) ON DELETE CASCADE,
+  content             TEXT NOT NULL,
+  source_memory_hash  TEXT NOT NULL,
+  synthesized_at      TEXT NOT NULL,
+  expires_at          TEXT NOT NULL,
+  in_flight_since     TEXT,
+  created_at          TEXT NOT NULL,
+  updated_at          TEXT NOT NULL,
+  UNIQUE(scope),
+  CHECK(expires_at > synthesized_at)
+);
+
+INSERT INTO syntheses_new SELECT * FROM syntheses;
+
+DROP TABLE syntheses;
+ALTER TABLE syntheses_new RENAME TO syntheses;
+
+CREATE INDEX IF NOT EXISTS idx_syntheses_expires_at ON syntheses(expires_at);
+CREATE INDEX IF NOT EXISTS idx_syntheses_scope_inflight
+  ON syntheses(scope) WHERE in_flight_since IS NOT NULL;
+
+COMMIT;
+
+PRAGMA foreign_keys = ON;
+`,
+  ],
 ];
 
 export class DatabaseManager {

@@ -97,12 +97,12 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
     }
   });
 
-  it("applies all migrations and sets schema_version to 7 on a fresh file DB", () => {
+  it("applies all migrations and sets schema_version to 8 on a fresh file DB", () => {
     manager = DatabaseManager.open(dbPath);
     const row = manager.db
       .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
       .get();
-    expect(row?.value).toBe("7");
+    expect(row?.value).toBe("8");
   });
 
   it("data persists across close and reopen", () => {
@@ -125,9 +125,10 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
 
   it("scope_hash CHECK constraint is enforced on a file DB", () => {
     manager = DatabaseManager.open(dbPath);
+    const db = manager.db;
     const now = new Date().toISOString();
     expect(() =>
-      manager!.db
+      db
         .prepare(
           "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
         )
@@ -269,5 +270,43 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
       .get("00000000-0000-0000-0000-000000000000");
     expect(sentinel?.scope_hash).toBe("0000000000000000");
     expect(sentinel?.name).toBe("global");
+  });
+
+  it("migration v8: syntheses with scope='global' are rewritten to the sentinel hash", () => {
+    const db = setupV4Db(dbPath);
+    const now = new Date().toISOString();
+    const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
+
+    // Insert a pre-migration synthesis using the old "global" string
+    db.prepare(
+      `INSERT INTO syntheses (id, scope, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run("s1", "global", "old content", "hash1", now, future, now, now);
+
+    db.prepare("UPDATE meta SET value = '7' WHERE key = 'schema_version'").run();
+    db.close();
+
+    manager = DatabaseManager.open(dbPath);
+
+    const row = manager.db
+      .prepare<[], { scope: string }>("SELECT scope FROM syntheses LIMIT 1")
+      .get();
+    expect(row?.scope).toBe("0000000000000000");
+  });
+
+  it("migration v8: syntheses FK rejects rows with unknown scope_hash", () => {
+    manager = DatabaseManager.open(dbPath);
+    const db = manager.db;
+    const now = new Date().toISOString();
+    const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
+
+    expect(() =>
+      db
+        .prepare(
+          `INSERT INTO syntheses (id, scope, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run("bad", "deadbeefdeadbeef", "content", "hash", now, future, now, now)
+    ).toThrow();
   });
 });

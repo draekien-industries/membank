@@ -1,4 +1,9 @@
-import { createProjectRepository, createSynthesisRepository, DatabaseManager } from "@membank/core";
+import {
+  createProjectRepository,
+  createSynthesisRepository,
+  DatabaseManager,
+  GLOBAL_SCOPE_HASH,
+} from "@membank/core";
 import { runSynthesis } from "@membank/mcp";
 import type { Formatter } from "../formatter.js";
 
@@ -23,7 +28,9 @@ export function synthesizeShowCommand(opts: { scope?: string }, formatter: Forma
   try {
     const scope = opts.scope ?? "global";
     let resolvedScope = scope;
-    if (scope !== "global" && !/^[0-9a-f]{16}$/.test(scope)) {
+    if (scope === "global") {
+      resolvedScope = GLOBAL_SCOPE_HASH;
+    } else if (!/^[0-9a-f]{16}$/.test(scope)) {
       const project = createProjectRepository(db).getByName(scope);
       if (project !== undefined) {
         resolvedScope = project.scopeHash;
@@ -77,8 +84,8 @@ export function synthesizeStatusCommand(formatter: Formatter): void {
 
     process.stdout.write("\n");
     for (const s of syntheses) {
-      const project = s.scope !== "global" ? projectRepo.getByHash(s.scope) : undefined;
-      const displayScope = project?.name ?? s.scope;
+      const project = s.scope !== GLOBAL_SCOPE_HASH ? projectRepo.getByHash(s.scope) : undefined;
+      const displayScope = project?.name ?? (s.scope === GLOBAL_SCOPE_HASH ? "global" : s.scope);
       const inFlight = s.inFlightSince !== null ? " [in-flight]" : "";
       const synthesized = new Date(s.synthesizedAt).toLocaleString();
       const expires = new Date(s.expiresAt).toLocaleString();

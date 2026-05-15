@@ -1,10 +1,11 @@
+import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type { AgentRunner, SynthesisRepository } from "../ports.js";
 
 export async function runSynthesis(
   scope: string,
   deps: { synthRepo: SynthesisRepository; agentRunner: AgentRunner }
 ): Promise<string> {
-  const projectHash = scope === "global" ? undefined : scope;
+  const projectHash = scope === GLOBAL_SCOPE_HASH ? undefined : scope;
   deps.synthRepo.markInFlight(scope);
   try {
     const [content, sourceHash] = await Promise.all([

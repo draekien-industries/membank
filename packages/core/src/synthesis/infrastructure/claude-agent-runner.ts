@@ -1,5 +1,6 @@
 import { createSdkMcpServer, query, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
+import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type { AgentRunner, SynthesisConfig, SynthesisTools } from "../ports.js";
 
 const SYNTHESIS_SYSTEM_PROMPT =
@@ -53,7 +54,7 @@ class ClaudeAgentRunner implements AgentRunner {
       tools: [queryMemoryTool, getMemorySummaryTool],
     });
 
-    const isGlobal = scope === "global";
+    const isGlobal = scope === GLOBAL_SCOPE_HASH;
     const scopeDescription = isGlobal ? "global (across all projects)" : `project scope: ${scope}`;
 
     const prompt = `Synthesize the memories for ${scopeDescription}. Use get_memory_summary first to understand the overall state, then use query_memory to retrieve relevant memories (query with broad terms like "preferences", "corrections", "decisions", "key facts"). After gathering information, produce a concise synthesis of the most important things to remember about this user. Output only the synthesis text — no preamble, no metadata.`;

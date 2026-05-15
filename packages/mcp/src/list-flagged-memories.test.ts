@@ -83,6 +83,12 @@ describe("list_flagged_memories tool", () => {
 
     session.core.db.db
       .prepare(
+        `INSERT INTO memory_projects (memory_id, project_id) VALUES ('mem-1', '00000000-0000-0000-0000-000000000000')`
+      )
+      .run();
+
+    session.core.db.db
+      .prepare(
         `INSERT INTO memory_review_events
            (id, memory_id, conflicting_memory_id, similarity, conflict_content_snapshot, reason, created_at)
          VALUES ('evt-1', 'mem-1', NULL, 0.85, 'use spaces', 'similarity_dedup', '2024-01-01T00:00:00.000Z')`

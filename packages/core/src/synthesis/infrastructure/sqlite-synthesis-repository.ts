@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabaseManager } from "../../db/manager.js";
-import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type { Synthesis } from "../../schemas.js";
 import { SynthesisSchema } from "../../schemas.js";
 import type { DirtyScope } from "../domain/synthesis-job.js";
@@ -135,7 +134,6 @@ class SqliteSynthesisRepository implements SynthesisRepository {
   }
 
   computeSourceMemoryHash(scope: string): string {
-    const resolvedHash = scope === "global" ? GLOBAL_SCOPE_HASH : scope;
     const contents = this.#db.db
       .prepare<[string], { content: string }>(
         `SELECT m.content FROM memories m
@@ -144,7 +142,7 @@ class SqliteSynthesisRepository implements SynthesisRepository {
          WHERE p.scope_hash = ?
          ORDER BY m.id`
       )
-      .all(resolvedHash);
+      .all(scope);
 
     return createHash("sha256")
       .update(JSON.stringify(contents.map((r) => r.content)))
@@ -181,14 +179,10 @@ class SqliteSynthesisRepository implements SynthesisRepository {
   }
 
   getAllActiveScopes(): string[] {
-    const projectScopes = this.#db.db
-      .prepare<[string], { scope_hash: string }>(
-        "SELECT DISTINCT scope_hash FROM projects WHERE scope_hash != ?"
-      )
-      .all(GLOBAL_SCOPE_HASH)
+    return this.#db.db
+      .prepare<[], { scope_hash: string }>("SELECT DISTINCT scope_hash FROM projects")
+      .all()
       .map((r) => r.scope_hash);
-
-    return ["global", ...projectScopes];
   }
 
   expireStale(): void {
