@@ -1,6 +1,7 @@
 import type { DatabaseManager } from "../../db/manager.js";
 import type { Memory, MemoryType } from "../../memory/domain/memory.js";
 import { rowToMemory } from "../../persistence/infrastructure/row-types.js";
+import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type { MemoryRow } from "../../types.js";
 import type { QueryAdapter } from "../ports.js";
 
@@ -33,9 +34,9 @@ export class SqliteQueryAdapter implements QueryAdapter {
     }
     if (projectHash !== undefined) {
       joinClause =
-        "LEFT JOIN memory_projects mp ON mp.memory_id = m.id LEFT JOIN projects p ON p.id = mp.project_id";
-      whereClauses.push("p.scope_hash = ?");
-      params.push(projectHash);
+        "JOIN memory_projects mp ON mp.memory_id = m.id JOIN projects p ON p.id = mp.project_id";
+      whereClauses.push("(p.scope_hash = ? OR p.scope_hash = ?)");
+      params.push(projectHash, GLOBAL_SCOPE_HASH);
     }
 
     const whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";

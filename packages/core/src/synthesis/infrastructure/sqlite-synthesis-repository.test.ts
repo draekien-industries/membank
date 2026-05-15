@@ -66,6 +66,11 @@ describe("SqliteSynthesisRepository", () => {
          VALUES ('m1', 'some memory', 'preference', '[]', NULL, 0, 0, datetime('now'), datetime('now'))`
       )
       .run();
+    db.db
+      .prepare(
+        `INSERT INTO memory_projects (memory_id, project_id) VALUES ('m1', '00000000-0000-0000-0000-000000000000')`
+      )
+      .run();
 
     const hashWithMemory = repo.computeSourceMemoryHash("global");
     expect(hashWithMemory).not.toBe(hashEmpty);
@@ -153,6 +158,11 @@ describe("SqliteSynthesisRepository", () => {
          VALUES ('m1', 'new memory', 'preference', '[]', NULL, 0, 0, ?, ?)`
       )
       .run(now, now);
+    db.db
+      .prepare(
+        `INSERT INTO memory_projects (memory_id, project_id) VALUES ('m1', '00000000-0000-0000-0000-000000000000')`
+      )
+      .run();
 
     const scopes = repo.getExpiredOrDirtyScopes();
     const globalScope = scopes.find((s) => s.scope === "global");

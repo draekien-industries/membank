@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseManager } from "../../db/manager.js";
 import { rowToMemory, rowToReviewEvent } from "../../persistence/infrastructure/row-types.js";
+import { GLOBAL_PROJECT_NAME, GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type { ProjectRepository } from "../../project/ports.js";
 import type { MemoryRow, ReviewEventRow } from "../../schemas.js";
 import {
@@ -57,14 +58,15 @@ export class SqliteMemoryRepository implements MemoryRepository {
         .get(embeddingBlob, type, projectHash);
     } else {
       row = this.#db.db
-        .prepare<[Buffer, string], SimilarityRow>(
+        .prepare<[Buffer, string, string], SimilarityRow>(
           `SELECT m.rowid, m.*, (1 - vec_distance_cosine(e.embedding, ?)) AS similarity
            FROM memories m JOIN embeddings e ON e.rowid = m.rowid
-           WHERE m.type = ?
-           AND m.id NOT IN (SELECT memory_id FROM memory_projects)
+           JOIN memory_projects mp ON mp.memory_id = m.id
+           JOIN projects p ON p.id = mp.project_id
+           WHERE m.type = ? AND p.scope_hash = ?
            ORDER BY similarity DESC LIMIT 1`
         )
-        .get(embeddingBlob, type);
+        .get(embeddingBlob, type, GLOBAL_SCOPE_HASH);
     }
 
     return row !== undefined ? [{ id: row.id, similarity: row.similarity }] : [];
@@ -88,10 +90,9 @@ export class SqliteMemoryRepository implements MemoryRepository {
       )
       .run(embeddingBlob, id);
 
-    if (projectScope !== undefined) {
-      const project = this.#projects.upsertByHash(projectScope.hash, projectScope.name);
-      this.#projects.addAssociation(id, project.id);
-    }
+    const scope = projectScope ?? { hash: GLOBAL_SCOPE_HASH, name: GLOBAL_PROJECT_NAME };
+    const project = this.#projects.upsertByHash(scope.hash, scope.name);
+    this.#projects.addAssociation(id, project.id);
 
     const row = MemoryRowSchema.parse(
       this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(id)
@@ -224,7 +225,10 @@ export class SqliteMemoryRepository implements MemoryRepository {
       );
     }
     if (opts?.projectId === "global") {
-      conditions.push("m.id NOT IN (SELECT memory_id FROM memory_projects)");
+      conditions.push(
+        "EXISTS (SELECT 1 FROM memory_projects mp JOIN projects p ON p.id = mp.project_id WHERE mp.memory_id = m.id AND p.scope_hash = ?)"
+      );
+      params.push(GLOBAL_SCOPE_HASH);
     } else if (opts?.projectId !== undefined) {
       conditions.push("m.id IN (SELECT memory_id FROM memory_projects WHERE project_id = ?)");
       params.push(opts.projectId);
@@ -248,14 +252,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
   }
 
   listPinnedGlobal(): Memory[] {
-    const rows = this.#db.db
-      .prepare<[], MemoryRow>(
-        `SELECT * FROM memories
-         WHERE id NOT IN (SELECT memory_id FROM memory_projects)
-         AND pinned = 1`
-      )
-      .all();
-    return rows.map((row) => rowToMemory(row, []));
+    return this.listPinnedForProject(GLOBAL_SCOPE_HASH);
   }
 
   listPinnedForProject(projectHash: string): Memory[] {
@@ -535,11 +532,10 @@ export class SqliteMemoryRepository implements MemoryRepository {
   }
 
   #projectScopeClause(tableAlias = "memories"): string {
-    return `(${tableAlias}.id NOT IN (SELECT memory_id FROM memory_projects)
-      OR EXISTS (
-        SELECT 1 FROM memory_projects mp JOIN projects p ON p.id = mp.project_id
-        WHERE mp.memory_id = ${tableAlias}.id AND p.scope_hash = ?
-      ))`;
+    return `EXISTS (
+      SELECT 1 FROM memory_projects mp JOIN projects p ON p.id = mp.project_id
+      WHERE mp.memory_id = ${tableAlias}.id AND (p.scope_hash = ? OR p.scope_hash = '${GLOBAL_SCOPE_HASH}')
+    )`;
   }
 
   #getEventsForMemories(

@@ -55,7 +55,9 @@ describe.skipIf(!runIntegration)("SqliteMemoryRepository — integration (file-b
     expect(memory.sourceHarness).toBe("test-harness");
     expect(memory.pinned).toBe(false);
     expect(memory.accessCount).toBe(0);
-    expect(memory.projects).toEqual([]);
+    expect(memory.projects).toHaveLength(1);
+    expect(memory.projects[0]?.scopeHash).toBe("0000000000000000");
+    expect(memory.projects[0]?.name).toBe("global");
   });
 
   it("create() with projectScope associates the memory to the project", () => {

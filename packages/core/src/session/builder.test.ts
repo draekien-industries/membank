@@ -5,6 +5,8 @@ import { createMemoryRepository } from "../memory/infrastructure/sqlite-memory-r
 import { createProjectRepository } from "../project/infrastructure/sqlite-project-repository.js";
 import { listMemoryTypes, SessionContextBuilder } from "./builder.js";
 
+const SENTINEL_PROJECT_ID = "00000000-0000-0000-0000-000000000000";
+
 function insertMemory(
   db: DatabaseManager,
   opts: {
@@ -14,6 +16,7 @@ function insertMemory(
     tags?: string[];
     source?: string | null;
     pinned?: boolean;
+    projectId?: string; // defaults to sentinel (global)
   }
 ): string {
   const id = opts.id ?? randomUUID();
@@ -33,6 +36,9 @@ function insertMemory(
       now,
       now
     );
+  db.db
+    .prepare(`INSERT INTO memory_projects (memory_id, project_id) VALUES (?, ?)`)
+    .run(id, opts.projectId ?? SENTINEL_PROJECT_ID);
   return id;
 }
 
@@ -45,12 +51,6 @@ function insertProject(db: DatabaseManager, scopeHash: string, name?: string): s
     )
     .run(id, name ?? `project-${scopeHash.slice(0, 8)}`, scopeHash, now, now);
   return id;
-}
-
-function associateMemoryProject(db: DatabaseManager, memoryId: string, projectId: string): void {
-  db.db
-    .prepare(`INSERT INTO memory_projects (memory_id, project_id) VALUES (?, ?)`)
-    .run(memoryId, projectId);
 }
 
 describe("listMemoryTypes()", () => {
@@ -71,7 +71,6 @@ describe("SessionContextBuilder", () => {
   });
 
   it("returns pinned global memories", () => {
-    // global = no entry in memory_projects
     insertMemory(db, { pinned: true, content: "global pinned" });
     const ctx = builder.getSessionContext("project-x");
     expect(ctx.pinnedGlobal).toHaveLength(1);
@@ -85,26 +84,23 @@ describe("SessionContextBuilder", () => {
   });
 
   it("returns pinned project memories for the given scope", () => {
-    const memId = insertMemory(db, { pinned: true, content: "project-a pinned" });
     const projId = insertProject(db, "aa00000000000000");
-    associateMemoryProject(db, memId, projId);
+    insertMemory(db, { pinned: true, content: "project-a pinned", projectId: projId });
     const ctx = builder.getSessionContext("aa00000000000000");
     expect(ctx.pinnedProject).toHaveLength(1);
     expect(ctx.pinnedProject[0]?.content).toBe("project-a pinned");
   });
 
   it("does NOT return pinned memories from a different project scope", () => {
-    const memId = insertMemory(db, { pinned: true, content: "project-b pinned" });
     const projId = insertProject(db, "bb00000000000000");
-    associateMemoryProject(db, memId, projId);
+    insertMemory(db, { pinned: true, content: "project-b pinned", projectId: projId });
     const ctx = builder.getSessionContext("aa00000000000000");
     expect(ctx.pinnedProject).toHaveLength(0);
   });
 
   it("does NOT include project memories in pinnedGlobal", () => {
-    const memId = insertMemory(db, { pinned: true, content: "project memory" });
     const projId = insertProject(db, "cc00000000000000");
-    associateMemoryProject(db, memId, projId);
+    insertMemory(db, { pinned: true, content: "project memory", projectId: projId });
     const ctx = builder.getSessionContext("dd00000000000000");
     expect(ctx.pinnedGlobal).toHaveLength(0);
   });

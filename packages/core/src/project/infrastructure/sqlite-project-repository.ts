@@ -3,6 +3,11 @@ import type { DatabaseManager } from "../../db/manager.js";
 import { rowToProject } from "../../persistence/infrastructure/row-types.js";
 import { ProjectRowSchema } from "../../schemas.js";
 import type { Project, ProjectRow } from "../../types.js";
+import {
+  GLOBAL_PROJECT_ID,
+  GLOBAL_PROJECT_NAME,
+  GLOBAL_SCOPE_HASH,
+} from "../domain/global-scope.js";
 import type { ProjectRepository } from "../ports.js";
 
 interface ProjectMemoryRow extends ProjectRow {
@@ -21,12 +26,13 @@ export class SqliteProjectRepository implements ProjectRepository {
       throw new Error(`Invalid scope hash "${hash}": expected 16 lowercase hex characters`);
     }
     const now = new Date().toISOString();
-    const id = randomUUID();
+    const id = hash === GLOBAL_SCOPE_HASH ? GLOBAL_PROJECT_ID : randomUUID();
+    const resolvedName = hash === GLOBAL_SCOPE_HASH ? GLOBAL_PROJECT_NAME : name;
     this.#db.db
       .prepare(
         `INSERT OR IGNORE INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
       )
-      .run(id, name, hash, now, now);
+      .run(id, resolvedName, hash, now, now);
 
     const row = ProjectRowSchema.parse(
       this.#db.db

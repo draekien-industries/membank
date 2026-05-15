@@ -188,6 +188,36 @@ describe("QueryEngine", () => {
     expect(results[0]?.id).toBe("project-1");
   });
 
+  it("projectHash filter includes global memories (sentinel scope) alongside project memories", async () => {
+    // regression test: LEFT JOIN bug previously dropped global memories from project-scoped queries
+    // sentinel project (id = "00000000-0000-0000-0000-000000000000") already exists from migration 7
+    const sentinelId = "00000000-0000-0000-0000-000000000000";
+
+    insertMemory(dbManager, {
+      id: "global-1",
+      content: "Global memory",
+      type: "fact",
+      embedding: unitVec(0),
+    });
+    associateMemoryProject(dbManager, "global-1", sentinelId);
+
+    insertMemory(dbManager, {
+      id: "project-1",
+      content: "Project memory",
+      type: "fact",
+      embedding: unitVec(0),
+    });
+    const projId = insertProject(dbManager, "abcdef0000000000");
+    associateMemoryProject(dbManager, "project-1", projId);
+
+    vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
+
+    const results = await engine.query({ query: "test", projectHash: "abcdef0000000000" });
+    const ids = results.map((r) => r.id).sort();
+
+    expect(ids).toEqual(["global-1", "project-1"]);
+  });
+
   it("calls incrementAccessCount once per result", async () => {
     insertMemory(dbManager, {
       id: "mem-1",

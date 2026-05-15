@@ -190,6 +190,18 @@ CREATE INDEX IF NOT EXISTS idx_extraction_runs_status
   ON extraction_runs(status) WHERE status = 'in_flight';
 `,
   ],
+  [
+    7,
+    `
+INSERT OR IGNORE INTO projects (id, name, scope_hash, created_at, updated_at)
+VALUES ('00000000-0000-0000-0000-000000000000', 'global', '0000000000000000', datetime('now'), datetime('now'));
+
+INSERT OR IGNORE INTO memory_projects (memory_id, project_id)
+SELECT id, '00000000-0000-0000-0000-000000000000'
+FROM memories
+WHERE id NOT IN (SELECT memory_id FROM memory_projects);
+`,
+  ],
 ];
 
 export class DatabaseManager {

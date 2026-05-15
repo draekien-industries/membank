@@ -97,12 +97,12 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
     }
   });
 
-  it("applies all migrations and sets schema_version to 6 on a fresh file DB", () => {
+  it("applies all migrations and sets schema_version to 7 on a fresh file DB", () => {
     manager = DatabaseManager.open(dbPath);
     const row = manager.db
       .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
       .get();
-    expect(row?.value).toBe("6");
+    expect(row?.value).toBe("7");
   });
 
   it("data persists across close and reopen", () => {
@@ -177,7 +177,7 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
     expect(assoc?.project_id).toBe("valid-pid");
   });
 
-  it("migration v5: memories from corrupt project with no valid counterpart become global", () => {
+  it("migration v5: memories from corrupt project with no valid counterpart become global (reassigned to sentinel by v7)", () => {
     const db = setupV4Db(dbPath);
     const now = new Date().toISOString();
 
@@ -205,18 +205,69 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
       .get("parasol");
     expect(corruptProject).toBeUndefined();
 
-    // Memory must have no project association (global)
+    // Migration 7 reassigns orphaned memory to the sentinel global project
     const assoc = manager.db
       .prepare<[string], { project_id: string }>(
         "SELECT project_id FROM memory_projects WHERE memory_id = ?"
       )
       .get("mem-1");
-    expect(assoc).toBeUndefined();
+    expect(assoc?.project_id).toBe("00000000-0000-0000-0000-000000000000");
 
     // Memory record itself must still exist
     const memory = manager.db
       .prepare<[string], { id: string }>("SELECT id FROM memories WHERE id = ?")
       .get("mem-1");
     expect(memory?.id).toBe("mem-1");
+  });
+
+  it("migration v7: orphaned memories (no memory_projects row) are associated with the sentinel global project", () => {
+    const db = setupV4Db(dbPath);
+    const now = new Date().toISOString();
+
+    // Insert a real project and a memory scoped to it
+    db.prepare(
+      "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+    ).run("real-pid", "my-project", "abcdef0123456789", now, now);
+    db.prepare(
+      "INSERT INTO memories (id, content, type, tags, access_count, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run("project-mem", "project scoped memory", "fact", "[]", 0, 0, now, now);
+    db.prepare("INSERT INTO memory_projects (memory_id, project_id) VALUES (?, ?)").run(
+      "project-mem",
+      "real-pid"
+    );
+
+    // Insert a global memory (no junction row)
+    db.prepare(
+      "INSERT INTO memories (id, content, type, tags, access_count, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run("global-mem", "global memory", "preference", "[]", 0, 0, now, now);
+
+    db.close();
+
+    manager = DatabaseManager.open(dbPath);
+
+    // Project memory must still point to the real project
+    const projectAssoc = manager.db
+      .prepare<[string], { project_id: string }>(
+        "SELECT project_id FROM memory_projects WHERE memory_id = ?"
+      )
+      .get("project-mem");
+    expect(projectAssoc?.project_id).toBe("real-pid");
+
+    // Global memory must now point to the sentinel
+    const globalAssoc = manager.db
+      .prepare<[string], { project_id: string }>(
+        "SELECT project_id FROM memory_projects WHERE memory_id = ?"
+      )
+      .get("global-mem");
+    expect(globalAssoc?.project_id).toBe("00000000-0000-0000-0000-000000000000");
+
+    // Sentinel project row must exist with the reserved scope_hash
+    const sentinel = manager.db
+      .prepare<[string], { scope_hash: string; name: string }>(
+        "SELECT scope_hash, name FROM projects WHERE id = ?"
+      )
+      .get("00000000-0000-0000-0000-000000000000");
+    expect(sentinel?.scope_hash).toBe("0000000000000000");
+    expect(sentinel?.name).toBe("global");
   });
 });
