@@ -157,13 +157,29 @@ membank config show
 
 ### `membank synthesize`
 
-View memory synthesis state.
+View and manage memory synthesis.
 
 ```bash
+membank synthesize run               # trigger a synthesis run for a scope
 membank synthesize show              # current synthesis for global scope
 membank synthesize show --scope <s>  # synthesis for a specific project scope
 membank synthesize status            # all scopes and their synthesis state
 ```
+
+Options for `run` and `show`: `--scope <scope>`
+
+### `membank activity`
+
+List activity events for the current project.
+
+```bash
+membank activity
+membank activity --type memory.created
+membank activity --since 2025-01-01
+membank activity --global
+```
+
+Options: `--type <event_type>` (memory.created|updated|deleted|flagged|queried), `--since <date>`, `--memory-id <id>`, `--limit <n>` (default 50), `--global`, `--scope <hash>`
 
 ### `membank inject`
 

@@ -44,13 +44,16 @@ membank export                             # export to JSON file (--output <path
 membank import <file>                      # import from JSON export file
 membank migrate list                       # list available data migrations
 membank migrate run <name>                 # run a named migration
-membank dashboard                          # open the web UI in your browser
+membank activity                           # list activity events for the current project
+membank dashboard                          # (deprecated) use: npx @membank/dashboard
 membank config get <key>                   # print a config value
 membank config set <key> <value>           # set a config value
 membank config show                        # print the full config
+membank synthesize run                     # trigger a synthesis run for a scope
 membank synthesize show                    # display current synthesis for a scope
 membank synthesize status                  # show all scopes with synthesis status
 membank setup                              # configure MCP server + injection hooks
+membank setup upgrade                      # migrate harness configs to standalone membank-mcp
 membank inject                             # output session context (called by hooks)
 membank inject --harness claude-code       # format output for a specific harness
 membank inject --event user-prompt-submit  # inject on prompt submit event
@@ -75,7 +78,7 @@ Supported harnesses and their hook mechanisms:
 Access memories via a local web UI with browsing, searching, filtering, and editing:
 
 ```bash
-membank dashboard
+npx @membank/dashboard
 # Opens http://localhost:3847
 ```
 
@@ -130,6 +133,7 @@ Enable by creating `~/.membank/config.json`:
 View synthesis state via:
 
 ```bash
+membank synthesize run               # trigger synthesis for a scope
 membank synthesize show              # current synthesis for global scope
 membank synthesize show --scope <s>  # synthesis for a specific project scope
 membank synthesize status            # all scopes and their synthesis state
