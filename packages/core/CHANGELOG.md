@@ -1,5 +1,16 @@
 # @membank/core
 
+## 0.12.0
+
+### Minor Changes
+
+- 3c966c3: Added activity log feature: records memory.created/updated/deleted/flagged/queried events in SQLite with 30-day prune-on-write retention, a `membank activity` CLI command, and an Activity tab in the dashboard for per-project and global timelines.
+
+### Patch Changes
+
+- 61a05d1: Introduced a sentinel global project (scope_hash `0000000000000000`, id `00000000-0000-0000-0000-000000000000`) so every memory has an explicit `memory_projects` row, eliminating `NOT IN` subqueries and fixing a bug where global memories were silently excluded from project-scoped semantic queries.
+- dd7f393: Migrated `syntheses.scope` from the legacy `"global"` string to the sentinel scope hash, adding a foreign key from `syntheses.scope` to `projects.scope_hash` and eliminating all remaining `scope === "global"` magic-string branches.
+
 ## 0.11.1
 
 ### Patch Changes

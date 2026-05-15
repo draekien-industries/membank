@@ -1,5 +1,20 @@
 # @membank/dashboard
 
+## 0.8.0
+
+### Minor Changes
+
+- 3c966c3: Added activity log feature: records memory.created/updated/deleted/flagged/queried events in SQLite with 30-day prune-on-write retention, a `membank activity` CLI command, and an Activity tab in the dashboard for per-project and global timelines.
+- 9d637cf: Added Session Context panel to the project page, showing the full injection payload (stats, pinned memories or synthesis, memory guidance) as a live monospace preview that updates reactively when memories are pinned or unpinned.
+
+### Patch Changes
+
+- 44a4658: Fixed right panel shrinking when switching between project summary and memory detail views.
+- Updated dependencies [3c966c3]
+- Updated dependencies [61a05d1]
+- Updated dependencies [dd7f393]
+  - @membank/core@0.12.0
+
 ## 0.7.1
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @membank/mcp
 
+## 0.14.2
+
+### Patch Changes
+
+- Updated dependencies [3c966c3]
+- Updated dependencies [61a05d1]
+- Updated dependencies [dd7f393]
+  - @membank/core@0.12.0
+
 ## 0.14.1
 
 ### Patch Changes
