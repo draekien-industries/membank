@@ -1,5 +1,7 @@
 import type {
   ActivityDay,
+  ActivityEvent,
+  ActivityEventFilter,
   Filters,
   Memory,
   MemoryType,
@@ -17,6 +19,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+function buildQs(params: URLSearchParams): string {
+  const s = params.toString();
+  return s ? `?${s}` : "";
+}
+
 export function getMemory(id: string): Promise<Memory> {
   return request<Memory>(`/memories/${id}`);
 }
@@ -27,8 +34,7 @@ export function listMemories(filters: Partial<Filters>): Promise<Memory[]> {
   if (filters.pinned) params.set("pinned", "true");
   if (filters.needsReview) params.set("needsReview", "true");
   if (filters.search) params.set("search", filters.search);
-  const qs = params.toString();
-  return request<Memory[]>(`/memories${qs ? `?${qs}` : ""}`);
+  return request<Memory[]>(`/memories${buildQs(params)}`);
 }
 
 export function getStats(): Promise<Stats> {
@@ -106,4 +112,13 @@ export function getProjectActivity(projectId: string, days?: number): Promise<Ac
 export function getGlobalActivity(days?: number): Promise<ActivityDay[]> {
   const qs = days !== undefined ? `?days=${days}` : "";
   return request<ActivityDay[]>(`/activity${qs}`);
+}
+
+export function getActivityEvents(filter: ActivityEventFilter): Promise<ActivityEvent[]> {
+  const params = new URLSearchParams();
+  if (filter.scope !== undefined) params.set("scope", filter.scope);
+  if (filter.type !== undefined) params.set("type", filter.type);
+  if (filter.since !== undefined) params.set("since", filter.since);
+  if (filter.limit !== undefined) params.set("limit", String(filter.limit));
+  return request<ActivityEvent[]>(`/activity/events${buildQs(params)}`);
 }

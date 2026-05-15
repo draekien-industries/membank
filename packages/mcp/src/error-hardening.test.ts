@@ -313,6 +313,7 @@ describe("error hardening", () => {
           removeAssociation: vi.fn(),
           getProjectsForMemories: vi.fn().mockReturnValue(new Map()),
         } as unknown as ProjectRepository,
+        activityLogger: { logEvent: vi.fn() },
       };
 
       const server = createServer(stubCore);

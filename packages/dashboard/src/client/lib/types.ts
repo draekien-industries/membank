@@ -91,3 +91,26 @@ export interface ActivityDay {
   date: string;
   count: number;
 }
+
+export type ActivityEventType =
+  | "memory.created"
+  | "memory.updated"
+  | "memory.deleted"
+  | "memory.flagged"
+  | "memory.queried";
+
+export interface ActivityEvent {
+  id: string;
+  projectHash: string;
+  eventType: ActivityEventType;
+  memoryId: string | null;
+  payload: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ActivityEventFilter {
+  scope?: string;
+  type?: ActivityEventType;
+  since?: string;
+  limit?: number;
+}

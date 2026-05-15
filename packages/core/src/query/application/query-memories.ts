@@ -1,4 +1,7 @@
+import type { ActivityLogger } from "../../activity/ports.js";
+import { noopActivityLogger } from "../../activity/ports.js";
 import type { Embedder, MemoryRepository } from "../../memory/ports.js";
+import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import { QueryOptionsSchema } from "../../schemas.js";
 import type { QueryOptions } from "../../types.js";
 import { computeScore } from "../domain/scoring.js";
@@ -10,9 +13,11 @@ export async function queryMemories(
     adapter: QueryAdapter;
     repo: Pick<MemoryRepository, "incrementAccessCount">;
     embedder: Embedder;
+    activityLogger?: ActivityLogger;
   }
 ): Promise<ScoredMemory[]> {
   const { query, type, projectHash, limit = 10, includePinned } = QueryOptionsSchema.parse(options);
+  const { activityLogger = noopActivityLogger } = deps;
 
   const queryEmbedding = await deps.embedder.embed(query);
   const queryBlob = Buffer.from(queryEmbedding.buffer);
@@ -33,6 +38,15 @@ export async function queryMemories(
   for (const result of results) {
     deps.repo.incrementAccessCount(result.id);
   }
+
+  activityLogger.logEvent({
+    projectHash: projectHash ?? GLOBAL_SCOPE_HASH,
+    eventType: "memory.queried",
+    payload: {
+      resultCount: results.length,
+      topScores: results.slice(0, 3).map((r) => r.score),
+    },
+  });
 
   return results;
 }

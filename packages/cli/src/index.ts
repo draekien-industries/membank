@@ -5,6 +5,7 @@ import { DatabaseManager } from "@membank/core";
 import { startServer } from "@membank/mcp";
 import chalk from "chalk";
 import { Command } from "commander";
+import { activityCommand } from "./commands/activity.js";
 import { addCommand } from "./commands/add.js";
 import { configGetCommand, configSetCommand, configShowCommand } from "./commands/config.js";
 import { deleteCommand } from "./commands/delete.js";
@@ -510,6 +511,38 @@ synthesizeCmd
       process.exit(2);
     }
   });
+
+program
+  .command("activity")
+  .description("list activity events for the current project (or --global for global memories)")
+  .option(
+    "--type <event_type>",
+    "filter by event type (memory.created|updated|deleted|flagged|queried)"
+  )
+  .option("--since <date>", "return events after this ISO date/time")
+  .option("--memory-id <id>", "filter by memory id")
+  .option("--limit <n>", "maximum number of results (default 50)")
+  .option("--global", "show activity for global (sentinel) project")
+  .option("--scope <hash>", "show activity for a specific scope hash (advanced)")
+  .action(
+    async (cmdOptions: {
+      type?: string;
+      since?: string;
+      memoryId?: string;
+      limit?: string;
+      global?: boolean;
+      scope?: string;
+    }) => {
+      const globalOpts = program.opts<{ json?: boolean }>();
+      const formatter = Formatter.create(globalOpts.json === true);
+      try {
+        await activityCommand({ ...cmdOptions, json: globalOpts.json }, formatter);
+      } catch (err) {
+        formatter.error(err instanceof Error ? err.message : String(err));
+        process.exit(2);
+      }
+    }
+  );
 
 program.on("command:*", () => {
   program.outputHelp();

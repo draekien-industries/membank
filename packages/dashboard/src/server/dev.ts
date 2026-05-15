@@ -1,5 +1,7 @@
 import { serve } from "@hono/node-server";
 import {
+  createActivityLogger,
+  createActivityRepository,
   createMemoryRepository,
   createProjectRepository,
   createSynthesisRepository,
@@ -15,10 +17,20 @@ const db = DatabaseManager.open();
 const embedding = new EmbeddingService();
 const projects = createProjectRepository(db);
 const repo = createMemoryRepository(db, projects);
-const queryEngine = new QueryEngine(db, embedding, repo);
+const activityLogger = createActivityLogger(db);
+const activityRepo = createActivityRepository(db);
+const queryEngine = new QueryEngine(db, embedding, repo, activityLogger);
 const synthRepo = createSynthesisRepository(db);
 
-const app = createApiApp(repo, projects, embedding, queryEngine, synthRepo);
+const app = createApiApp(
+  repo,
+  projects,
+  embedding,
+  queryEngine,
+  synthRepo,
+  activityRepo,
+  activityLogger
+);
 
 serve({ fetch: app.fetch, port: PORT });
 process.stdout.write(`  API server → http://localhost:${PORT}\n`);

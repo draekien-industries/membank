@@ -1,7 +1,9 @@
 import {
+  createActivityLogger,
   createMemoryRepository,
   createProjectRepository,
   type DatabaseManager,
+  deleteMemory,
 } from "@membank/core";
 import chalk from "chalk";
 import type { Formatter } from "../formatter.js";
@@ -25,7 +27,8 @@ export async function deleteCommand(
     return;
   }
 
-  repo.delete(id);
+  const activityLogger = createActivityLogger(db);
+  await deleteMemory(id, repo, activityLogger);
 
   process.stdout.write(`${chalk.green("✓")} Deleted memory: ${chalk.dim(id)}\n`);
 }

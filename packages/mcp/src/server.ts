@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type {
+  ActivityLogger,
   Embedder,
   ExtractionTools,
   MemoryRepository,
@@ -11,11 +12,13 @@ import type {
   SynthesisTools,
 } from "@membank/core";
 import {
+  createActivityLogger,
   createMemoryRepository,
   createProjectRepository,
   createSynthesisAgentRunner,
   createSynthesisRepository,
   DatabaseManager,
+  deleteMemory,
   EmbeddingService,
   GLOBAL_SCOPE_HASH,
   isSynthesisEnabled,
@@ -58,6 +61,7 @@ export interface CoreServices {
   repo: MemoryRepository;
   query: Querier;
   projects: ProjectRepository;
+  activityLogger: ActivityLogger;
   synthEngine?: SynthesisEngine;
 }
 
@@ -158,7 +162,8 @@ export function initCore(options: ServerOptions = {}): CoreServices {
   const embedding = new EmbeddingService();
   const projects = createProjectRepository(db);
   const repo = createMemoryRepository(db, projects);
-  const query = new QueryEngine(db, embedding, repo);
+  const activityLogger = createActivityLogger(db);
+  const query = new QueryEngine(db, embedding, repo, activityLogger);
 
   const synthConfig = loadSynthesisConfig();
   let synthEngine: SynthesisEngine | undefined;
@@ -169,7 +174,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
     synthEngine = new SynthesisEngine(synthRepo, synthConfig, agentRunner);
   }
 
-  return { db, embedding, repo, query, projects, synthEngine };
+  return { db, embedding, repo, query, projects, activityLogger, synthEngine };
 }
 
 function parseArgs<T>(schema: { parse: (v: unknown) => T }, raw: unknown): T {
@@ -371,7 +376,7 @@ export function createServer(core: CoreServices): Server {
       try {
         const memory = await saveMemory(
           { content: args.content, type: args.type, tags: args.tags, projectScope },
-          { repo: core.repo, embedder: core.embedding }
+          { repo: core.repo, embedder: core.embedding, activityLogger: core.activityLogger }
         );
 
         if (core.synthEngine !== undefined) {
@@ -398,7 +403,7 @@ export function createServer(core: CoreServices): Server {
         const memory = await updateMemory(
           args.id,
           { content: args.content, type: args.type, tags: args.tags },
-          { repo: core.repo, embedder: core.embedding }
+          { repo: core.repo, embedder: core.embedding, activityLogger: core.activityLogger }
         );
 
         if (core.synthEngine !== undefined) {
@@ -434,7 +439,7 @@ export function createServer(core: CoreServices): Server {
             ? (memory.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH)
             : undefined;
 
-        core.repo.delete(args.id);
+        await deleteMemory(args.id, core.repo, core.activityLogger);
 
         if (core.synthEngine !== undefined && memoryScopeBeforeDelete !== undefined) {
           core.synthEngine.markDirty(memoryScopeBeforeDelete);

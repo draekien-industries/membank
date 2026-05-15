@@ -1,5 +1,6 @@
 import type { EmbeddingService } from "@membank/core";
 import {
+  createActivityLogger,
   createMemoryRepository,
   createProjectRepository,
   DatabaseManager,
@@ -30,6 +31,7 @@ export async function addCommand(
     const embedder = embeddingService ?? new EmbeddingServiceImpl();
     const projects = createProjectRepository(resolvedDb);
     const repo = createMemoryRepository(resolvedDb, projects);
+    const activityLogger = createActivityLogger(resolvedDb);
 
     const tags = options.tags !== undefined ? options.tags.split(",").map((t) => t.trim()) : [];
 
@@ -43,7 +45,7 @@ export async function addCommand(
         tags,
         projectScope,
       },
-      { repo, embedder }
+      { repo, embedder, activityLogger }
     );
     spinner?.succeed("Memory saved");
 

@@ -4,6 +4,9 @@ import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import type {
+  ActivityEventType,
+  ActivityLogger,
+  ActivityRepository,
   Embedder,
   Memory,
   MemoryRepository,
@@ -14,13 +17,18 @@ import type {
   SynthesisTools,
 } from "@membank/core";
 import {
+  ActivityEventTypeSchema,
+  createActivityLogger,
+  createActivityRepository,
   createMemoryRepository,
   createProjectRepository,
   createSynthesisAgentRunner,
   createSynthesisRepository,
   DatabaseManager,
+  deleteMemory,
   EmbeddingService,
   isSynthesisEnabled,
+  listEvents,
   QueryEngine,
   runSynthesis,
   updateMemory,
@@ -108,7 +116,9 @@ export function createApiApp(
   projectRepo: ProjectRepository,
   embedder: Embedder,
   queryEngine: QueryEngine,
-  synthRepo: SynthesisRepository
+  synthRepo: SynthesisRepository,
+  activityRepo: ActivityRepository,
+  activityLogger: ActivityLogger
 ): Hono {
   const app = new Hono();
 
@@ -151,15 +161,15 @@ export function createApiApp(
       await updateMemory(
         id,
         { content: body.content, tags: body.tags, type: body.type as MemoryType | undefined },
-        { repo, embedder }
+        { repo, embedder, activityLogger }
       );
     }
 
     return c.json(repo.findById(id));
   });
 
-  app.delete("/api/memories/:id", (c) => {
-    repo.delete(c.req.param("id"));
+  app.delete("/api/memories/:id", async (c) => {
+    await deleteMemory(c.req.param("id"), repo, activityLogger);
     return c.json({ ok: true });
   });
 
@@ -281,6 +291,30 @@ export function createApiApp(
     return c.json(aggregateActivity(repo.list(), daysParam));
   });
 
+  app.get("/api/activity/events", (c) => {
+    const { scope, type, since, limit } = c.req.query();
+
+    let validatedType: ActivityEventType | undefined;
+    if (type !== undefined) {
+      const parsed = ActivityEventTypeSchema.safeParse(type);
+      if (!parsed.success) {
+        return c.json({ error: `Invalid event type: "${type}"` }, 400);
+      }
+      validatedType = parsed.data;
+    }
+
+    const events = listEvents(
+      {
+        scope: scope || undefined,
+        type: validatedType,
+        since: since || undefined,
+        limit: limit !== undefined ? parseInt(limit, 10) : undefined,
+      },
+      activityRepo
+    );
+    return c.json(events);
+  });
+
   return app;
 }
 
@@ -295,10 +329,20 @@ export async function startDashboard(opts?: {
   const embedding = new EmbeddingService();
   const projects = createProjectRepository(db);
   const repo = createMemoryRepository(db, projects);
-  const queryEngine = new QueryEngine(db, embedding, repo);
+  const activityLogger = createActivityLogger(db);
+  const activityRepo = createActivityRepository(db);
+  const queryEngine = new QueryEngine(db, embedding, repo, activityLogger);
   const synthRepo = createSynthesisRepository(db);
 
-  const app = createApiApp(repo, projects, embedding, queryEngine, synthRepo);
+  const app = createApiApp(
+    repo,
+    projects,
+    embedding,
+    queryEngine,
+    synthRepo,
+    activityRepo,
+    activityLogger
+  );
 
   const __dir = dirname(fileURLToPath(import.meta.url));
   const clientDir = join(__dir, "client");
