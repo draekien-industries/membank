@@ -35,7 +35,7 @@ function GlobalWorkspaceLayout() {
       <div className="flex-1 min-w-0 border-x border-border overflow-hidden flex flex-col">
         <WorkspaceCenter selectedId={selectedId} list={list} />
       </div>
-      <div className="max-w-prose shrink-0 overflow-hidden flex flex-col">
+      <div className="w-[65ch] shrink-0 overflow-hidden flex flex-col">
         <Outlet />
       </div>
     </div>
