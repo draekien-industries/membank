@@ -1,5 +1,19 @@
 # @membank/cli
 
+## 0.14.0
+
+### Minor Changes
+
+- 3c966c3: Added activity log feature: records memory.created/updated/deleted/flagged/queried events in SQLite with 30-day prune-on-write retention, a `membank activity` CLI command, and an Activity tab in the dashboard for per-project and global timelines.
+
+### Patch Changes
+
+- Updated dependencies [3c966c3]
+- Updated dependencies [61a05d1]
+- Updated dependencies [dd7f393]
+  - @membank/core@0.12.0
+  - @membank/mcp@0.14.2
+
 ## 0.13.1
 
 ### Patch Changes
