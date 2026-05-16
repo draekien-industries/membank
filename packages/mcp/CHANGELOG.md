@@ -1,5 +1,17 @@
 # @membank/mcp
 
+## 0.15.0
+
+### Minor Changes
+
+- 4e8ebbb: Added bulk maintenance tools (delete_many, resolve_many) and a merge_memories tool, inlined the current conflicting memory and cluster groupings into list_flagged_memories, and broke get_memory_summary's review queue down by similarity band, type, and cluster count — so AI agents can clean up flagged memories in a fraction of the calls.
+- f07fe18: Redesigned MCP tool surface: split `migrate` into `list_migrations` + `run_migration` (schema-level required params), removed redundant `list_memory_types`, replaced `global` boolean with a `scope` enum (`"current"` | `"global"` | `"all"`) across query/save/list/summary tools, added `limit`/`minSimilarity`/`maxSimilarity` filters to `list_flagged_memories`, and corrected `resolve_review` description.
+
+### Patch Changes
+
+- Updated dependencies [4e8ebbb]
+  - @membank/core@0.13.0
+
 ## 0.14.3
 
 ### Patch Changes
