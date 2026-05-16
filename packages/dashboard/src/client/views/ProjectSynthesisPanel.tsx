@@ -1,7 +1,6 @@
 import { ArrowsClockwise, Lightning, WarningCircle } from "@phosphor-icons/react";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useCallback, useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,15 +10,14 @@ import { memoriesCollection } from "@/lib/collections";
 import type { Memory, MemoryType, Project, Synthesis } from "@/lib/types";
 import { MEMORY_TYPES, SYNTHESIS_PENDING } from "@/lib/types";
 import { cn, formatRelativeTime } from "@/lib/utils";
-
-function countMemoriesByType(allMemories: Memory[], projectId: string): Record<MemoryType, number> {
-  const result = {} as Record<MemoryType, number>;
-  for (const type of MEMORY_TYPES) result[type] = 0;
-  for (const m of allMemories.filter((m) => m.projects.some((p) => p.id === projectId))) {
-    result[m.type as MemoryType]++;
-  }
-  return result;
-}
+import {
+  AttentionBlock,
+  CompositionBars,
+  countMemoriesByType,
+  OverviewHeader,
+  RecentActivityList,
+  TYPE_COLORS,
+} from "@/views/ProjectOverviewDashboard";
 
 function StuckResetButton({ onReset }: { onReset: () => Promise<void> }) {
   return (
@@ -75,14 +73,6 @@ function buildCopyText(
   parts.push(`<memory-guidance>\n${MEMORY_GUIDANCE}\n</memory-guidance>`);
   return parts.join("\n");
 }
-
-const TYPE_COLORS: Record<MemoryType, string> = {
-  correction: "oklch(0.72 0.16 25)",
-  preference: "oklch(0.68 0.14 250)",
-  decision: "oklch(0.65 0.14 300)",
-  learning: "oklch(0.65 0.14 165)",
-  fact: "oklch(0.62 0.006 165)",
-};
 
 function XmlClose({ tag }: { tag: string }) {
   return <span className="text-muted-foreground/40">&lt;/{tag}&gt;</span>;
@@ -479,43 +469,28 @@ function SessionContextPanel({
   );
 }
 
-function OverviewTypeStrip({ projectId }: { projectId: string }) {
-  const { data: allMemories = [] } = useLiveQuery((q) => q.from({ m: memoriesCollection }), []);
-
-  const nonZero = useMemo(() => {
-    const counts = countMemoriesByType(allMemories, projectId);
-    return MEMORY_TYPES.filter((t) => counts[t] > 0).map((t) => ({ type: t, count: counts[t] }));
-  }, [allMemories, projectId]);
-
-  if (nonZero.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 px-6 py-2.5 border-b border-border shrink-0">
-      {nonZero.map(({ type, count }) => (
-        <Badge key={type} variant={type}>
-          {count} {type}
-          {count !== 1 ? "s" : ""}
-        </Badge>
-      ))}
-    </div>
-  );
-}
-
 export function ProjectOverviewTab({ project }: { project: Project }) {
   const { synthesis, isLoading, isStale, isStuck, error, run, reset } =
     useProjectSynthesis(project);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <OverviewTypeStrip projectId={project.id} />
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
-        <div className="mx-auto w-[65ch] space-y-5">
-          <header>
-            <h2 className="font-heading text-base font-semibold text-foreground">{project.name}</h2>
-            <p className="font-mono text-[10px] text-muted-foreground/50 mt-0.5 truncate">
-              {project.scopeHash}
-            </p>
-          </header>
+      <div className="flex-1 min-h-0 overflow-y-auto px-8 py-6">
+        <div className="max-w-[1100px] space-y-8">
+          <OverviewHeader project={project} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-8">
+            <CompositionBars projectId={project.id} />
+            <div className="space-y-8">
+              <AttentionBlock
+                project={project}
+                synthesis={synthesis}
+                isStale={isStale}
+                isStuck={isStuck}
+                isLoading={isLoading}
+              />
+              <RecentActivityList scope={project.scopeHash} />
+            </div>
+          </div>
           <SessionContextPanel
             project={project}
             synthesis={synthesis}
