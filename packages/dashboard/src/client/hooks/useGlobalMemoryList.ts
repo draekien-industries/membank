@@ -1,3 +1,4 @@
+import { GLOBAL_PROJECT_ID } from "@membank/core";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
@@ -21,7 +22,9 @@ export function useGlobalMemoryList(selectedId: string | null) {
     []
   );
 
-  let filtered = allMemories.filter((m: Memory) => m.projects.length === 0);
+  let filtered = allMemories.filter((m: Memory) =>
+    m.projects.some((p) => p.id === GLOBAL_PROJECT_ID)
+  );
   if (search.type) filtered = filtered.filter((m) => m.type === search.type);
   if (search.pinned) filtered = filtered.filter((m) => m.pinned);
   if (search.needsReview) filtered = filtered.filter((m) => m.reviewEvents.length > 0);
