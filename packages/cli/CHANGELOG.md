@@ -1,5 +1,11 @@
 # @membank/cli
 
+## 0.14.2
+
+### Patch Changes
+
+- e8d22da: Switched memory extraction trigger from the `Stop` hook (fired every turn) to the `SessionEnd` hook (fired once per session), eliminating the recursion bug class and reducing unnecessary LLM synthesis calls. Existing installs must re-run `membank setup` to migrate the hook entry in `~/.claude/settings.json`.
+
 ## 0.14.1
 
 ### Patch Changes
