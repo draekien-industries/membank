@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useProjectActivity } from "@/hooks/useProjectActivity";
 import { useProjectStats } from "@/hooks/useProjectStats";
 import type { MemoryType, ProjectStats } from "@/lib/types";
-import { capitalize, formatRelativeTime, truncate } from "@/lib/utils";
+import { capitalize, formatRelativeTime } from "@/lib/utils";
 
 export type { DaysOption } from "@/components/DayToggle";
 
@@ -70,10 +70,6 @@ export function useProjectCardData({ projectId, statsOverride }: UseProjectCardD
         value: loading ? <Skeleton className="h-3 w-8" /> : (stats?.activeDays ?? 0),
       },
       {
-        label: "Needs Review",
-        value: loading ? <Skeleton className="h-3 w-8" /> : (stats?.needsReview ?? 0),
-      },
-      {
         label: "Pinned",
         value: loading ? <Skeleton className="h-3 w-8" /> : (stats?.pinned ?? 0),
       },
@@ -88,30 +84,6 @@ export function useProjectCardData({ projectId, statsOverride }: UseProjectCardD
         ) : (
           "—"
         ),
-      },
-      {
-        label: "Last Active",
-        value: loading ? (
-          <Skeleton className="h-3 w-8" />
-        ) : stats?.lastActive ? (
-          formatRelativeTime(stats.lastActive)
-        ) : (
-          "—"
-        ),
-      },
-      {
-        label: "Harness",
-        value: loading ? (
-          <Skeleton className="h-3 w-8" />
-        ) : stats?.harness ? (
-          truncate(stats.harness, 14)
-        ) : (
-          "—"
-        ),
-      },
-      {
-        label: "Corrections",
-        value: loading ? <Skeleton className="h-3 w-8" /> : (stats?.byType.correction ?? 0),
       },
     ],
     [loading, stats]
