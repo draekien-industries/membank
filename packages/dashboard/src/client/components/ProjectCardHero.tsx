@@ -1,4 +1,5 @@
 import type { RegisteredRouter, ValidateLinkOptions } from "@tanstack/react-router";
+import { Fragment } from "react";
 import { ActivityHeatmap } from "@/components/ActivityHeatmap";
 import { AppLink } from "@/components/AppLink";
 import { DayToggle } from "@/components/DayToggle";
@@ -13,59 +14,31 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CardFooterStatus, useProjectCardData } from "@/hooks/useProjectCardData";
-import type { ProjectStats } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
-interface ProjectCardProps<
+interface ProjectCardHeroProps<
   TRouter extends RegisteredRouter = RegisteredRouter,
   TOptions = unknown,
 > {
   projectId: string;
   projectName: string;
   linkOptions: ValidateLinkOptions<TRouter, TOptions>;
-  statsOverride?: ProjectStats;
-  className?: string;
 }
 
-interface StatCellProps {
-  label: string;
-  children: React.ReactNode;
-}
-
-function StatCell({ label, children }: StatCellProps) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-mono">
-        {label}
-      </span>
-      <div className="text-sm font-mono font-medium text-foreground">{children}</div>
-    </div>
-  );
-}
-
-export function ProjectCard<TRouter extends RegisteredRouter, TOptions>(
-  props: ProjectCardProps<TRouter, TOptions>
+export function ProjectCardHero<TRouter extends RegisteredRouter, TOptions>(
+  props: ProjectCardHeroProps<TRouter, TOptions>
 ): React.ReactNode;
-export function ProjectCard({
+export function ProjectCardHero({
   projectId,
   projectName,
   linkOptions,
-  statsOverride,
-  className,
-}: ProjectCardProps): React.ReactNode {
+}: ProjectCardHeroProps): React.ReactNode {
   const { stats, activity, activityLoading, days, setDays, statItems } = useProjectCardData({
     projectId,
-    statsOverride,
   });
 
   return (
     <AppLink {...linkOptions} className="block">
-      <Card
-        className={cn(
-          "gap-0 py-0 cursor-pointer transition-colors hover:border-foreground/20",
-          className
-        )}
-      >
+      <Card className="gap-0 py-0 cursor-pointer transition-colors hover:border-foreground/20 ring-1 ring-inset ring-primary/40">
         <CardHeader className="items-center pt-4 pb-3">
           <CardTitle className="font-mono text-sm font-medium">{projectName}</CardTitle>
           <CardAction>
@@ -73,12 +46,26 @@ export function ProjectCard({
           </CardAction>
         </CardHeader>
 
-        <CardContent className="grid grid-cols-4 gap-4 pb-3 pt-0">
-          {statItems.map((item) => (
-            <StatCell key={item.label} label={item.label}>
-              {item.value}
-            </StatCell>
-          ))}
+        <CardContent className="pb-3 pt-0">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            {statItems.map((item, i) => (
+              <Fragment key={item.label}>
+                {i > 0 && (
+                  <span className="text-border font-mono select-none" aria-hidden>
+                    ·
+                  </span>
+                )}
+                <span className="flex items-baseline gap-1">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-mono">
+                    {item.label}
+                  </span>
+                  <span className="text-sm font-mono font-medium text-foreground">
+                    {item.value}
+                  </span>
+                </span>
+              </Fragment>
+            ))}
+          </div>
         </CardContent>
 
         <StopPropagation>
