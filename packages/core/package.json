@@ -9,14 +9,14 @@
   },
   "exports": {
     ".": {
+      "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.mts"
+      "require": "./dist/index.cjs"
     },
     "./client": {
+      "types": "./dist/client.d.mts",
       "import": "./dist/client.mjs",
-      "require": "./dist/client.cjs",
-      "types": "./dist/client.d.mts"
+      "require": "./dist/client.cjs"
     }
   },
   "files": [
