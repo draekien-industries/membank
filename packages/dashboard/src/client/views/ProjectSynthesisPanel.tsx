@@ -11,6 +11,15 @@ import type { Memory, MemoryType, Project, Synthesis } from "@/lib/types";
 import { MEMORY_TYPES, SYNTHESIS_PENDING } from "@/lib/types";
 import { cn, formatRelativeTime } from "@/lib/utils";
 
+function countMemoriesByType(allMemories: Memory[], projectId: string): Record<MemoryType, number> {
+  const result = {} as Record<MemoryType, number>;
+  for (const type of MEMORY_TYPES) result[type] = 0;
+  for (const m of allMemories.filter((m) => m.projects.some((p) => p.id === projectId))) {
+    result[m.type as MemoryType]++;
+  }
+  return result;
+}
+
 interface SynthesisMetadataProps {
   synthesis: Synthesis;
   isStale: boolean;
@@ -189,16 +198,10 @@ interface ProjectMemoryFooterProps {
 function ProjectMemoryFooter({ projectId }: ProjectMemoryFooterProps) {
   const { data: allMemories = [] } = useLiveQuery((q) => q.from({ m: memoriesCollection }), []);
 
-  const counts = useMemo(() => {
-    const projectMemories = allMemories.filter((m) => m.projects.some((p) => p.id === projectId));
-    const result = {} as Record<MemoryType, number>;
-    for (const type of MEMORY_TYPES) result[type] = 0;
-    for (const m of projectMemories) {
-      const t = m.type as MemoryType;
-      if (t in result) result[t]++;
-    }
-    return result;
-  }, [allMemories, projectId]);
+  const counts = useMemo(
+    () => countMemoriesByType(allMemories, projectId),
+    [allMemories, projectId]
+  );
 
   const nonZero = MEMORY_TYPES.filter((t) => counts[t] > 0);
   if (nonZero.length === 0) return null;
@@ -326,13 +329,10 @@ function useSessionContext(project: Project, synthesis: Synthesis | null): Sessi
     [allMemories, project.id]
   );
 
-  const stats = useMemo(() => {
-    const projectMemories = allMemories.filter((m) => m.projects.some((p) => p.id === project.id));
-    const result = {} as Record<MemoryType, number>;
-    for (const type of MEMORY_TYPES) result[type] = 0;
-    for (const m of projectMemories) result[m.type]++;
-    return result;
-  }, [allMemories, project.id]);
+  const stats = useMemo(
+    () => countMemoriesByType(allMemories, project.id),
+    [allMemories, project.id]
+  );
 
   const settledSynthesis =
     synthesis !== null &&
@@ -382,9 +382,14 @@ function useSessionContext(project: Project, synthesis: Synthesis | null): Sessi
 interface SessionContextPanelProps {
   project: Project;
   synthesis: Synthesis | null;
+  label?: string;
 }
 
-function SessionContextPanel({ project, synthesis }: SessionContextPanelProps) {
+function SessionContextPanel({
+  project,
+  synthesis,
+  label = "Session context",
+}: SessionContextPanelProps) {
   const {
     pinnedGlobal,
     pinnedProject,
@@ -401,9 +406,7 @@ function SessionContextPanel({ project, synthesis }: SessionContextPanelProps) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-          Session context
-        </span>
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
         {!isEmpty && (
           <button
             type="button"
@@ -416,12 +419,10 @@ function SessionContextPanel({ project, synthesis }: SessionContextPanelProps) {
       </div>
 
       {isEmpty ? (
-        <div className="rounded-md bg-muted/40 p-4 space-y-1">
-          <p className="text-xs text-muted-foreground">Nothing would be injected.</p>
-          <p className="text-[11px] text-muted-foreground/60">
-            Pin memories to include them in harness sessions.
-          </p>
-        </div>
+        <p className="text-[11px] text-muted-foreground">
+          No context will be injected yet — add memories or generate synthesis to see what your
+          session will receive.
+        </p>
       ) : (
         <div className="rounded-md bg-muted/40 font-mono text-[11px] divide-y divide-border/30 overflow-hidden">
           {statParts.length > 0 && (
@@ -516,6 +517,61 @@ export function ProjectSynthesisPanel({ project }: ProjectSynthesisPanelProps) {
       />
       <ProjectMemoryFooter projectId={project.id} />
       <SessionContextPanel project={project} synthesis={synthesis} />
+    </div>
+  );
+}
+
+function OverviewTypeStrip({ projectId }: { projectId: string }) {
+  const { data: allMemories = [] } = useLiveQuery((q) => q.from({ m: memoriesCollection }), []);
+
+  const nonZero = useMemo(() => {
+    const counts = countMemoriesByType(allMemories, projectId);
+    return MEMORY_TYPES.filter((t) => counts[t] > 0).map((t) => ({ type: t, count: counts[t] }));
+  }, [allMemories, projectId]);
+
+  if (nonZero.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 px-6 py-2.5 border-b border-border shrink-0">
+      {nonZero.map(({ type, count }) => (
+        <Badge key={type} variant={type}>
+          {count} {type}
+          {count !== 1 ? "s" : ""}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+export function ProjectOverviewTab({ project }: { project: Project }) {
+  const { synthesis, isLoading, isStale, isStuck, error, run, reset } =
+    useProjectSynthesis(project);
+
+  return (
+    <div className="h-full flex flex-col overflow-hidden">
+      <OverviewTypeStrip projectId={project.id} />
+      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+        <header>
+          <h2 className="font-heading text-base font-semibold text-foreground">{project.name}</h2>
+          <p className="font-mono text-[10px] text-muted-foreground/50 mt-0.5 truncate">
+            {project.scopeHash}
+          </p>
+        </header>
+        <SynthesisBlock
+          synthesis={synthesis}
+          isLoading={isLoading}
+          isStale={isStale}
+          isStuck={isStuck}
+          error={error}
+          onRun={run}
+          onReset={reset}
+        />
+        <SessionContextPanel
+          project={project}
+          synthesis={synthesis}
+          label="SESSION INJECTION PREVIEW"
+        />
+      </div>
     </div>
   );
 }

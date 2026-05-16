@@ -90,7 +90,11 @@ export function useWorkspaceMemoryList(selectedId: string | null) {
   const handleClearFilters = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setSearchInput("");
-    void navigate({ to: "/$projectId", params: { projectId }, search: () => ({}) });
+    void navigate({
+      to: "/$projectId",
+      params: { projectId },
+      search: (prev) => ({ tab: prev.tab }),
+    });
   };
 
   return {
