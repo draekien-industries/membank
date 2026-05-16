@@ -1,5 +1,22 @@
 # @membank/dashboard
 
+## 0.9.0
+
+### Minor Changes
+
+- 3487254: Pinned the global project as a full-width hero row on the dashboard landing so its inherited-by-all-projects role is unmistakable.
+- 8fef2e1: Redesigned the project Overview tab into a four-region dashboard showing memory composition bars, attention signals (flagged count, synthesis freshness, pinned count), recent activity, and the session injection preview.
+- 75466da: Split the project Overview tab into a two-panel layout — memory synthesis on the left, session injection preview on the right — each scrolling independently.
+- 6817d51: Redesigned project view: synthesis and session context now live in a permanent Overview tab (default landing), with memories and activity as peer tabs. Opening a memory detail slides in as a right-side drawer overlay so the project context behind it is never unmounted.
+
+### Patch Changes
+
+- 79e0181: Fixed duplicate "global" cards on the projects landing screen caused by the sentinel project row being added to the DB while a hardcoded synthetic card still existed. The sentinel now renders via the standard project mapping. Also fixed the global workspace memory filter to use sentinel project membership instead of an empty-projects check, which was returning zero results after migration 7 backfilled all global memories.
+- f2a32a6: Folded the standalone synthesis panel into the session injection preview on the Overview tab, eliminating duplicate content and making the preview the single source of truth for what gets injected into each session.
+- 1190e0d: Removed redundant and misleading stats (Harness, Last Active, Needs Review, Corrections) from project cards on the dashboard landing page.
+- Updated dependencies [4aa43c3]
+  - @membank/core@0.12.1
+
 ## 0.8.0
 
 ### Minor Changes
