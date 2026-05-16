@@ -6,3 +6,5 @@ Standalone web UI for browsing and managing memories. Distributed as `npx @memba
 - `src/server/` — Hono server that serves the built client and proxies MCP calls
 
 When adding shadcn primitives: `cd` into the `./packages/dashboard` directory first.
+
+Do not run `pnpm dev` for the dashboard yourself - it will almost always be already running.
