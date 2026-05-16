@@ -4,20 +4,19 @@ import { z } from "zod";
 const ExtractionHarnessSchema = z.enum(["claude-code"]);
 export type ExtractionHarness = z.infer<typeof ExtractionHarnessSchema>;
 
-// Stdin schema for Claude Code's Stop hook. Other harnesses will need their own schema
+// Stdin schema for Claude Code's SessionEnd hook. Other harnesses will need their own schema
 // (e.g. copilot-cli, codex) — add cases to parseHookPayload() when those land.
-const ClaudeCodeStopInputSchema = z.object({
+const ClaudeCodeSessionEndInputSchema = z.object({
   session_id: z.string(),
   transcript_path: z.string(),
   cwd: z.string().optional(),
   hook_event_name: z.string().optional(),
-  stop_hook_active: z.boolean().optional(),
+  reason: z.string().optional(),
 });
 
 interface ParsedHookPayload {
   sessionId: string;
   transcriptPath: string;
-  stopHookActive: boolean;
 }
 
 function parseHookPayload(
@@ -32,7 +31,7 @@ function parseHookPayload(
   }
 
   if (harness === "claude-code") {
-    const parsed = ClaudeCodeStopInputSchema.safeParse(parsedJson);
+    const parsed = ClaudeCodeSessionEndInputSchema.safeParse(parsedJson);
     if (!parsed.success) {
       return { ok: false, reason: `invalid hook payload: ${parsed.error.message}` };
     }
@@ -41,7 +40,6 @@ function parseHookPayload(
       value: {
         sessionId: parsed.data.session_id,
         transcriptPath: parsed.data.transcript_path,
-        stopHookActive: parsed.data.stop_hook_active === true,
       },
     };
   }
@@ -74,7 +72,6 @@ export async function extractCommand(opts: {
 
   let sessionId = opts.sessionId;
   let transcriptPath = opts.transcript;
-  let stopHookActive = false;
 
   if (sessionId === undefined || transcriptPath === undefined) {
     const raw = await readStdin();
@@ -86,7 +83,6 @@ export async function extractCommand(opts: {
       }
       sessionId = sessionId ?? parsed.value.sessionId;
       transcriptPath = transcriptPath ?? parsed.value.transcriptPath;
-      stopHookActive = parsed.value.stopHookActive;
     }
   }
 
@@ -94,11 +90,6 @@ export async function extractCommand(opts: {
     process.stderr.write(
       "membank extract: missing session_id or transcript_path (provide via stdin or --session/--transcript).\n"
     );
-    return;
-  }
-
-  if (stopHookActive) {
-    process.stderr.write("membank extract: stop_hook_active=true; skipping to avoid recursion.\n");
     return;
   }
 

@@ -45,8 +45,8 @@ describe("extractCommand", () => {
       JSON.stringify({
         session_id: "abc",
         transcript_path: "/tmp/transcript.jsonl",
-        hook_event_name: "Stop",
-        stop_hook_active: false,
+        hook_event_name: "SessionEnd",
+        reason: "prompt_input_exit",
       })
     );
     const { extractCommand } = await import("./extract.js");
@@ -55,20 +55,6 @@ describe("extractCommand", () => {
       sessionId: "abc",
       transcriptPath: "/tmp/transcript.jsonl",
     });
-  });
-
-  it("skips when stop_hook_active is true", async () => {
-    pushStdin(
-      JSON.stringify({
-        session_id: "abc",
-        transcript_path: "/tmp/t.jsonl",
-        stop_hook_active: true,
-      })
-    );
-    const { extractCommand } = await import("./extract.js");
-    const stderr = await captureStderr(() => extractCommand({}));
-    expect(runExtractionMock).not.toHaveBeenCalled();
-    expect(stderr).toContain("stop_hook_active");
   });
 
   it("emits a stderr note when runExtraction returns skipped", async () => {

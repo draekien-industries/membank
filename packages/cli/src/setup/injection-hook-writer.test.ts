@@ -160,7 +160,7 @@ describe("claude-code", () => {
     expect(hooks.UserPromptSubmit).toHaveLength(2); // both entries preserved untouched
   });
 
-  it("inspect returns three hook entries (SessionStart + UserPromptSubmit + Stop) when nothing is configured", () => {
+  it("inspect returns three hook entries (SessionStart + UserPromptSubmit + SessionEnd) when nothing is configured", () => {
     const result = writer.inspect("claude-code");
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
@@ -169,30 +169,35 @@ describe("claude-code", () => {
     expect(result.hooks[0]?.existingCommand).toBeNull();
     expect(result.hooks[1]?.event).toBe("UserPromptSubmit");
     expect(result.hooks[1]?.existingCommand).toBeNull();
-    expect(result.hooks[2]?.event).toBe("Stop");
+    expect(result.hooks[2]?.event).toBe("SessionEnd");
     expect(result.hooks[2]?.existingCommand).toBeNull();
   });
 
-  it("writes the Stop hook with the async extract command", () => {
-    const result = writer.write("claude-code", ["Stop"]);
+  it("writes the SessionEnd hook with the async extract command and session matchers", () => {
+    const result = writer.write("claude-code", ["SessionEnd"]);
     expect(result.status).toBe("written");
 
     const cfg = readJson(join(dir, ".claude", "settings.json"));
     const hooks = cfg.hooks as Record<string, unknown>;
-    type GroupHooks = { hooks: { command: string; async?: boolean; timeout?: number }[] }[];
-    const entry = (hooks.Stop as GroupHooks)[0]?.hooks[0];
+    type GroupHooks = {
+      matcher: string;
+      hooks: { command: string; async?: boolean; timeout?: number }[];
+    }[];
+    const group = (hooks.SessionEnd as GroupHooks)[0];
+    expect(group?.matcher).toBe("clear|resume|logout|prompt_input_exit|other");
+    const entry = group?.hooks[0];
     expect(entry?.command).toBe("npx -y @membank/cli extract --harness claude-code");
     expect(entry?.async).toBe(true);
     expect(entry?.timeout).toBeGreaterThanOrEqual(60);
   });
 
-  it("inspect detects existing Stop command", () => {
+  it("inspect detects existing SessionEnd command", () => {
     const cfgPath = join(dir, ".claude", "settings.json");
     writeJson(cfgPath, {
       hooks: {
-        Stop: [
+        SessionEnd: [
           {
-            matcher: "",
+            matcher: "clear|resume|logout|prompt_input_exit|other",
             hooks: [
               {
                 type: "command",
@@ -207,8 +212,8 @@ describe("claude-code", () => {
     const result = writer.inspect("claude-code");
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
-    const stop = result.hooks.find((h) => h.event === "Stop");
-    expect(stop?.existingCommand).toBe("npx @membank/cli extract --harness claude-code");
+    const sessionEnd = result.hooks.find((h) => h.event === "SessionEnd");
+    expect(sessionEnd?.existingCommand).toBe("npx @membank/cli extract --harness claude-code");
   });
 
   it("prunes legacy Stop entry (inject --event session-stop) even when writing only SessionStart", () => {
@@ -232,6 +237,32 @@ describe("claude-code", () => {
     const cfg = readJson(cfgPath);
     const hooks = cfg.hooks as Record<string, unknown>;
     expect(hooks.Stop).toBeUndefined();
+  });
+
+  it("prunes legacy Stop extract entry (extract --harness claude-code) when writing SessionEnd", () => {
+    const cfgPath = join(dir, ".claude", "settings.json");
+    writeJson(cfgPath, {
+      hooks: {
+        Stop: [
+          {
+            matcher: "",
+            hooks: [
+              {
+                type: "command",
+                command: "npx -y @membank/cli extract --harness claude-code",
+                async: true,
+                timeout: 600,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    writer.write("claude-code", ["SessionEnd"]);
+    const cfg = readJson(cfgPath);
+    const hooks = cfg.hooks as Record<string, unknown>;
+    expect(hooks.Stop).toBeUndefined();
+    expect(Array.isArray(hooks.SessionEnd)).toBe(true);
   });
 
   it("writes the UserPromptSubmit hook with the correct command", () => {

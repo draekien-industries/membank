@@ -110,7 +110,9 @@ const writers: Record<string, HarnessInjectionWriter> = {
         Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : []
       ).flatMap(getHooksArray);
 
-      const stopInner = (Array.isArray(hooks.Stop) ? hooks.Stop : []).flatMap(getHooksArray);
+      const sessionEndInner = (Array.isArray(hooks.SessionEnd) ? hooks.SessionEnd : []).flatMap(
+        getHooksArray
+      );
 
       return {
         status: "ready",
@@ -127,9 +129,9 @@ const writers: Record<string, HarnessInjectionWriter> = {
             existingCommand: extractInjectCommand(userPromptSubmitInner) || null,
           },
           {
-            event: "Stop",
+            event: "SessionEnd",
             command: "npx -y @membank/cli extract --harness claude-code",
-            existingCommand: extractInjectCommand(stopInner) || null,
+            existingCommand: extractInjectCommand(sessionEndInner) || null,
           },
         ],
       };
@@ -180,12 +182,12 @@ const writers: Record<string, HarnessInjectionWriter> = {
         ];
       }
 
-      if (events.includes("Stop")) {
-        const existing = Array.isArray(hooks.Stop) ? hooks.Stop : [];
-        newHooks.Stop = [
+      if (events.includes("SessionEnd")) {
+        const existing = Array.isArray(hooks.SessionEnd) ? hooks.SessionEnd : [];
+        newHooks.SessionEnd = [
           ...filterOutMembank(existing),
           {
-            matcher: "",
+            matcher: "clear|resume|logout|prompt_input_exit|other",
             hooks: [
               {
                 type: "command",

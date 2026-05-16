@@ -229,11 +229,11 @@ program
 program
   .command("extract")
   .description(
-    "(internal) run session-end memory extraction; reads the harness's Stop hook payload from stdin"
+    "(internal) run session-end memory extraction; reads the harness's SessionEnd hook payload from stdin"
   )
   .option(
     "--harness <name>",
-    "harness whose stop-hook payload is on stdin (only claude-code is supported today)",
+    "harness whose session-end hook payload is on stdin (only claude-code is supported today)",
     "claude-code"
   )
   .option("--session <id>", "session id (otherwise read from stdin)")
