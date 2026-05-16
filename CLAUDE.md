@@ -48,6 +48,7 @@ pnpm --filter @membank/cli dev
 - **Dedup**: cosine similarity >0.92 same type+scope = auto-overwrite; 0.75–0.92 = flag `needs_review`
 - **Session injection**: stats + all pinned global memories + all pinned project memories (deterministic, not algorithmic)
 - **Project scope**: derived from `git remote get-url origin` hash, fallback to cwd hash
+- **Browser-safe core exports**: `@membank/core/client` subpath exports pure domain constants with no Node deps — safe to import in the dashboard browser bundle. The main `@membank/core` entry is server-only.
 
 ## Memory schema
 
