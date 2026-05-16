@@ -99,7 +99,7 @@ describe("claude-code", () => {
     expect(hooks.SessionStart).toHaveLength(2); // echo hello preserved + new membank
   });
 
-  it("prunes PostToolUseFailure (legacy) but preserves UserPromptSubmit when writing SessionStart only", () => {
+  it("prunes both PostToolUseFailure (legacy) and UserPromptSubmit membank hooks when writing SessionStart", () => {
     const cfgPath = join(dir, ".claude", "settings.json");
     writeJson(cfgPath, {
       hooks: {
@@ -130,13 +130,12 @@ describe("claude-code", () => {
     writer.write("claude-code", ["SessionStart"]);
     const cfg = readJson(cfgPath);
     const hooks = cfg.hooks as Record<string, unknown>;
-    // UserPromptSubmit is now a managed event — not pruned when writing other events
-    expect(Array.isArray(hooks.UserPromptSubmit)).toBe(true);
+    expect(hooks.UserPromptSubmit).toBeUndefined();
     expect(hooks.PostToolUseFailure).toBeUndefined();
     expect(Array.isArray(hooks.SessionStart)).toBe(true);
   });
 
-  it("leaves UserPromptSubmit entries untouched (all survive) when only SessionStart is written", () => {
+  it("preserves non-membank UserPromptSubmit entries but strips membank ones on any write", () => {
     const cfgPath = join(dir, ".claude", "settings.json");
     writeJson(cfgPath, {
       hooks: {
@@ -157,20 +156,18 @@ describe("claude-code", () => {
     writer.write("claude-code", ["SessionStart"]);
     const cfg = readJson(cfgPath);
     const hooks = cfg.hooks as Record<string, unknown[]>;
-    expect(hooks.UserPromptSubmit).toHaveLength(2); // both entries preserved untouched
+    expect(hooks.UserPromptSubmit).toHaveLength(1); // non-membank entry survives
   });
 
-  it("inspect returns three hook entries (SessionStart + UserPromptSubmit + SessionEnd) when nothing is configured", () => {
+  it("inspect returns two hook entries (SessionStart + SessionEnd) when nothing is configured", () => {
     const result = writer.inspect("claude-code");
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
-    expect(result.hooks).toHaveLength(3);
+    expect(result.hooks).toHaveLength(2);
     expect(result.hooks[0]?.event).toBe("SessionStart");
     expect(result.hooks[0]?.existingCommand).toBeNull();
-    expect(result.hooks[1]?.event).toBe("UserPromptSubmit");
+    expect(result.hooks[1]?.event).toBe("SessionEnd");
     expect(result.hooks[1]?.existingCommand).toBeNull();
-    expect(result.hooks[2]?.event).toBe("SessionEnd");
-    expect(result.hooks[2]?.existingCommand).toBeNull();
   });
 
   it("writes the SessionEnd hook with the async extract command and session matchers", () => {
@@ -263,52 +260,6 @@ describe("claude-code", () => {
     const hooks = cfg.hooks as Record<string, unknown>;
     expect(hooks.Stop).toBeUndefined();
     expect(Array.isArray(hooks.SessionEnd)).toBe(true);
-  });
-
-  it("writes the UserPromptSubmit hook with the correct command", () => {
-    const result = writer.write("claude-code", ["UserPromptSubmit"]);
-    expect(result.status).toBe("written");
-
-    const cfg = readJson(join(dir, ".claude", "settings.json"));
-    const hooks = cfg.hooks as Record<string, unknown>;
-    expect(hooks.SessionStart).toBeUndefined();
-    type GroupHooks = { hooks: { command: string }[] }[];
-    const cmd = (hooks.UserPromptSubmit as GroupHooks)[0]?.hooks[0]?.command ?? "";
-    expect(cmd).toBe("npx -y @membank/cli inject --harness claude-code --event user-prompt-submit");
-  });
-
-  it("writes both SessionStart and UserPromptSubmit when both are requested", () => {
-    writer.write("claude-code", ["SessionStart", "UserPromptSubmit"]);
-    const cfg = readJson(join(dir, ".claude", "settings.json"));
-    const hooks = cfg.hooks as Record<string, unknown>;
-    expect(Array.isArray(hooks.SessionStart)).toBe(true);
-    expect(Array.isArray(hooks.UserPromptSubmit)).toBe(true);
-  });
-
-  it("inspect detects existing UserPromptSubmit command", () => {
-    const cfgPath = join(dir, ".claude", "settings.json");
-    writeJson(cfgPath, {
-      hooks: {
-        UserPromptSubmit: [
-          {
-            matcher: "",
-            hooks: [
-              {
-                type: "command",
-                command: "npx @membank/cli inject --harness claude-code --event user-prompt-submit",
-              },
-            ],
-          },
-        ],
-      },
-    });
-    const result = writer.inspect("claude-code");
-    expect(result.status).toBe("ready");
-    if (result.status !== "ready") return;
-    const ups = result.hooks.find((h) => h.event === "UserPromptSubmit");
-    expect(ups?.existingCommand).toBe(
-      "npx @membank/cli inject --harness claude-code --event user-prompt-submit"
-    );
   });
 
   it("inspect returns the existing SessionStart command when configured", () => {

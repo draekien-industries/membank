@@ -11,18 +11,27 @@ import {
 import type { z } from "zod";
 import { InjectionHarnessSchema } from "../schemas.js";
 
-const MEMORY_GUIDANCE = [
-  "Save (call save_memory) when: (1) user states a preference or makes a decision; (2) user corrects you; (3) you discover a working fix after a tool error; (4) you learn a non-obvious project fact. Type ∈ correction|preference|decision|learning|fact. When unsure, save.",
-  "Query (call query_memory) before: answering anything that touches prior decisions, and before exploration tasks (file reads, searches, web lookups) where past corrections or preferences may apply. Skip when clearly irrelevant (e.g. trivial arithmetic). Soft guideline, not a hard rule.",
-].join("\n");
-
 type InjectionHarness = z.infer<typeof InjectionHarnessSchema>;
+
+const SAVE_GUIDANCE =
+  "Save (call save_memory) when: (1) user states a preference or makes a decision; (2) user corrects you; (3) you discover a working fix after a tool error; (4) you learn a non-obvious project fact. Type ∈ correction|preference|decision|learning|fact. When unsure, save.";
+
+const QUERY_GUIDANCE =
+  "Query (call query_memory) before: answering anything that touches prior decisions, and before exploration tasks (file reads, searches, web lookups) where past corrections or preferences may apply. Skip when clearly irrelevant (e.g. trivial arithmetic). Soft guideline, not a hard rule.";
+
+// Full guidance for harnesses without a session-end extractor (copilot-cli, codex).
+const MEMORY_GUIDANCE = [SAVE_GUIDANCE, QUERY_GUIDANCE].join("\n");
+
+// claude-code has a SessionEnd extractor that handles saves automatically — only query guidance needed.
+function buildGuidance(harness: InjectionHarness | undefined): string {
+  return harness === "claude-code" ? QUERY_GUIDANCE : MEMORY_GUIDANCE;
+}
 
 function xmlEscape(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function formatContext(ctx: SessionContext): string {
+function formatContext(ctx: SessionContext, guidance: string): string {
   const parts: string[] = [];
 
   const statParts = (Object.entries(ctx.stats) as [string, number][])
@@ -45,7 +54,7 @@ function formatContext(ctx: SessionContext): string {
     }
   }
 
-  parts.push(`<memory-guidance>\n${MEMORY_GUIDANCE}\n</memory-guidance>`);
+  parts.push(`<memory-guidance>\n${guidance}\n</memory-guidance>`);
 
   return parts.join("\n");
 }
@@ -83,7 +92,7 @@ function pickBestSynthesis(
   return projectSynthesis ?? globalSynthesis;
 }
 
-async function buildText(): Promise<string> {
+async function buildText(harness: InjectionHarness | undefined): Promise<string> {
   const resolved = await resolveProject();
   const db = DatabaseManager.open();
   try {
@@ -100,7 +109,7 @@ async function buildText(): Promise<string> {
 
     const synthesis = pickBestSynthesis(globalSynthesis, projectSynthesis);
     const ctx = builder.getSessionContext(resolved.hash, synthesis);
-    return formatContext(ctx);
+    return formatContext(ctx, buildGuidance(harness));
   } finally {
     db.close();
   }
@@ -110,7 +119,7 @@ async function handleEvent(
   harness: InjectionHarness | undefined,
   eventName: string
 ): Promise<void> {
-  const text = await buildText().catch((err: unknown) => {
+  const text = await buildText(harness).catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     process.stderr.write(`membank inject: ${msg}\n`);
     return null;
@@ -131,6 +140,10 @@ export async function injectCommand(opts: { harness?: string; event?: string }):
     return;
   }
   if (opts.event === "user-prompt-submit") {
+    // claude-code uses SessionEnd extraction — per-prompt re-injection is not needed.
+    if (harness === "claude-code") {
+      process.exit(0);
+    }
     await handleEvent(harness, "UserPromptSubmit");
     return;
   }

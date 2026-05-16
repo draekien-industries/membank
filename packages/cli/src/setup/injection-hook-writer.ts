@@ -106,10 +106,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
         Array.isArray(hooks.SessionStart) ? hooks.SessionStart : []
       ).flatMap(getHooksArray);
 
-      const userPromptSubmitInner = (
-        Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : []
-      ).flatMap(getHooksArray);
-
       const sessionEndInner = (Array.isArray(hooks.SessionEnd) ? hooks.SessionEnd : []).flatMap(
         getHooksArray
       );
@@ -122,11 +118,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
             event: "SessionStart",
             command: "npx -y @membank/cli inject --harness claude-code",
             existingCommand: extractInjectCommand(sessionStartInner) || null,
-          },
-          {
-            event: "UserPromptSubmit",
-            command: "npx -y @membank/cli inject --harness claude-code --event user-prompt-submit",
-            existingCommand: extractInjectCommand(userPromptSubmitInner) || null,
           },
           {
             event: "SessionEnd",
@@ -148,6 +139,8 @@ const writers: Record<string, HarnessInjectionWriter> = {
       // Stop slot may contain a legacy `inject --event session-stop` entry from the previous
       // attempt at this issue (caused infinite loops). Always strip it; re-add only if requested.
       pruneNestedEvent(newHooks, "Stop");
+      // UserPromptSubmit was removed from the default set: SessionEnd extraction replaces it.
+      pruneNestedEvent(newHooks, "UserPromptSubmit");
 
       if (events.includes("SessionStart")) {
         const existing = Array.isArray(hooks.SessionStart) ? hooks.SessionStart : [];
@@ -159,23 +152,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
               {
                 type: "command",
                 command: "npx -y @membank/cli inject --harness claude-code",
-              },
-            ],
-          },
-        ];
-      }
-
-      if (events.includes("UserPromptSubmit")) {
-        const existing = Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : [];
-        newHooks.UserPromptSubmit = [
-          ...filterOutMembank(existing),
-          {
-            matcher: "",
-            hooks: [
-              {
-                type: "command",
-                command:
-                  "npx -y @membank/cli inject --harness claude-code --event user-prompt-submit",
               },
             ],
           },

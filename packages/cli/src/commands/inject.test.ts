@@ -55,6 +55,25 @@ describe("injectCommand — legacy event values", () => {
   });
 });
 
+describe("injectCommand — claude-code user-prompt-submit no-op", () => {
+  it("exits silently when harness=claude-code and event=user-prompt-submit", async () => {
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((_code?: number) => {
+      throw new Error("exit");
+    }) as never);
+    const { injectCommand } = await import("./inject.js");
+    const output = await captureStdout(async () => {
+      try {
+        await injectCommand({ harness: "claude-code", event: "user-prompt-submit" });
+      } catch {
+        // process.exit is mocked to throw — swallow
+      }
+    });
+    expect(output).toBe("");
+    expect(exitSpy).toHaveBeenCalledWith(0);
+    exitSpy.mockRestore();
+  });
+});
+
 describe("MEMORY_GUIDANCE", () => {
   it("is a non-empty string", () => {
     expect(typeof MEMORY_GUIDANCE).toBe("string");
