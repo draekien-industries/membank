@@ -50,23 +50,8 @@ pnpm --filter @membank/cli dev
 
 Every feature branch or worktree that touches user-facing behaviour **must** include a changeset before the work is considered complete.
 
-Run at the end of the work, before committing:
+Create the file manually at `.changeset/<slug>.md` with a unique kebab-case slug and stage it alongside the code changes in the same commit:
 
-```bash
-pnpm changeset
-```
-
-Select only the affected packages (`@membank/core`, `@membank/mcp`, `@membank/cli`, `@membank/dashboard`). Choose the bump type:
-
-- `patch` — bug fix, internal refactor, no API change
-- `minor` — new feature, backwards-compatible
-- `major` — breaking change
-
-Write the description in past tense, one sentence: what changed and why it matters to users (not implementation detail).
-
-**Skip only:** pure docs/test changes with no runtime effect.
-
-**Changeset file format** (for manual creation):
 ```markdown
 ---
 "@membank/<package>": patch | minor | major
@@ -74,13 +59,20 @@ Write the description in past tense, one sentence: what changed and why it matte
 
 One sentence describing what changed and why it matters to users.
 ```
-Place the file at `.changeset/<slug>.md` with a unique kebab-case slug, then stage it alongside the code changes in the same commit.
+
+Bump type:
+- `patch` — bug fix, internal refactor, no API change
+- `minor` — new feature, backwards-compatible
+- `major` — breaking change
+
+Description: past tense, one sentence, what changed and why it matters to users (not implementation detail).
+
+**Skip only:** pure docs/test changes with no runtime effect.
 
 ## Release cycle
 
 1. Feature PRs merged to `main` → CI creates/updates a `chore: version packages` PR (branch `changeset-release/main`) that batches all pending changesets
-2. That version PR open/updated → CI publishes an `rc` prerelease snapshot to npm and creates GitHub prereleases (marked pre-release)
-3. Merge the version PR → CI publishes the stable release to npm and creates GitHub releases
+2. Merge the version PR → CI publishes the stable release to npm and creates GitHub releases
 
 Changelog and release notes are generated automatically by changesets from the changeset descriptions — do not write them manually.
 
