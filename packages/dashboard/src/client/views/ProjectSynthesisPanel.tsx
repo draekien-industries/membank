@@ -3,6 +3,7 @@ import { useLiveQuery } from "@tanstack/react-db";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { useProjectSynthesis } from "@/hooks/useProjectSynthesis";
@@ -145,7 +146,7 @@ function SynthesisBlock({
   if (!synthesis) return null;
 
   return (
-    <div className="rounded-md bg-muted/40 p-4 space-y-3">
+    <div className="rounded-md bg-muted/40 p-4 space-y-3 w-fit">
       <div className="flex items-center justify-between gap-4">
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
           Memory synthesis
@@ -159,10 +160,10 @@ function SynthesisBlock({
         )}
       >
         {isInFlight ? (
-          <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Spinner className="size-3" />
-              <span className="text-[11px]">Synthesizing&hellip;</span>
+              <span className="text-xs">Synthesizing&hellip;</span>
             </div>
             {isStuck ? <StuckResetButton onReset={onReset} /> : null}
           </div>
@@ -170,7 +171,7 @@ function SynthesisBlock({
         {synthesis.content}
       </div>
       {isSettled ? (
-        <div className="flex justify-end">
+        <div className="flex justify-end pt-1">
           {isStale ? (
             <Button size="sm" variant="secondary" onClick={() => void onRun()} className="gap-1.5">
               <Lightning weight="fill" className="size-3" />
@@ -180,7 +181,7 @@ function SynthesisBlock({
             <button
               type="button"
               onClick={() => void onRun()}
-              className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+              className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
             >
               Regenerate
             </button>
@@ -406,12 +407,12 @@ function SessionContextPanel({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
         {!isEmpty && (
           <button
             type="button"
             onClick={handleCopy}
-            className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
           >
             {copied ? "Copied" : "Copy"}
           </button>
@@ -419,12 +420,12 @@ function SessionContextPanel({
       </div>
 
       {isEmpty ? (
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           No context will be injected yet — add memories or generate synthesis to see what your
           session will receive.
         </p>
       ) : (
-        <div className="rounded-md bg-muted/40 font-mono text-[11px] divide-y divide-border/30 overflow-hidden">
+        <div className="rounded-md bg-muted/40 font-mono text-xs divide-y divide-border/30 overflow-hidden">
           {statParts.length > 0 && (
             <div className="p-3 space-y-0.5">
               <XmlOpen tag="memory-stats" />
@@ -436,9 +437,11 @@ function SessionContextPanel({
           {settledSynthesis !== null && (
             <div className="p-3 space-y-0.5">
               <XmlOpen tag="synthesis" />
-              <div className="pl-3 text-foreground/70 whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">
-                {settledSynthesis.content}
-              </div>
+              <ScrollArea className="h-40">
+                <div className="pl-3 text-foreground/70 whitespace-pre-wrap leading-relaxed">
+                  {settledSynthesis.content}
+                </div>
+              </ScrollArea>
               <XmlClose tag="synthesis" />
             </div>
           )}
@@ -550,27 +553,31 @@ export function ProjectOverviewTab({ project }: { project: Project }) {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <OverviewTypeStrip projectId={project.id} />
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
-        <header>
-          <h2 className="font-heading text-base font-semibold text-foreground">{project.name}</h2>
-          <p className="font-mono text-[10px] text-muted-foreground/50 mt-0.5 truncate">
-            {project.scopeHash}
-          </p>
-        </header>
-        <SynthesisBlock
-          synthesis={synthesis}
-          isLoading={isLoading}
-          isStale={isStale}
-          isStuck={isStuck}
-          error={error}
-          onRun={run}
-          onReset={reset}
-        />
-        <SessionContextPanel
-          project={project}
-          synthesis={synthesis}
-          label="SESSION INJECTION PREVIEW"
-        />
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        <div className="flex-1 min-w-0 overflow-y-auto px-6 py-6 space-y-6">
+          <header>
+            <h2 className="font-heading text-base font-semibold text-foreground">{project.name}</h2>
+            <p className="font-mono text-[10px] text-muted-foreground/50 mt-0.5 truncate">
+              {project.scopeHash}
+            </p>
+          </header>
+          <SynthesisBlock
+            synthesis={synthesis}
+            isLoading={isLoading}
+            isStale={isStale}
+            isStuck={isStuck}
+            error={error}
+            onRun={run}
+            onReset={reset}
+          />
+        </div>
+        <aside className="w-[65ch] shrink-0 border-l border-border overflow-y-auto px-6 py-6">
+          <SessionContextPanel
+            project={project}
+            synthesis={synthesis}
+            label="SESSION INJECTION PREVIEW"
+          />
+        </aside>
       </div>
     </div>
   );
