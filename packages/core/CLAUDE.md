@@ -71,3 +71,21 @@ interfaces — they have no `better-sqlite3`, `@huggingface/transformers`, or
 All native and heavyweight deps (`better-sqlite3`, `sqlite-vec`, `@huggingface/transformers`,
 `@anthropic-ai/claude-agent-sdk`) are declared external in `tsdown.config.ts` and must never
 be imported in `domain/` or `application/` layers.
+
+## Architecture decisions
+
+- **Storage**: SQLite at `~/.membank/memory.db` via `better-sqlite3` + `sqlite-vec` for vector search
+- **Embeddings**: `bge-small-en-v1.5` via `@huggingface/transformers`, CPU-only, cached at `~/.membank/models/`
+- **Dedup**: cosine similarity >0.92 same type+scope = auto-overwrite; 0.75–0.92 = flag `needs_review`
+- **Session injection**: stats + all pinned global memories + all pinned project memories (deterministic, not algorithmic)
+- **Project scope**: derived from `git remote get-url origin` hash, fallback to cwd hash
+- **Browser-safe exports**: `@membank/core/client` subpath exports pure domain constants with no Node deps — safe to import in the dashboard browser bundle. The main `@membank/core` entry is server-only.
+
+## Memory schema
+
+```
+id, content, type, tags[], scope, embedding, source_harness,
+access_count, pinned, needs_review, created_at, updated_at
+```
+
+Types (enum): `correction` > `preference` > `decision` > `learning` > `fact`

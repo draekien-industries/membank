@@ -41,38 +41,6 @@ pnpm --filter @membank/cli dev
 - **Git hooks**: Lefthook — runs `biome check` on staged files pre-commit
 - **Monorepo**: Turborepo with `pnpm` workspaces
 
-## Architecture decisions
-
-- **Storage**: SQLite at `~/.membank/memory.db` via `better-sqlite3` + `sqlite-vec` for vector search
-- **Embeddings**: `bge-small-en-v1.5` via `@huggingface/transformers`, CPU-only, cached at `~/.membank/models/`
-- **Dedup**: cosine similarity >0.92 same type+scope = auto-overwrite; 0.75–0.92 = flag `needs_review`
-- **Session injection**: stats + all pinned global memories + all pinned project memories (deterministic, not algorithmic)
-- **Project scope**: derived from `git remote get-url origin` hash, fallback to cwd hash
-- **Browser-safe core exports**: `@membank/core/client` subpath exports pure domain constants with no Node deps — safe to import in the dashboard browser bundle. The main `@membank/core` entry is server-only.
-
-## Memory schema
-
-```
-id, content, type, tags[], scope, embedding, source_harness,
-access_count, pinned, needs_review, created_at, updated_at
-```
-
-Types (enum): `correction` > `preference` > `decision` > `learning` > `fact`
-
-## MCP tools
-
-`query_memory`, `save_memory`, `update_memory`, `delete_memory`, `list_memory_types`
-
-## CLI commands
-
-`query`, `add`, `list`, `pin`, `unpin`, `delete`, `stats`, `export`, `import`, `setup`, `review`, `migrate`, `config`, `synthesize`, `inject`
-
-`setup` auto-detects installed harnesses and writes MCP config. `--harness <name>` to target specific. `--yes` / `--json` for non-interactive use.
-
-`setup upgrade` migrates existing harness configs from the old `npx @membank/cli --mcp` pattern to the standalone `npx @membank/mcp`.
-
-`dashboard` is deprecated — users should run `npx @membank/dashboard` directly. `--mcp` flag still works but emits a deprecation warning; prefer `npx @membank/mcp`.
-
 ## Conventions
 
 - All native deps (`better-sqlite3`, `sqlite-vec`) are external in tsdown configs — not bundled
@@ -96,9 +64,17 @@ Select only the affected packages (`@membank/core`, `@membank/mcp`, `@membank/cl
 
 Write the description in past tense, one sentence: what changed and why it matters to users (not implementation detail).
 
-**When a worktree is completed:** create the changeset inside the worktree before merging or handing off the branch. The `.changeset/*.md` file must be part of the PR diff.
-
 **Skip only:** pure docs/test changes with no runtime effect.
+
+**Changeset file format** (for manual creation):
+```markdown
+---
+"@membank/<package>": patch | minor | major
+---
+
+One sentence describing what changed and why it matters to users.
+```
+Place the file at `.changeset/<slug>.md` with a unique kebab-case slug, then stage it alongside the code changes in the same commit.
 
 ## Release cycle
 
@@ -111,13 +87,3 @@ Changelog and release notes are generated automatically by changesets from the c
 ## Implementation checklist
 
 After completing any implementation task, run `/simplify` to review the changes for reuse, quality, and efficiency before considering the work done.
-
-**Changeset file format** (for manual creation):
-```markdown
----
-"@membank/<package>": patch | minor | major
----
-
-One sentence describing what changed and why it matters to users.
-```
-Place the file at `.changeset/<slug>.md` with a unique kebab-case slug, then stage it alongside the code changes in the same commit.
