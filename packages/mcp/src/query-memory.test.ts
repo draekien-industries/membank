@@ -65,7 +65,7 @@ describe("query_memory tool", () => {
 
     const result = await session.client.callTool({
       name: "query_memory",
-      arguments: { query: "editor theme settings", global: true },
+      arguments: { query: "editor theme settings", scope: "all" },
     });
 
     expect(result.content).toHaveLength(1);
@@ -124,7 +124,7 @@ describe("query_memory tool", () => {
 
     const result = await session.client.callTool({
       name: "query_memory",
-      arguments: { query: "indentation style choice", type: "decision", global: true },
+      arguments: { query: "indentation style choice", type: "decision", scope: "all" },
     });
 
     if ("toolResult" in result) throw new Error("unreachable");
@@ -139,7 +139,7 @@ describe("query_memory tool", () => {
     }
   });
 
-  it("global:true returns memories across all projects", async () => {
+  it("scope=all returns memories across all projects", async () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
@@ -158,7 +158,7 @@ describe("query_memory tool", () => {
 
     const result = await session.client.callTool({
       name: "query_memory",
-      arguments: { query: "linting tool configuration", global: true },
+      arguments: { query: "linting tool configuration", scope: "all" },
     });
 
     if ("toolResult" in result) throw new Error("unreachable");
@@ -307,7 +307,7 @@ describe("query_memory tool", () => {
 
     const result = await session.client.callTool({
       name: "query_memory",
-      arguments: { query: "TypeScript strict mode", global: true },
+      arguments: { query: "TypeScript strict mode", scope: "all" },
     });
 
     if ("toolResult" in result) throw new Error("unreachable");
@@ -333,7 +333,7 @@ describe("query_memory tool", () => {
 
     const result = await session.client.callTool({
       name: "query_memory",
-      arguments: { query: "TypeScript strict mode", includePinned: true, global: true },
+      arguments: { query: "TypeScript strict mode", includePinned: true, scope: "all" },
     });
 
     if ("toolResult" in result) throw new Error("unreachable");

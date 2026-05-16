@@ -265,6 +265,137 @@ describe.skipIf(!runIntegration)("SqliteMemoryRepository — integration (file-b
     expect(stats.pinned).toBe(0);
   });
 
+  it("listFlagged() with limit caps returned results", () => {
+    const conflictId = randomUUID();
+    repo.create({
+      id: conflictId,
+      content: "conflict anchor",
+      type: "fact",
+      tags: [],
+      sourceHarness: null,
+      embedding: makeEmbedding(10),
+    });
+
+    for (let i = 0; i < 3; i++) {
+      const id = randomUUID();
+      repo.create({
+        id,
+        content: `memory ${i}`,
+        type: "fact",
+        tags: [],
+        sourceHarness: null,
+        embedding: makeEmbedding(i),
+      });
+      repo.createReviewEvent({
+        memoryId: id,
+        conflictingMemoryId: conflictId,
+        similarity: 0.8,
+        conflictContentSnapshot: `other ${i}`,
+      });
+    }
+
+    const results = repo.listFlagged({ limit: 2 });
+    expect(results).toHaveLength(2);
+  });
+
+  it("listFlagged() with minSimilarity filters by review event similarity", () => {
+    const conflictId = randomUUID();
+    repo.create({
+      id: conflictId,
+      content: "conflict anchor",
+      type: "fact",
+      tags: [],
+      sourceHarness: null,
+      embedding: makeEmbedding(10),
+    });
+
+    const lowId = randomUUID();
+    const highId = randomUUID();
+
+    repo.create({
+      id: lowId,
+      content: "low similarity memory",
+      type: "fact",
+      tags: [],
+      sourceHarness: null,
+      embedding: makeEmbedding(0),
+    });
+    repo.createReviewEvent({
+      memoryId: lowId,
+      conflictingMemoryId: conflictId,
+      similarity: 0.78,
+      conflictContentSnapshot: "other",
+    });
+
+    repo.create({
+      id: highId,
+      content: "high similarity memory",
+      type: "fact",
+      tags: [],
+      sourceHarness: null,
+      embedding: makeEmbedding(1),
+    });
+    repo.createReviewEvent({
+      memoryId: highId,
+      conflictingMemoryId: conflictId,
+      similarity: 0.91,
+      conflictContentSnapshot: "other",
+    });
+
+    const results = repo.listFlagged({ minSimilarity: 0.85 });
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe(highId);
+  });
+
+  it("listFlagged() with maxSimilarity filters by review event similarity", () => {
+    const conflictId = randomUUID();
+    repo.create({
+      id: conflictId,
+      content: "conflict anchor",
+      type: "fact",
+      tags: [],
+      sourceHarness: null,
+      embedding: makeEmbedding(10),
+    });
+
+    const lowId = randomUUID();
+    const highId = randomUUID();
+
+    repo.create({
+      id: lowId,
+      content: "low similarity memory",
+      type: "fact",
+      tags: [],
+      sourceHarness: null,
+      embedding: makeEmbedding(0),
+    });
+    repo.createReviewEvent({
+      memoryId: lowId,
+      conflictingMemoryId: conflictId,
+      similarity: 0.78,
+      conflictContentSnapshot: "other",
+    });
+
+    repo.create({
+      id: highId,
+      content: "high similarity memory",
+      type: "fact",
+      tags: [],
+      sourceHarness: null,
+      embedding: makeEmbedding(1),
+    });
+    repo.createReviewEvent({
+      memoryId: highId,
+      conflictingMemoryId: conflictId,
+      similarity: 0.91,
+      conflictContentSnapshot: "other",
+    });
+
+    const results = repo.listFlagged({ maxSimilarity: 0.85 });
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe(lowId);
+  });
+
   it("incrementAccessCount() increments the counter", () => {
     const id = randomUUID();
     repo.create({

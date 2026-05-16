@@ -4,7 +4,7 @@ stdio MCP server. Wraps `@membank/core` use-cases and exposes them to LLMs as MC
 
 ## MCP tools
 
-`query_memory`, `save_memory`, `update_memory`, `delete_memory`, `list_memory_types`
+`query_memory`, `save_memory`, `update_memory`, `delete_memory`, `list_migrations`, `run_migration`, `pin_memory`, `unpin_memory`, `get_memory_summary`, `list_flagged_memories`, `resolve_review`
 
 ## Entry points
 

@@ -1,11 +1,23 @@
 import { MemoryTypeSchema } from "@membank/core";
 import { z } from "zod";
 
+const QueryScopeSchema = z
+  .enum(["current", "global", "all"])
+  .optional()
+  .describe(
+    '"current" (default) = this project + global memories; "global" = global memories only; "all" = every project'
+  );
+
+const SaveScopeSchema = z
+  .enum(["current", "global"])
+  .optional()
+  .describe('"current" (default) = scoped to this project; "global" = saved as a global memory');
+
 export const SaveMemoryArgsSchema = z.object({
   content: z.string().min(1),
   type: MemoryTypeSchema,
   tags: z.array(z.string()).optional(),
-  global: z.boolean().optional(),
+  scope: SaveScopeSchema,
 });
 
 export const UpdateMemoryArgsSchema = z.object({
@@ -24,13 +36,12 @@ export const QueryMemoryArgsSchema = z.object({
   type: MemoryTypeSchema.optional(),
   limit: z.number().int().positive().optional(),
   includePinned: z.boolean().optional(),
-  global: z.boolean().optional(),
+  scope: QueryScopeSchema,
 });
 
-export const MigrateArgsSchema = z.discriminatedUnion("mode", [
-  z.object({ mode: z.literal("list") }),
-  z.object({ mode: z.literal("run"), name: z.string().min(1) }),
-]);
+export const RunMigrationArgsSchema = z.object({
+  name: z.string().min(1).describe("Migration name to execute"),
+});
 
 export const PinMemoryArgsSchema = z.object({
   id: z.string().min(1),
@@ -38,4 +49,31 @@ export const PinMemoryArgsSchema = z.object({
 
 export const ResolveReviewArgsSchema = z.object({
   id: z.string().min(1),
+});
+
+export const ListFlaggedMemoriesArgsSchema = z.object({
+  scope: QueryScopeSchema,
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(100)
+    .optional()
+    .describe("Maximum number of flagged memories to return"),
+  minSimilarity: z
+    .number()
+    .min(0)
+    .max(1)
+    .optional()
+    .describe("Only include memories whose review event similarity is at or above this threshold"),
+  maxSimilarity: z
+    .number()
+    .min(0)
+    .max(1)
+    .optional()
+    .describe("Only include memories whose review event similarity is at or below this threshold"),
+});
+
+export const GetMemorySummaryArgsSchema = z.object({
+  scope: QueryScopeSchema,
 });

@@ -22,7 +22,6 @@ import {
   EmbeddingService,
   GLOBAL_SCOPE_HASH,
   isSynthesisEnabled,
-  listMemoryTypes,
   MEMORY_TYPE_VALUES,
   MemoryTypeSchema,
   MIGRATIONS,
@@ -44,10 +43,12 @@ import {
 import { ZodError } from "zod";
 import {
   DeleteMemoryArgsSchema,
-  MigrateArgsSchema,
+  GetMemorySummaryArgsSchema,
+  ListFlaggedMemoriesArgsSchema,
   PinMemoryArgsSchema,
   QueryMemoryArgsSchema,
   ResolveReviewArgsSchema,
+  RunMigrationArgsSchema,
   SaveMemoryArgsSchema,
   UpdateMemoryArgsSchema,
 } from "./schemas.js";
@@ -97,7 +98,9 @@ export function buildExtractionTools(
   return {
     queryMemory: async (args) => {
       const projectHash =
-        args.global === true ? undefined : (args.projectHash ?? (await resolveProject()).hash);
+        args.global === true
+          ? GLOBAL_SCOPE_HASH
+          : (args.projectHash ?? (await resolveProject()).hash);
       const results = await query.query({
         query: args.query,
         projectHash,
@@ -177,6 +180,14 @@ export function initCore(options: ServerOptions = {}): CoreServices {
   return { db, embedding, repo, query, projects, activityLogger, synthEngine };
 }
 
+async function scopeToProjectHash(
+  scope: "current" | "global" | "all" | undefined
+): Promise<string | undefined> {
+  if (scope === "global") return GLOBAL_SCOPE_HASH;
+  if (scope === "all") return undefined;
+  return (await resolveProject()).hash;
+}
+
 function parseArgs<T>(schema: { parse: (v: unknown) => T }, raw: unknown): T {
   try {
     return schema.parse(raw);
@@ -195,11 +206,6 @@ export function createServer(core: CoreServices): Server {
   server.setRequestHandler(ListToolsRequestSchema, () => ({
     tools: [
       {
-        name: "list_memory_types",
-        description: "Returns the ordered list of memory type values supported by membank.",
-        inputSchema: { type: "object", properties: {}, required: [] },
-      },
-      {
         name: "save_memory",
         description:
           "Save a new memory. Handles deduplication automatically — near-identical memories (cosine similarity >0.92, same type and project) overwrite the existing record.",
@@ -217,9 +223,11 @@ export function createServer(core: CoreServices): Server {
               items: { type: "string" },
               description: "Optional tags",
             },
-            global: {
-              type: "boolean",
-              description: "Save as a global memory, not tied to any project",
+            scope: {
+              type: "string",
+              enum: ["current", "global"],
+              description:
+                '"current" (default) = scoped to this project; "global" = saved as a global memory',
             },
           },
           required: ["content", "type"],
@@ -262,7 +270,7 @@ export function createServer(core: CoreServices): Server {
       {
         name: "query_memory",
         description:
-          "Search memories by semantic similarity. Returns results ranked by confidence score.",
+          'Search memories by semantic similarity. Returns results ranked by confidence score. scope="current" (default) searches this project and global memories; scope="global" returns global memories only; scope="all" returns across every project.',
         inputSchema: {
           type: "object",
           properties: {
@@ -278,33 +286,31 @@ export function createServer(core: CoreServices): Server {
               description:
                 "Include pinned memories in results. Pinned memories are already injected into session context, so excluded by default to avoid duplicates.",
             },
-            global: {
-              type: "boolean",
+            scope: {
+              type: "string",
+              enum: ["current", "global", "all"],
               description:
-                "Query global memories only. When omitted or false, queries the current project scope.",
+                '"current" (default) = project + global; "global" = global memories only; "all" = all projects',
             },
           },
           required: ["query"],
         },
       },
       {
-        name: "migrate",
+        name: "list_migrations",
+        description: "List available named data migrations. Use run_migration to execute one.",
+        inputSchema: { type: "object", properties: {}, required: [] },
+      },
+      {
+        name: "run_migration",
         description:
-          'List or run named data migrations. Use mode "list" to see available migrations; mode "run" with a migration name to execute one.',
+          "Execute a named data migration. Use list_migrations first to see available migration names.",
         inputSchema: {
           type: "object",
           properties: {
-            mode: {
-              type: "string",
-              enum: ["list", "run"],
-              description: 'Mode: "list" to see available migrations, "run" to execute one',
-            },
-            name: {
-              type: "string",
-              description: 'Migration name (required when mode is "run")',
-            },
+            name: { type: "string", description: "Migration name to execute" },
           },
-          required: ["mode"],
+          required: ["name"],
         },
       },
       {
@@ -334,18 +340,54 @@ export function createServer(core: CoreServices): Server {
         name: "get_memory_summary",
         description:
           "Returns aggregate stats for session orientation: total memories, counts by type, pinned count, and review queue size.",
-        inputSchema: { type: "object", properties: {}, required: [] },
+        inputSchema: {
+          type: "object",
+          properties: {
+            scope: {
+              type: "string",
+              enum: ["current", "global", "all"],
+              description:
+                '"current" (default) = this project; "global" = global memories only; "all" = all projects',
+            },
+          },
+          required: [],
+        },
       },
       {
         name: "list_flagged_memories",
         description:
           "List memories that have unresolved dedup review events. These were flagged automatically when a near-duplicate was saved (cosine similarity 0.75–0.92).",
-        inputSchema: { type: "object", properties: {}, required: [] },
+        inputSchema: {
+          type: "object",
+          properties: {
+            scope: {
+              type: "string",
+              enum: ["current", "global", "all"],
+              description:
+                '"current" (default) = this project; "global" = global memories only; "all" = all projects',
+            },
+            limit: {
+              type: "number",
+              description: "Maximum number of flagged memories to return (max 100)",
+            },
+            minSimilarity: {
+              type: "number",
+              description:
+                "Only include memories whose review event similarity is at or above this threshold (0–1)",
+            },
+            maxSimilarity: {
+              type: "number",
+              description:
+                "Only include memories whose review event similarity is at or below this threshold (0–1)",
+            },
+          },
+          required: [],
+        },
       },
       {
         name: "resolve_review",
         description:
-          "Dismiss all unresolved review events for a memory. Use after reviewing the memory and deciding it should be kept as-is.",
+          "Mark all review events for this memory as resolved. Use after reviewing the flagged memory and deciding it is intentionally distinct from its near-duplicates and should be kept.",
         inputSchema: {
           type: "object",
           properties: {
@@ -358,20 +400,9 @@ export function createServer(core: CoreServices): Server {
   }));
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    if (request.params.name === "list_memory_types") {
-      try {
-        return {
-          content: [{ type: "text", text: JSON.stringify(listMemoryTypes()) }],
-        };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return { content: [{ type: "text", text: message }], isError: true };
-      }
-    }
-
     if (request.params.name === "save_memory") {
       const args = parseArgs(SaveMemoryArgsSchema, request.params.arguments);
-      const projectScope = args.global === true ? undefined : await resolveProject();
+      const projectScope = args.scope === "global" ? undefined : await resolveProject();
 
       try {
         const memory = await saveMemory(
@@ -456,7 +487,7 @@ export function createServer(core: CoreServices): Server {
 
     if (request.params.name === "query_memory") {
       const args = parseArgs(QueryMemoryArgsSchema, request.params.arguments);
-      const projectHash = args.global === true ? undefined : (await resolveProject()).hash;
+      const projectHash = await scopeToProjectHash(args.scope);
 
       try {
         const results = await core.query.query({
@@ -490,14 +521,14 @@ export function createServer(core: CoreServices): Server {
       }
     }
 
-    if (request.params.name === "migrate") {
-      const args = parseArgs(MigrateArgsSchema, request.params.arguments);
+    if (request.params.name === "list_migrations") {
+      return {
+        content: [{ type: "text", text: JSON.stringify(MIGRATIONS) }],
+      };
+    }
 
-      if (args.mode === "list") {
-        return {
-          content: [{ type: "text", text: JSON.stringify(MIGRATIONS) }],
-        };
-      }
+    if (request.params.name === "run_migration") {
+      const args = parseArgs(RunMigrationArgsSchema, request.params.arguments);
 
       if (args.name === "scope-to-projects") {
         try {
@@ -555,9 +586,10 @@ export function createServer(core: CoreServices): Server {
     }
 
     if (request.params.name === "get_memory_summary") {
+      const args = parseArgs(GetMemorySummaryArgsSchema, request.params.arguments);
       try {
-        const { hash } = await resolveProject();
-        return { content: [{ type: "text", text: JSON.stringify(core.repo.stats(hash)) }] };
+        const projectHash = await scopeToProjectHash(args.scope);
+        return { content: [{ type: "text", text: JSON.stringify(core.repo.stats(projectHash)) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: message }], isError: true };
@@ -565,9 +597,15 @@ export function createServer(core: CoreServices): Server {
     }
 
     if (request.params.name === "list_flagged_memories") {
+      const args = parseArgs(ListFlaggedMemoriesArgsSchema, request.params.arguments);
       try {
-        const { hash } = await resolveProject();
-        const memories = core.repo.listFlagged(hash);
+        const projectHash = await scopeToProjectHash(args.scope);
+        const memories = core.repo.listFlagged({
+          projectHash,
+          limit: args.limit,
+          minSimilarity: args.minSimilarity,
+          maxSimilarity: args.maxSimilarity,
+        });
         return { content: [{ type: "text", text: JSON.stringify(memories) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

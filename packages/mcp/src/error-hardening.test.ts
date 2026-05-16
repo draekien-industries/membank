@@ -81,15 +81,11 @@ describe("error hardening", () => {
       vi.restoreAllMocks();
 
       const result = await session.client.callTool({
-        name: "list_memory_types",
+        name: "list_migrations",
         arguments: {},
       });
 
       expect(result.isError).toBeUndefined();
-      const [block] = result.content as TextBlock[];
-      if (!block) throw new Error("unreachable");
-      const types = JSON.parse(block.text) as string[];
-      expect(types).toContain("preference");
     });
   });
 
@@ -128,7 +124,7 @@ describe("error hardening", () => {
       vi.restoreAllMocks();
 
       const result = await session.client.callTool({
-        name: "list_memory_types",
+        name: "list_migrations",
         arguments: {},
       });
 
@@ -181,7 +177,7 @@ describe("error hardening", () => {
       vi.restoreAllMocks();
 
       const result = await session.client.callTool({
-        name: "list_memory_types",
+        name: "list_migrations",
         arguments: {},
       });
 
@@ -220,34 +216,11 @@ describe("error hardening", () => {
       vi.restoreAllMocks();
 
       const result = await session.client.callTool({
-        name: "list_memory_types",
+        name: "list_migrations",
         arguments: {},
       });
 
       expect(result.isError).toBeUndefined();
-    });
-  });
-
-  describe("list_memory_types core error propagation", () => {
-    it("returns ToolError when listMemoryTypes throws", async () => {
-      const session = await startInProcess();
-      cleanup = session.cleanup;
-
-      // list_memory_types is a pure function imported at module level; simulate the
-      // scenario by verifying the defensive try/catch exists — we stub via a direct
-      // approach that exercises the branch by replacing the core with a stub server.
-      // Since listMemoryTypes cannot realistically throw, we validate the tool at
-      // minimum succeeds and returns the expected types (defensive wrap does not break it).
-      const result = await session.client.callTool({
-        name: "list_memory_types",
-        arguments: {},
-      });
-
-      expect(result.isError).toBeUndefined();
-      const [block] = result.content as TextBlock[];
-      if (!block) throw new Error("unreachable");
-      const types = JSON.parse(block.text) as string[];
-      expect(types).toEqual(["correction", "preference", "decision", "learning", "fact"]);
     });
   });
 

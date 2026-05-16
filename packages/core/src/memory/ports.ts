@@ -59,7 +59,12 @@ export interface MemoryRepository {
   }): Memory[];
   listPinnedGlobal(): Memory[];
   listPinnedForProject(projectHash: string): Memory[];
-  listFlagged(projectHash?: string): Memory[];
+  listFlagged(opts?: {
+    projectHash?: string;
+    limit?: number;
+    minSimilarity?: number;
+    maxSimilarity?: number;
+  }): Memory[];
   listReviewEvents(memoryId: string, opts?: { unresolvedOnly?: boolean }): ReviewEvent[];
   getPinnedCharCount(projectHash?: string): number;
   stats(projectHash?: string): StatsResult;

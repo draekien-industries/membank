@@ -267,31 +267,45 @@ export class SqliteMemoryRepository implements MemoryRepository {
     return rows.map((row) => rowToMemory(row, []));
   }
 
-  listFlagged(projectHash?: string): Memory[] {
+  listFlagged(opts?: {
+    projectHash?: string;
+    limit?: number;
+    minSimilarity?: number;
+    maxSimilarity?: number;
+  }): Memory[] {
+    const { projectHash, limit, minSimilarity, maxSimilarity } = opts ?? {};
+
+    const simClauses: string[] = ["e.resolved_at IS NULL"];
+    if (minSimilarity !== undefined) simClauses.push("e.similarity >= ?");
+    if (maxSimilarity !== undefined) simClauses.push("e.similarity <= ?");
+    const simParams = [minSimilarity, maxSimilarity].filter((v) => v !== undefined);
+
+    const existsClause = `EXISTS (
+             SELECT 1 FROM memory_review_events e
+             WHERE e.memory_id = memories.id AND ${simClauses.join(" AND ")}
+           )`;
+
+    const limitClause = limit !== undefined ? "LIMIT ?" : "";
+    const limitParams = limit !== undefined ? [limit] : [];
+
     let rows: MemoryRow[];
     if (projectHash !== undefined) {
       rows = this.#db.db
-        .prepare<[string], MemoryRow>(
+        .prepare<unknown[], MemoryRow>(
           `SELECT * FROM memories
-           WHERE EXISTS (
-             SELECT 1 FROM memory_review_events e
-             WHERE e.memory_id = memories.id AND e.resolved_at IS NULL
-           )
+           WHERE ${existsClause}
            AND ${this.#projectScopeClause()}
-           ORDER BY created_at DESC`
+           ORDER BY created_at DESC ${limitClause}`
         )
-        .all(projectHash);
+        .all(...simParams, projectHash, ...limitParams);
     } else {
       rows = this.#db.db
-        .prepare<[], MemoryRow>(
+        .prepare<unknown[], MemoryRow>(
           `SELECT * FROM memories
-           WHERE EXISTS (
-             SELECT 1 FROM memory_review_events e
-             WHERE e.memory_id = memories.id AND e.resolved_at IS NULL
-           )
-           ORDER BY created_at DESC`
+           WHERE ${existsClause}
+           ORDER BY created_at DESC ${limitClause}`
         )
-        .all();
+        .all(...simParams, ...limitParams);
     }
 
     if (rows.length === 0) return [];

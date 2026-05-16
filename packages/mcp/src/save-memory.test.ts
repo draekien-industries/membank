@@ -105,13 +105,13 @@ describe("save_memory tool", () => {
     expect(memory.projects.length).toBeGreaterThanOrEqual(0);
   });
 
-  it("accepts global flag and saves as a global memory", async () => {
+  it("scope=global saves as a global memory", async () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
     const result = await session.client.callTool({
       name: "save_memory",
-      arguments: { content: "use biome for linting", type: "fact", global: true },
+      arguments: { content: "use biome for linting", type: "fact", scope: "global" },
     });
 
     if ("toolResult" in result) throw new Error("unreachable");
@@ -204,7 +204,7 @@ describe("save_memory tool", () => {
       arguments: {
         content: "always use TypeScript strict mode for all projects enabled",
         type: "preference",
-        global: true,
+        scope: "global",
       },
     });
 
@@ -240,7 +240,7 @@ describe("save_memory tool", () => {
 
     await session.client.callTool({
       name: "save_memory",
-      arguments: { content: "some preference", type: "preference", global: true },
+      arguments: { content: "some preference", type: "preference", scope: "global" },
     });
 
     expect(markDirty).toHaveBeenCalledWith("0000000000000000");

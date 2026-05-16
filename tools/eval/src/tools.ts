@@ -12,14 +12,9 @@ interface ToolSchema {
 
 export const MEMBANK_TOOLS: ToolSchema[] = [
   {
-    name: "list_memory_types",
-    description: "Returns the ordered list of memory type values supported by membank.",
-    input_schema: { type: "object", properties: {}, required: [] },
-  },
-  {
     name: "save_memory",
     description:
-      "Save a new memory. Handles deduplication automatically — near-identical memories (cosine similarity >0.92, same type and scope) overwrite the existing record.",
+      "Save a new memory. Handles deduplication automatically — near-identical memories (cosine similarity >0.92, same type and project) overwrite the existing record.",
     input_schema: {
       type: "object",
       properties: {
@@ -34,7 +29,12 @@ export const MEMBANK_TOOLS: ToolSchema[] = [
           items: { type: "string" },
           description: "Optional tags",
         },
-        scope: { type: "string", description: "Scope (defaults to resolved project scope)" },
+        scope: {
+          type: "string",
+          enum: ["current", "global"],
+          description:
+            '"current" (default) = scoped to this project; "global" = saved as a global memory',
+        },
       },
       required: ["content", "type"],
     },
@@ -68,7 +68,7 @@ export const MEMBANK_TOOLS: ToolSchema[] = [
   {
     name: "query_memory",
     description:
-      "Search memories by semantic similarity. Returns results ranked by confidence score.",
+      'Search memories by semantic similarity. Returns results ranked by confidence score. scope="current" (default) searches this project and global memories; scope="global" returns global memories only; scope="all" returns across every project.',
     input_schema: {
       type: "object",
       properties: {
@@ -78,10 +78,30 @@ export const MEMBANK_TOOLS: ToolSchema[] = [
           enum: [...MEMORY_TYPES],
           description: "Filter by memory type",
         },
-        scope: { type: "string", description: "Filter by scope" },
+        scope: {
+          type: "string",
+          enum: ["current", "global", "all"],
+          description:
+            '"current" (default) = project + global; "global" = global memories only; "all" = all projects',
+        },
         limit: { type: "number", description: "Maximum results to return (default 10)" },
       },
       required: ["query"],
+    },
+  },
+  {
+    name: "list_migrations",
+    description: "List available named data migrations. Use run_migration to execute one.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "run_migration",
+    description:
+      "Execute a named data migration. Use list_migrations first to see available migration names.",
+    input_schema: {
+      type: "object",
+      properties: { name: { type: "string", description: "Migration name to execute" } },
+      required: ["name"],
     },
   },
 ];
