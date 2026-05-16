@@ -19,6 +19,7 @@ import type {
   CreateReviewEventOpts,
   MemoryExportRecord,
   MemoryRepository,
+  ReviewQueueStats,
   SimilarMemoryResult,
   StatsResult,
 } from "../ports.js";
@@ -139,6 +140,21 @@ export class SqliteMemoryRepository implements MemoryRepository {
     const projectMap = this.#projects.getProjectsForMemories([id]);
     const events = this.#getEventsForMemories([id]);
     return rowToMemory(row, projectMap.get(id) ?? [], events.get(id) ?? []);
+  }
+
+  findManyById(ids: string[]): Memory[] {
+    if (ids.length === 0) return [];
+    const placeholders = ids.map(() => "?").join(", ");
+    const rows = this.#db.db
+      .prepare<string[], MemoryRow>(`SELECT * FROM memories WHERE id IN (${placeholders})`)
+      .all(...ids);
+    if (rows.length === 0) return [];
+    const foundIds = rows.map((r) => r.id);
+    const projectMap = this.#projects.getProjectsForMemories(foundIds);
+    const eventMap = this.#getEventsForMemories(foundIds);
+    return rows.map((row) =>
+      rowToMemory(row, projectMap.get(row.id) ?? [], eventMap.get(row.id) ?? [])
+    );
   }
 
   update(id: string, patch: MemoryPatch, embedding?: Float32Array): Memory {
@@ -318,6 +334,39 @@ export class SqliteMemoryRepository implements MemoryRepository {
     );
   }
 
+  listReviewEdges(projectHash?: string): Array<{ memoryId: string; conflictingMemoryId: string }> {
+    interface EdgeRow {
+      memory_id: string;
+      conflicting_memory_id: string;
+    }
+    if (projectHash !== undefined) {
+      const rows = this.#db.db
+        .prepare<[string], EdgeRow>(
+          `SELECT e.memory_id, e.conflicting_memory_id
+           FROM memory_review_events e
+           JOIN memories m ON m.id = e.memory_id
+           WHERE e.resolved_at IS NULL
+             AND e.conflicting_memory_id IS NOT NULL
+             AND ${this.#projectScopeClause("m")}`
+        )
+        .all(projectHash);
+      return rows.map((r) => ({
+        memoryId: r.memory_id,
+        conflictingMemoryId: r.conflicting_memory_id,
+      }));
+    }
+    const rows = this.#db.db
+      .prepare<[], EdgeRow>(
+        `SELECT memory_id, conflicting_memory_id FROM memory_review_events
+         WHERE resolved_at IS NULL AND conflicting_memory_id IS NOT NULL`
+      )
+      .all();
+    return rows.map((r) => ({
+      memoryId: r.memory_id,
+      conflictingMemoryId: r.conflicting_memory_id,
+    }));
+  }
+
   listReviewEvents(memoryId: string, opts?: { unresolvedOnly?: boolean }): ReviewEvent[] {
     const where =
       opts?.unresolvedOnly === true
@@ -455,6 +504,71 @@ export class SqliteMemoryRepository implements MemoryRepository {
       needsReview: reviewRow.needsReview,
       pinBudgetChars: this.getPinnedCharCount(),
     };
+  }
+
+  reviewQueueStats(projectHash?: string): Omit<ReviewQueueStats, "clusters"> {
+    interface BandRow {
+      band: string;
+      count: number;
+    }
+    interface TypeRow {
+      type: string;
+      count: number;
+    }
+    interface PairsRow {
+      pairs: number;
+    }
+
+    const scopeJoin =
+      projectHash !== undefined
+        ? `JOIN memories m ON m.id = e.memory_id
+           WHERE e.resolved_at IS NULL AND ${this.#projectScopeClause("m")}`
+        : "JOIN memories m ON m.id = e.memory_id WHERE e.resolved_at IS NULL";
+
+    const params: string[] = projectHash !== undefined ? [projectHash] : [];
+
+    const bandRows = this.#db.db
+      .prepare<string[], BandRow>(
+        `SELECT
+           CASE
+             WHEN e.similarity >= 0.85 THEN 'high'
+             WHEN e.similarity >= 0.80 THEN 'mid'
+             ELSE 'low'
+           END AS band,
+           COUNT(DISTINCT e.memory_id) AS count
+         FROM memory_review_events e ${scopeJoin}
+         GROUP BY band`
+      )
+      .all(...params);
+
+    const typeRows = this.#db.db
+      .prepare<string[], TypeRow>(
+        `SELECT m.type, COUNT(DISTINCT e.memory_id) AS count
+         FROM memory_review_events e ${scopeJoin}
+         GROUP BY m.type`
+      )
+      .all(...params);
+
+    const pairsRow = this.#db.db
+      .prepare<string[], PairsRow>(
+        `SELECT COUNT(*) AS pairs FROM memory_review_events e ${scopeJoin}`
+      )
+      .get(...params) ?? { pairs: 0 };
+
+    const byBand = { high: 0, mid: 0, low: 0 };
+    for (const row of bandRows) {
+      if (row.band === "high" || row.band === "mid" || row.band === "low") {
+        byBand[row.band] = row.count;
+      }
+    }
+
+    const byType: Partial<Record<MemoryType, number>> = {};
+    for (const row of typeRows) {
+      const parsed = MemoryTypeSchema.safeParse(row.type);
+      if (parsed.success) byType[parsed.data] = row.count;
+    }
+
+    return { pairs: pairsRow.pairs, byBand, byType };
   }
 
   setPin(id: string, pinned: boolean): Memory {

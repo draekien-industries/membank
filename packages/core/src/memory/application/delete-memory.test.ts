@@ -8,11 +8,13 @@ function makeFakeRepo(): MemoryRepository & { deleteCalls: string[] } {
   return {
     deleteCalls,
     findById: () => undefined,
+    findManyById: () => [],
     findSimilar: () => [],
     list: () => [],
     listPinnedGlobal: () => [],
     listPinnedForProject: () => [],
     listFlagged: () => [],
+    listReviewEdges: () => [],
     listReviewEvents: () => [],
     getPinnedCharCount: () => 0,
     stats: (): StatsResult => ({
@@ -22,6 +24,7 @@ function makeFakeRepo(): MemoryRepository & { deleteCalls: string[] } {
       needsReview: 0,
       pinBudgetChars: 0,
     }),
+    reviewQueueStats: () => ({ pairs: 0, byBand: { high: 0, mid: 0, low: 0 }, byType: {} }),
     create: vi.fn(),
     overwrite: vi.fn(),
     update: vi.fn(),

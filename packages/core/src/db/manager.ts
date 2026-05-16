@@ -278,6 +278,37 @@ CREATE INDEX idx_activity_project_created ON activity_events(project_hash, creat
 CREATE INDEX idx_activity_type_created    ON activity_events(event_type, created_at DESC);
 `,
   ],
+  [
+    11,
+    `
+PRAGMA foreign_keys = OFF;
+
+BEGIN;
+
+CREATE TABLE memory_review_events_new (
+  id                        TEXT PRIMARY KEY,
+  memory_id                 TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+  conflicting_memory_id     TEXT REFERENCES memories(id) ON DELETE CASCADE,
+  similarity                REAL NOT NULL,
+  conflict_content_snapshot TEXT NOT NULL,
+  reason                    TEXT NOT NULL,
+  created_at                TEXT NOT NULL,
+  resolved_at               TEXT
+);
+
+INSERT INTO memory_review_events_new SELECT * FROM memory_review_events;
+
+DROP TABLE memory_review_events;
+ALTER TABLE memory_review_events_new RENAME TO memory_review_events;
+
+CREATE INDEX IF NOT EXISTS idx_review_events_memory_open
+  ON memory_review_events(memory_id) WHERE resolved_at IS NULL;
+
+COMMIT;
+
+PRAGMA foreign_keys = ON;
+`,
+  ],
 ];
 
 export class DatabaseManager {

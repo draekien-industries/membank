@@ -27,11 +27,13 @@ function makeFakeRepo(updateResult: Memory): MemoryRepository & { updateCalls: u
   return {
     updateCalls,
     findById: () => undefined,
+    findManyById: () => [],
     findSimilar: () => [],
     list: () => [],
     listPinnedGlobal: () => [],
     listPinnedForProject: () => [],
     listFlagged: () => [],
+    listReviewEdges: () => [],
     listReviewEvents: () => [],
     getPinnedCharCount: () => 0,
     stats: (): StatsResult => ({
@@ -41,6 +43,7 @@ function makeFakeRepo(updateResult: Memory): MemoryRepository & { updateCalls: u
       needsReview: 0,
       pinBudgetChars: 0,
     }),
+    reviewQueueStats: () => ({ pairs: 0, byBand: { high: 0, mid: 0, low: 0 }, byType: {} }),
     create: () => updateResult,
     overwrite: () => updateResult,
     update(id, patch, embedding) {

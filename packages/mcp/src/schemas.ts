@@ -77,3 +77,17 @@ export const ListFlaggedMemoriesArgsSchema = z.object({
 export const GetMemorySummaryArgsSchema = z.object({
   scope: QueryScopeSchema,
 });
+
+export const DeleteManyArgsSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(100),
+});
+
+export const ResolveManyArgsSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(100),
+});
+
+export const MergeMemoriesArgsSchema = z.object({
+  keep_id: z.string().min(1),
+  drop_ids: z.array(z.string().min(1)).min(1).max(20),
+  merged_content: z.string().min(1),
+});

@@ -1,4 +1,4 @@
-import type { Memory } from "@membank/core";
+import type { FlagCluster, Memory } from "@membank/core";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
 import { afterEach, describe, expect, it } from "vitest";
@@ -66,8 +66,11 @@ describe("list_flagged_memories tool", () => {
       arguments: {},
     });
 
-    const memories = parseText<Memory[]>(result);
+    const { memories, clusters } = parseText<{ memories: Memory[]; clusters: FlagCluster[] }>(
+      result
+    );
     expect(memories).toEqual([]);
+    expect(clusters).toEqual([]);
   });
 
   it("returns flagged memories with review events", async () => {
@@ -100,7 +103,7 @@ describe("list_flagged_memories tool", () => {
       arguments: {},
     });
 
-    const memories = parseText<Memory[]>(result);
+    const { memories } = parseText<{ memories: Memory[]; clusters: FlagCluster[] }>(result);
     expect(memories).toHaveLength(1);
     expect(memories[0]?.id).toBe("mem-1");
     expect(memories[0]?.reviewEvents).toHaveLength(1);
@@ -130,7 +133,7 @@ describe("list_flagged_memories tool", () => {
       arguments: {},
     });
 
-    const memories = parseText<Memory[]>(result);
+    const { memories } = parseText<{ memories: Memory[]; clusters: FlagCluster[] }>(result);
     expect(memories).toHaveLength(0);
   });
 });

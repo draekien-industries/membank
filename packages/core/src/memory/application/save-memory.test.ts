@@ -58,12 +58,14 @@ function makeFakeRepo(
       reviewEventCalls.push(opts);
     },
     findById: () => undefined,
+    findManyById: () => [],
     update: () => makeMemory(),
     delete: () => {},
     list: () => [],
     listPinnedGlobal: () => [],
     listPinnedForProject: () => [],
     listFlagged: () => [],
+    listReviewEdges: () => [],
     listReviewEvents: () => [],
     getPinnedCharCount: () => 0,
     stats: (): StatsResult => ({
@@ -73,6 +75,7 @@ function makeFakeRepo(
       needsReview: 0,
       pinBudgetChars: 0,
     }),
+    reviewQueueStats: () => ({ pairs: 0, byBand: { high: 0, mid: 0, low: 0 }, byType: {} }),
     resolveReviewEvents: () => {},
     setPin: () => makeMemory(),
     incrementAccessCount: () => {},

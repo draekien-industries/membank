@@ -12,12 +12,14 @@ import type {
   SynthesisTools,
 } from "@membank/core";
 import {
+  clusterFlagged,
   createActivityLogger,
   createMemoryRepository,
   createProjectRepository,
   createSynthesisAgentRunner,
   createSynthesisRepository,
   DatabaseManager,
+  deleteManyMemories,
   deleteMemory,
   EmbeddingService,
   GLOBAL_SCOPE_HASH,
@@ -25,9 +27,11 @@ import {
   MEMORY_TYPE_VALUES,
   MemoryTypeSchema,
   MIGRATIONS,
+  mergeMemories,
   PIN_BUDGET_THRESHOLD,
   QueryEngine,
   resolveProject,
+  resolveReviewMany,
   runScopeToProjectsMigration,
   SynthesisEngine,
   saveMemory,
@@ -42,11 +46,14 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { ZodError } from "zod";
 import {
+  DeleteManyArgsSchema,
   DeleteMemoryArgsSchema,
   GetMemorySummaryArgsSchema,
   ListFlaggedMemoriesArgsSchema,
+  MergeMemoriesArgsSchema,
   PinMemoryArgsSchema,
   QueryMemoryArgsSchema,
+  ResolveManyArgsSchema,
   ResolveReviewArgsSchema,
   RunMigrationArgsSchema,
   SaveMemoryArgsSchema,
@@ -396,6 +403,62 @@ export function createServer(core: CoreServices): Server {
           required: ["id"],
         },
       },
+      {
+        name: "delete_many",
+        description:
+          "Delete multiple memories in a single call. Best-effort: each id is processed independently. Returns per-id status so you can see which deletions succeeded or failed.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            ids: {
+              type: "array",
+              items: { type: "string" },
+              description: "Memory ids to delete (max 100)",
+            },
+          },
+          required: ["ids"],
+        },
+      },
+      {
+        name: "resolve_many",
+        description:
+          "Resolve review events for multiple memories in a single call. Best-effort: each id is processed independently. Returns per-id status.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            ids: {
+              type: "array",
+              items: { type: "string" },
+              description: "Memory ids to resolve review events for (max 100)",
+            },
+          },
+          required: ["ids"],
+        },
+      },
+      {
+        name: "merge_memories",
+        description:
+          "Merge two or more memories into one. Writes merged_content to the kept memory, unions tags and projects from all dropped memories, then deletes the dropped memories. Re-runs dedup on the result. Use when flagged memories each carry unique information that should be combined.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            keep_id: {
+              type: "string",
+              description: "Memory id to keep and update with merged content",
+            },
+            drop_ids: {
+              type: "array",
+              items: { type: "string" },
+              description: "Memory ids to delete after merging their content in (max 20)",
+            },
+            merged_content: {
+              type: "string",
+              description: "The combined content to write to the kept memory",
+            },
+          },
+          required: ["keep_id", "drop_ids", "merged_content"],
+        },
+      },
     ],
   }));
 
@@ -589,7 +652,15 @@ export function createServer(core: CoreServices): Server {
       const args = parseArgs(GetMemorySummaryArgsSchema, request.params.arguments);
       try {
         const projectHash = await scopeToProjectHash(args.scope);
-        return { content: [{ type: "text", text: JSON.stringify(core.repo.stats(projectHash)) }] };
+        const base = core.repo.stats(projectHash);
+        const queueBase = core.repo.reviewQueueStats(projectHash);
+        const edges = core.repo.listReviewEdges(projectHash);
+        const clusters = clusterFlagged(edges);
+        const result = {
+          ...base,
+          reviewQueue: { ...queueBase, clusters: clusters.length },
+        };
+        return { content: [{ type: "text", text: JSON.stringify(result) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: message }], isError: true };
@@ -606,7 +677,44 @@ export function createServer(core: CoreServices): Server {
           minSimilarity: args.minSimilarity,
           maxSimilarity: args.maxSimilarity,
         });
-        return { content: [{ type: "text", text: JSON.stringify(memories) }] };
+
+        const conflictingIds = memories.flatMap((m) =>
+          m.reviewEvents.map((e) => e.conflictingMemoryId).filter((id): id is string => id !== null)
+        );
+        const uniqueIds = [...new Set(conflictingIds)];
+        const conflictingMemories = core.repo.findManyById(uniqueIds);
+        const conflictingMap = new Map(conflictingMemories.map((m) => [m.id, m]));
+
+        const edges = core.repo.listReviewEdges(projectHash);
+        const allClusters = clusterFlagged(edges);
+        const memoryIdToCluster = new Map<string, string>();
+        for (const cluster of allClusters) {
+          for (const memId of cluster.memoryIds) {
+            memoryIdToCluster.set(memId, cluster.clusterId);
+          }
+        }
+
+        const flaggedIds = new Set(memories.map((m) => m.id));
+        const relevantClusters = allClusters.filter((c) =>
+          c.memoryIds.some((id) => flaggedIds.has(id))
+        );
+
+        const result = {
+          memories: memories.map((m) => ({
+            ...m,
+            clusterId: memoryIdToCluster.get(m.id) ?? null,
+            reviewEvents: m.reviewEvents.map((e) => ({
+              ...e,
+              conflictingMemory:
+                e.conflictingMemoryId !== null
+                  ? (conflictingMap.get(e.conflictingMemoryId) ?? null)
+                  : null,
+            })),
+          })),
+          clusters: relevantClusters,
+        };
+
+        return { content: [{ type: "text", text: JSON.stringify(result) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: message }], isError: true };
@@ -628,6 +736,60 @@ export function createServer(core: CoreServices): Server {
         return {
           content: [{ type: "text", text: JSON.stringify({ success: true, id: args.id }) }],
         };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true };
+      }
+    }
+
+    if (request.params.name === "delete_many") {
+      const args = parseArgs(DeleteManyArgsSchema, request.params.arguments);
+      try {
+        const scopes =
+          core.synthEngine !== undefined
+            ? [
+                ...new Set(
+                  args.ids
+                    .map((id) => core.repo.findById(id))
+                    .filter((m) => m !== undefined)
+                    .map((m) => m.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH)
+                ),
+              ]
+            : [];
+        const results = await deleteManyMemories(args.ids, core.repo, core.activityLogger);
+        if (core.synthEngine !== undefined) {
+          for (const scope of scopes) core.synthEngine.markDirty(scope);
+        }
+        return { content: [{ type: "text", text: JSON.stringify(results) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true };
+      }
+    }
+
+    if (request.params.name === "resolve_many") {
+      const args = parseArgs(ResolveManyArgsSchema, request.params.arguments);
+      try {
+        const results = resolveReviewMany(args.ids, core.repo);
+        return { content: [{ type: "text", text: JSON.stringify(results) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true };
+      }
+    }
+
+    if (request.params.name === "merge_memories") {
+      const args = parseArgs(MergeMemoriesArgsSchema, request.params.arguments);
+      try {
+        const result = await mergeMemories(
+          { keepId: args.keep_id, dropIds: args.drop_ids, mergedContent: args.merged_content },
+          { repo: core.repo, embedder: core.embedding, activityLogger: core.activityLogger }
+        );
+        if (core.synthEngine !== undefined) {
+          const scope = result.kept.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH;
+          core.synthEngine.markDirty(scope);
+        }
+        return { content: [{ type: "text", text: JSON.stringify(result) }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: message }], isError: true };

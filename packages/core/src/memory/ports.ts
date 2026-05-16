@@ -14,6 +14,25 @@ export interface StatsResult {
   pinBudgetChars: number;
 }
 
+export interface ReviewQueueStats {
+  pairs: number;
+  clusters: number;
+  byBand: { high: number; mid: number; low: number };
+  byType: Partial<Record<MemoryType, number>>;
+}
+
+export interface BulkOpResult {
+  id: string;
+  status: "ok" | "error";
+  error?: string;
+}
+
+export interface MergeMemoriesOpts {
+  keepId: string;
+  dropIds: string[];
+  mergedContent: string;
+}
+
 export interface MemoryExportRecord {
   id: string;
   content: string;
@@ -46,6 +65,7 @@ export interface CreateReviewEventOpts {
 
 export interface MemoryRepository {
   findById(id: string): Memory | undefined;
+  findManyById(ids: string[]): Memory[];
   findSimilar(
     embedding: Float32Array,
     type: MemoryType,
@@ -65,9 +85,11 @@ export interface MemoryRepository {
     minSimilarity?: number;
     maxSimilarity?: number;
   }): Memory[];
+  listReviewEdges(projectHash?: string): Array<{ memoryId: string; conflictingMemoryId: string }>;
   listReviewEvents(memoryId: string, opts?: { unresolvedOnly?: boolean }): ReviewEvent[];
   getPinnedCharCount(projectHash?: string): number;
   stats(projectHash?: string): StatsResult;
+  reviewQueueStats(projectHash?: string): Omit<ReviewQueueStats, "clusters">;
 
   create(opts: CreateMemoryOpts): Memory;
   overwrite(id: string, content: string, embedding: Float32Array): Memory;
