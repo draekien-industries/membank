@@ -1,5 +1,18 @@
 # @membank/cli
 
+## 0.15.0
+
+### Minor Changes
+
+- 30ac477: For claude-code, dropped the in-session save_memory nudge and removed UserPromptSubmit from the default hook setup now that SessionEnd auto-extracts memories. Existing UserPromptSubmit membank entries in `~/.claude/settings.json` are auto-stripped on next `membank setup` run. Copilot-cli and codex are unchanged.
+
+### Patch Changes
+
+- Updated dependencies [4e8ebbb]
+- Updated dependencies [f07fe18]
+  - @membank/mcp@0.15.0
+  - @membank/core@0.13.0
+
 ## 0.14.2
 
 ### Patch Changes
