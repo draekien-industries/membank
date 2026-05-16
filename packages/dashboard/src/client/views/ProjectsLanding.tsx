@@ -1,9 +1,9 @@
+import { GLOBAL_SCOPE_HASH } from "@membank/core/client";
 import { useLiveQuery } from "@tanstack/react-db";
 import { ProjectCard } from "@/components/ProjectCard";
 import { ProjectCardHero } from "@/components/ProjectCardHero";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
 import { projectsCollection } from "@/lib/collections";
-import { GLOBAL_SCOPE_HASH } from "@/lib/types";
 
 export function ProjectsLanding() {
   const { data: projects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);

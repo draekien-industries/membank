@@ -16,8 +16,6 @@ export const TYPE_DESCRIPTIONS = {
   fact: "A fixed fact about your project or environment",
 } satisfies Record<MemoryType, string>;
 
-export const GLOBAL_SCOPE_HASH = "0000000000000000" as const;
-
 export interface Project {
   id: string;
   name: string;
