@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { useProjectSynthesis } from "@/hooks/useProjectSynthesis";
 import { memoriesCollection } from "@/lib/collections";
+import { typeColorVariants } from "@/lib/typeColors";
 import type { Memory, MemoryType, Project, Synthesis } from "@/lib/types";
 import { MEMORY_TYPES, SYNTHESIS_PENDING } from "@/lib/types";
 import { cn, formatRelativeTime } from "@/lib/utils";
@@ -16,7 +17,6 @@ import {
   countMemoriesByType,
   OverviewHeader,
   RecentActivityList,
-  TYPE_COLORS,
 } from "@/views/ProjectOverviewDashboard";
 
 function StuckResetButton({ onReset }: { onReset: () => Promise<void> }) {
@@ -111,12 +111,11 @@ function InFlightIndicator({
 }
 
 function MemoryLine({ memory }: { memory: Memory }) {
-  const color = TYPE_COLORS[memory.type];
   const content = memory.content.length > 140 ? `${memory.content.slice(0, 140)}…` : memory.content;
   return (
     <div className="pl-3 leading-relaxed">
       <span className="text-muted-foreground/40">&lt;memory type=&quot;</span>
-      <span style={{ color }}>{memory.type}</span>
+      <span className={typeColorVariants({ type: memory.type })}>{memory.type}</span>
       <span className="text-muted-foreground/40">&quot;&gt;</span>
       <span className="text-foreground/70">{xmlEscape(content)}</span>
       <span className="text-muted-foreground/40">&lt;/memory&gt;</span>

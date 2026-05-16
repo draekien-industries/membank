@@ -4,17 +4,10 @@ import { useMemo } from "react";
 import { ActivityEventRow } from "@/components/ActivityEventRow";
 import { useActivityEvents } from "@/hooks/useActivityEvents";
 import { memoriesCollection } from "@/lib/collections";
+import { typeColorVariants } from "@/lib/typeColors";
 import type { Memory, MemoryType, Project, Synthesis } from "@/lib/types";
 import { MEMORY_TYPES } from "@/lib/types";
-import { formatRelativeTime } from "@/lib/utils";
-
-export const TYPE_COLORS: Record<MemoryType, string> = {
-  correction: "oklch(0.72 0.16 25)",
-  preference: "oklch(0.68 0.14 250)",
-  decision: "oklch(0.65 0.14 300)",
-  learning: "oklch(0.65 0.14 165)",
-  fact: "oklch(0.62 0.006 165)",
-};
+import { cn, formatRelativeTime } from "@/lib/utils";
 
 export function countMemoriesByType(
   allMemories: Memory[],
@@ -133,8 +126,11 @@ export function CompositionBars({ projectId }: { projectId: string }) {
               </div>
               <div className="h-px rounded-full bg-border/60 overflow-hidden relative">
                 <div
-                  className="absolute inset-y-0 left-0 rounded-full opacity-60 group-hover:opacity-80 transition-opacity"
-                  style={{ width: `${pct}%`, backgroundColor: TYPE_COLORS[type] }}
+                  className={cn(
+                    "absolute inset-y-0 left-0 rounded-full opacity-60 group-hover:opacity-80 transition-opacity",
+                    typeColorVariants({ type, tone: "bg" })
+                  )}
+                  style={{ width: `${pct}%` }}
                 />
               </div>
             </button>

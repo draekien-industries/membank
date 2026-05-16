@@ -3,18 +3,11 @@ import type { DaysOption } from "@/components/DayToggle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProjectActivity } from "@/hooks/useProjectActivity";
 import { useProjectStats } from "@/hooks/useProjectStats";
-import type { MemoryType, ProjectStats } from "@/lib/types";
+import { typeColorVariants } from "@/lib/typeColors";
+import type { ProjectStats } from "@/lib/types";
 import { capitalize, formatRelativeTime } from "@/lib/utils";
 
 export type { DaysOption } from "@/components/DayToggle";
-
-const TYPE_COLORS: Record<MemoryType, string> = {
-  correction: "var(--type-correction, oklch(0.65 0.18 50))",
-  preference: "var(--type-preference, oklch(0.60 0.14 240))",
-  decision: "var(--type-decision, oklch(0.60 0.14 290))",
-  learning: "var(--type-learning, oklch(0.55 0.14 165))",
-  fact: "var(--type-fact, oklch(0.60 0.008 165))",
-};
 
 export interface StatItem {
   label: string;
@@ -78,7 +71,7 @@ export function useProjectCardData({ projectId, statsOverride }: UseProjectCardD
         value: loading ? (
           <Skeleton className="h-3 w-8" />
         ) : stats?.mostCommonType ? (
-          <span style={{ color: TYPE_COLORS[stats.mostCommonType] }}>
+          <span className={typeColorVariants({ type: stats.mostCommonType })}>
             {capitalize(stats.mostCommonType)}
           </span>
         ) : (
