@@ -13,7 +13,5 @@ paths:
 
 ## Tailwind
 
-- Use `cva` for creating variants of components
-- Expose `className` props on components to allow consumers to customize styles and use `cn` for combining class names
 - If you register a css variable, add it into the `@theme inline` section of the stylesheet so that you can use canonical class names
 - Prioritize using canonical class names over custom css variables
