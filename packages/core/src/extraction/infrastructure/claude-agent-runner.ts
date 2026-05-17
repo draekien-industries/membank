@@ -46,9 +46,9 @@ class ClaudeExtractionAgentRunner implements ExtractionAgentRunner {
       async ({ query: q, limit, global: isGlobal }) => {
         const result = await this.#tools.queryMemory({
           query: q,
-          limit,
-          global: isGlobal,
-          projectHash: args.projectHash,
+          ...(limit !== undefined && { limit }),
+          ...(isGlobal !== undefined && { global: isGlobal }),
+          ...(args.projectHash !== undefined && { projectHash: args.projectHash }),
         });
         return { content: [{ type: "text" as const, text: result }] };
       },
@@ -67,7 +67,12 @@ class ClaudeExtractionAgentRunner implements ExtractionAgentRunner {
         global: z.boolean().optional().describe("Save as global memory rather than project-scoped"),
       },
       async ({ content, type, tags, global: isGlobal }) => {
-        const result = await this.#tools.saveMemory({ content, type, tags, global: isGlobal });
+        const result = await this.#tools.saveMemory({
+          content,
+          type,
+          ...(tags !== undefined && { tags }),
+          ...(isGlobal !== undefined && { global: isGlobal }),
+        });
         return { content: [{ type: "text" as const, text: result }] };
       }
     );
@@ -82,7 +87,12 @@ class ClaudeExtractionAgentRunner implements ExtractionAgentRunner {
         tags: z.array(z.string()).optional(),
       },
       async ({ id, content, type, tags }) => {
-        const result = await this.#tools.updateMemory({ id, content, type, tags });
+        const result = await this.#tools.updateMemory({
+          id,
+          ...(content !== undefined && { content }),
+          ...(type !== undefined && { type }),
+          ...(tags !== undefined && { tags }),
+        });
         return { content: [{ type: "text" as const, text: result }] };
       }
     );

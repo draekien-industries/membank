@@ -22,7 +22,11 @@ export async function queryMemories(
   const queryEmbedding = await deps.embedder.embed(query);
   const queryBlob = Buffer.from(queryEmbedding.buffer);
 
-  const rows = deps.adapter.findByEmbedding(queryBlob, { type, projectHash, includePinned });
+  const rows = deps.adapter.findByEmbedding(queryBlob, {
+    ...(type !== undefined && { type }),
+    ...(projectHash !== undefined && { projectHash }),
+    ...(includePinned !== undefined && { includePinned }),
+  });
 
   const now = Date.now();
   const scored = rows

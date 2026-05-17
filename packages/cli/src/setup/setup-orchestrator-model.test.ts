@@ -60,7 +60,7 @@ function makeOrchestrator(opts: {
     detector: detected !== undefined ? () => detected : () => [makeHarness("claude-code")],
     writer: makeWriter(),
     prompter: vi.fn().mockResolvedValue(true),
-    modelDownloader: opts.modelDownloader,
+    ...(opts.modelDownloader !== undefined && { modelDownloader: opts.modelDownloader }),
     out: (msg) => lines.push(msg),
     progressWrite: opts.progressWrite ?? vi.fn(),
   });
@@ -275,7 +275,7 @@ describe("model download — failure", () => {
 
 describe("no model downloader injected", () => {
   it("prints DRA-52 placeholder when no model downloader is provided", async () => {
-    const { orchestrator, lines } = makeOrchestrator({ modelDownloader: undefined });
+    const { orchestrator, lines } = makeOrchestrator({});
 
     await orchestrator.run({ yes: true });
 

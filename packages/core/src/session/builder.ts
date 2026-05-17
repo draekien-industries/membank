@@ -15,6 +15,9 @@ export class SessionContextBuilder {
   }
 
   getSessionContext(projectHash: string, synthesis?: string): SessionContext {
-    return getSessionContext({ projectHash, synthesis }, { repo: this.#repo });
+    return getSessionContext(
+      { projectHash, ...(synthesis !== undefined && { synthesis }) },
+      { repo: this.#repo }
+    );
   }
 }

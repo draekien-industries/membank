@@ -19,7 +19,7 @@ export class EmbeddingService implements Embedder {
     if (this.pipelineInstance === null) {
       this.pipelineInstance = await pipeline("feature-extraction", "Xenova/bge-small-en-v1.5", {
         cache_dir: this.modelCachePath,
-        progress_callback: this.onProgress,
+        ...(this.onProgress !== undefined && { progress_callback: this.onProgress }),
       });
     }
     return this.pipelineInstance;

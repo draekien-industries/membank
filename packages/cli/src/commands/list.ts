@@ -16,8 +16,8 @@ export async function listCommand(
     const repo = createMemoryRepository(db, createProjectRepository(db));
 
     const memories = repo.list({
-      type: options.type !== undefined ? MemoryTypeSchema.parse(options.type) : undefined,
-      pinned: options.pinned,
+      ...(options.type !== undefined && { type: MemoryTypeSchema.parse(options.type) }),
+      ...(options.pinned !== undefined && { pinned: options.pinned }),
     });
 
     formatter.outputMemories(memories);

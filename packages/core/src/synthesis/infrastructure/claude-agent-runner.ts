@@ -28,9 +28,9 @@ class ClaudeAgentRunner implements AgentRunner {
       async ({ query: q, limit, global: isGlobal }) => {
         const result = await this.#tools.queryMemory({
           query: q,
-          limit,
-          global: isGlobal,
-          projectHash,
+          ...(limit !== undefined && { limit }),
+          ...(isGlobal !== undefined && { global: isGlobal }),
+          ...(projectHash !== undefined && { projectHash }),
         });
         return { content: [{ type: "text" as const, text: result }] };
       },

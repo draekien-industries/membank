@@ -241,9 +241,9 @@ program
   .action(async (cmdOptions: { harness?: string; session?: string; transcript?: string }) => {
     try {
       await extractCommand({
-        harness: cmdOptions.harness,
-        sessionId: cmdOptions.session,
-        transcript: cmdOptions.transcript,
+        ...(cmdOptions.harness !== undefined && { harness: cmdOptions.harness }),
+        ...(cmdOptions.session !== undefined && { sessionId: cmdOptions.session }),
+        ...(cmdOptions.transcript !== undefined && { transcript: cmdOptions.transcript }),
       });
     } catch (err) {
       process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
@@ -364,16 +364,16 @@ setupCmd.action(async (cmdOptions: { yes?: boolean; dryRun?: boolean; harness?: 
     writer,
     hookWriter,
     prompter: (question) => promptHelper.confirm(question),
-    harnessSelector,
+    ...(harnessSelector !== undefined && { harnessSelector }),
     modelDownloader: new ModelDownloader(),
-    out: formatter.isJson ? undefined : decoratedOut,
+    ...(!formatter.isJson && { out: decoratedOut }),
     synthesisOptIn: true,
   });
   try {
     const results = await orchestrator.run({
       yes: autoYes,
-      dryRun: cmdOptions.dryRun,
-      harness: cmdOptions.harness,
+      ...(cmdOptions.dryRun !== undefined && { dryRun: cmdOptions.dryRun }),
+      ...(cmdOptions.harness !== undefined && { harness: cmdOptions.harness }),
       json: formatter.isJson,
     });
     if (!formatter.isJson && !cmdOptions.dryRun && results.length > 0) {
@@ -536,7 +536,10 @@ program
       const globalOpts = program.opts<{ json?: boolean }>();
       const formatter = Formatter.create(globalOpts.json === true);
       try {
-        await activityCommand({ ...cmdOptions, json: globalOpts.json }, formatter);
+        await activityCommand(
+          { ...cmdOptions, ...(globalOpts.json !== undefined && { json: globalOpts.json }) },
+          formatter
+        );
       } catch (err) {
         formatter.error(err instanceof Error ? err.message : String(err));
         process.exit(2);

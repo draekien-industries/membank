@@ -40,7 +40,7 @@ export async function saveMemory(
         tags,
         sourceHarness: sourceHarness ?? null,
         embedding,
-        projectScope,
+        ...(projectScope !== undefined && { projectScope }),
       });
       repo.createReviewEvent({
         memoryId: top.id,
@@ -70,7 +70,7 @@ export async function saveMemory(
     tags,
     sourceHarness: sourceHarness ?? null,
     embedding,
-    projectScope,
+    ...(projectScope !== undefined && { projectScope }),
   });
   activityLogger.logEvent({
     projectHash: scope,

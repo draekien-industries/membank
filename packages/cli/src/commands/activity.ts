@@ -68,8 +68,8 @@ export async function activityCommand(
     const events = listEvents(
       {
         scope,
-        type: validatedType,
-        since: options.since,
+        ...(validatedType !== undefined && { type: validatedType }),
+        ...(options.since !== undefined && { since: options.since }),
         limit: options.limit !== undefined ? parseInt(options.limit, 10) : 50,
       },
       activityRepo

@@ -87,10 +87,18 @@ function loadSynthesisConfig(): SynthesisConfig {
     };
     return {
       enabled: parsed.synthesis?.enabled === true,
-      maxTokensPerRun: parsed.synthesis?.maxTokensPerRun,
-      debounceMs: parsed.synthesis?.debounceMs,
-      stalenessDays: parsed.synthesis?.stalenessDays,
-      inFlightTimeoutMs: parsed.synthesis?.inFlightTimeoutMs,
+      ...(parsed.synthesis?.maxTokensPerRun !== undefined && {
+        maxTokensPerRun: parsed.synthesis.maxTokensPerRun,
+      }),
+      ...(parsed.synthesis?.debounceMs !== undefined && {
+        debounceMs: parsed.synthesis.debounceMs,
+      }),
+      ...(parsed.synthesis?.stalenessDays !== undefined && {
+        stalenessDays: parsed.synthesis.stalenessDays,
+      }),
+      ...(parsed.synthesis?.inFlightTimeoutMs !== undefined && {
+        inFlightTimeoutMs: parsed.synthesis.inFlightTimeoutMs,
+      }),
     };
   } catch {
     return { enabled: false };
@@ -184,7 +192,15 @@ export function initCore(options: ServerOptions = {}): CoreServices {
     synthEngine = new SynthesisEngine(synthRepo, synthConfig, agentRunner);
   }
 
-  return { db, embedding, repo, query, projects, activityLogger, synthEngine };
+  return {
+    db,
+    embedding,
+    repo,
+    query,
+    projects,
+    activityLogger,
+    ...(synthEngine !== undefined && { synthEngine }),
+  };
 }
 
 async function scopeToProjectHash(
@@ -672,10 +688,10 @@ export function createServer(core: CoreServices): Server {
       try {
         const projectHash = await scopeToProjectHash(args.scope);
         const memories = core.repo.listFlagged({
-          projectHash,
-          limit: args.limit,
-          minSimilarity: args.minSimilarity,
-          maxSimilarity: args.maxSimilarity,
+          ...(projectHash !== undefined && { projectHash }),
+          ...(args.limit !== undefined && { limit: args.limit }),
+          ...(args.minSimilarity !== undefined && { minSimilarity: args.minSimilarity }),
+          ...(args.maxSimilarity !== undefined && { maxSimilarity: args.maxSimilarity }),
         });
 
         const conflictingIds = memories.flatMap((m) =>

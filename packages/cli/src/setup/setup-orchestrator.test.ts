@@ -40,10 +40,10 @@ function makeOrchestrator(opts: {
   const lines: string[] = [];
   const detected = opts.detected;
   const orchestrator = new SetupOrchestrator({
-    detector: detected !== undefined ? () => detected : undefined,
+    ...(detected !== undefined && { detector: () => detected }),
     writer: opts.writer ?? makeWriter(),
-    prompter: opts.prompter,
-    modelDownloader: opts.modelDownloader,
+    ...(opts.prompter !== undefined && { prompter: opts.prompter }),
+    ...(opts.modelDownloader !== undefined && { modelDownloader: opts.modelDownloader }),
     out: (msg) => lines.push(msg),
   });
   return { orchestrator, lines };
@@ -465,7 +465,7 @@ function makeOrchestratorWithHooks(opts: {
     detector: () => opts.detected,
     writer: makeWriter(),
     hookWriter: opts.hookWriter,
-    prompter: opts.prompter,
+    ...(opts.prompter !== undefined && { prompter: opts.prompter }),
     out: (msg) => lines.push(msg),
   });
   return { orchestrator, lines };
