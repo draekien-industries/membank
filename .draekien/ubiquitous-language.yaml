@@ -1,0 +1,126 @@
+contexts:
+  Core:
+    terms:
+      Scope:
+        usage: '"Prior to the Project entity, a Scope hash was the only way to group
+          memories by source directory."'
+        related:
+        - term: Project
+          relationship: replaced by
+        - term: Association
+          relationship: replaced by
+        definition: Deprecated. A raw SHA-256 hash of the git remote URL or cwd, previously
+          used to associate a memory with its source location. Replaced by Project
+          and Association.
+      Association:
+        usage: '"When a user ''moves'' a memory to a different project in the dashboard,
+          they are adding and removing Associations."'
+        related:
+        - term: Project
+          relationship: links
+        - term: GlobalMemory
+          relationship: produced by removing
+        definition: The relationship between a memory and a project. Adding an association
+          links a memory to a project; removing it unlinks the memory. The correct
+          term for what the UI calls "move" — there is no exclusive transfer of
+          ownership.
+      GlobalMemory:
+        aliases:
+        - Global Memory
+        usage: '"A memory saved without any project context becomes a GlobalMemory,
+          visible regardless of which Project the user is working in."'
+        related:
+        - term: Association
+          relationship: produced by removing
+        - term: Project
+          relationship: independent of
+        definition: A memory with no project associations. Applies across all contexts.
+          Displayed under a "Global" group in the dashboard.
+      Project:
+        usage: '"When a user opens membank in a new git repo, a Project is created
+          or matched by hashing the remote URL."'
+        related:
+        - term: Association
+          relationship: contains
+        definition: A first-class entity representing a working directory. Identified
+          by a hash of its git remote URL or absolute path. Has a human-readable name
+          auto-derived from the repo or directory name. A project has many memories;
+          a memory can belong to many projects.
+  Architecture:
+    terms:
+      DomainLayer:
+        definition: 'The innermost layer of a bounded context: pure entities, value
+          objects, and business policies. No Node-only imports. Lives in core/src/<context>/domain/.'
+        usage: A DomainLayer file in the Memory context defines the Memory entity
+          and its invariants without touching SQLite or any I/O.
+        related:
+        - term: ApplicationLayer
+          relationship: precedes
+        - term: InfrastructureLayer
+          relationship: precedes
+      ApplicationLayer:
+        definition: Orchestration layer that wires domain objects to ports. Owns use-cases.
+          Lives in core/src/<context>/application/. No direct infra imports.
+        usage: The ApplicationLayer's saveMemory use-case calls the MemoryRepository
+          port without knowing whether storage is SQLite or in-memory.
+        related:
+        - term: DomainLayer
+          relationship: depends on
+        - term: InfrastructureLayer
+          relationship: implemented by
+        - term: Port
+          relationship: depends on
+        - term: UseCase
+          relationship: contains
+      InfrastructureLayer:
+        definition: Adapter layer that implements ports against external systems (SQLite,
+          Hugging Face, Claude Agent SDK). The only layer where Node-only deps may
+          appear.
+        usage: The SQLite implementation of MemoryRepository lives in the InfrastructureLayer
+          of the Memory context.
+        related:
+        - term: ApplicationLayer
+          relationship: implements for
+        - term: Port
+          relationship: implements
+        - term: DomainLayer
+          relationship: depends on
+      Port:
+        definition: Interface declared in a context's ports.ts. Consumed by the ApplicationLayer;
+          implemented by InfrastructureLayer adapters or cross-context adapters.
+        usage: The Embedder Port is defined in the Embedding context; its HuggingFace
+          adapter is the InfrastructureLayer implementation.
+        related:
+        - term: ApplicationLayer
+          relationship: consumed by
+        - term: InfrastructureLayer
+          relationship: implemented by
+      UseCase:
+        definition: A single ApplicationLayer function that orchestrates one user-visible
+          operation. The unit of API surface exposed to PresentationPackages.
+        usage: saveMemory and runSynthesis are each a distinct UseCase; PresentationPackages
+          call them without touching domain internals.
+        related:
+        - term: ApplicationLayer
+          relationship: part of
+        - term: PresentationPackage
+          relationship: consumed by
+      PresentationPackage:
+        definition: One of cli, mcp, or dashboard. Calls UseCases; owns no business
+          logic. May not import from any infrastructure/ folder.
+        usage: The MCPServer PresentationPackage wires incoming tool calls to UseCases
+          and formats the response, never touching domain objects directly.
+        related:
+        - term: UseCase
+          relationship: calls
+        - term: InfrastructureLayer
+          relationship: forbidden from importing
+      LockedSurface:
+        definition: 'A public boundary that must remain byte-identical across the
+          core restructure: CLI commands, MCP tools, DB schema, and dashboard /api/*
+          routes.'
+        usage: Adding a new column to the memory table modifies a LockedSurface and
+          requires explicit agreement, not just a refactor PR.
+        related:
+        - term: PresentationPackage
+          relationship: exposed by
