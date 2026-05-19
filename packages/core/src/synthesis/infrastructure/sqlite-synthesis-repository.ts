@@ -1,8 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabaseManager } from "../../db/manager.js";
+import { rowToSynthesisVersion } from "../../persistence/infrastructure/row-types.js";
 import type { Synthesis } from "../../schemas.js";
 import { SynthesisSchema } from "../../schemas.js";
+import type { SynthesisVersionRow } from "../../types.js";
 import type { DirtyScope } from "../domain/synthesis-job.js";
+import type { SynthesisVersion } from "../domain/synthesis-version.js";
 import type { SynthesisRepository } from "../ports.js";
 
 interface SynthesisRow {
@@ -31,7 +34,12 @@ function rowToSynthesis(row: SynthesisRow): Synthesis {
   });
 }
 
+function isPlaceholderRow(row: { content: string; source_memory_hash: string }): boolean {
+  return row.content === "pending" && row.source_memory_hash === "";
+}
+
 const STALENESS_DAYS = 30;
+const MAX_SYNTHESIS_VERSIONS = 5;
 
 class SqliteSynthesisRepository implements SynthesisRepository {
   readonly #db: DatabaseManager;
@@ -44,21 +52,27 @@ class SqliteSynthesisRepository implements SynthesisRepository {
     const now = new Date().toISOString();
     const expiresAt = new Date(Date.now() + STALENESS_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-    const existing = this.#db.db
-      .prepare<[string], { id: string }>("SELECT id FROM syntheses WHERE scope = ?")
-      .get(scope);
+    const { id, createdAt } = this.#db.db.transaction(() => {
+      const existing = this.#db.db
+        .prepare<[string], SynthesisRow>("SELECT * FROM syntheses WHERE scope = ?")
+        .get(scope);
 
-    if (existing !== undefined) {
-      this.#db.db
-        .prepare(
-          `UPDATE syntheses
-           SET content = ?, source_memory_hash = ?, synthesized_at = ?, expires_at = ?,
-               in_flight_since = NULL, updated_at = ?
-           WHERE scope = ?`
-        )
-        .run(content, sourceHash, now, expiresAt, now, scope);
-    } else {
-      const id = randomUUID();
+      if (existing !== undefined) {
+        if (!isPlaceholderRow(existing)) {
+          this.#archiveCurrentSynthesis(scope);
+        }
+        this.#db.db
+          .prepare(
+            `UPDATE syntheses
+             SET content = ?, source_memory_hash = ?, synthesized_at = ?, expires_at = ?,
+                 in_flight_since = NULL, updated_at = ?
+             WHERE scope = ?`
+          )
+          .run(content, sourceHash, now, expiresAt, now, scope);
+        return { id: existing.id, createdAt: existing.created_at };
+      }
+
+      const newId = randomUUID();
       this.#db.db
         .prepare(
           `INSERT INTO syntheses
@@ -66,15 +80,78 @@ class SqliteSynthesisRepository implements SynthesisRepository {
               in_flight_since, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)`
         )
-        .run(id, scope, content, sourceHash, now, expiresAt, now, now);
-    }
+        .run(newId, scope, content, sourceHash, now, expiresAt, now, now);
+      return { id: newId, createdAt: now };
+    })();
 
+    return SynthesisSchema.parse({
+      id,
+      scope,
+      content,
+      sourceMemoryHash: sourceHash,
+      synthesizedAt: now,
+      expiresAt,
+      inFlightSince: null,
+      createdAt,
+      updatedAt: now,
+    });
+  }
+
+  listVersions(scope: string): SynthesisVersion[] {
+    const rows = this.#db.db
+      .prepare<[string], SynthesisVersionRow>(
+        `SELECT * FROM synthesis_versions WHERE scope = ? ORDER BY version DESC`
+      )
+      .all(scope);
+    return rows.map(rowToSynthesisVersion);
+  }
+
+  getVersion(scope: string, version: number): SynthesisVersion | undefined {
     const row = this.#db.db
-      .prepare<[string], SynthesisRow>("SELECT * FROM syntheses WHERE scope = ?")
-      .get(scope);
+      .prepare<[string, number], SynthesisVersionRow>(
+        `SELECT * FROM synthesis_versions WHERE scope = ? AND version = ?`
+      )
+      .get(scope, version);
+    return row !== undefined ? rowToSynthesisVersion(row) : undefined;
+  }
 
-    if (row === undefined) throw new Error(`Failed to save synthesis for scope: ${scope}`);
-    return rowToSynthesis(row);
+  #archiveCurrentSynthesis(scope: string): void {
+    const snapshot = this.#db.db
+      .prepare<
+        [string],
+        {
+          content: string;
+          source_memory_hash: string;
+          synthesized_at: string;
+          next_version: number;
+        }
+      >(
+        `SELECT s.content, s.source_memory_hash, s.synthesized_at,
+                COALESCE(MAX(v.version), 0) + 1 AS next_version
+         FROM syntheses s
+         LEFT JOIN synthesis_versions v ON v.scope = s.scope
+         WHERE s.scope = ?
+         GROUP BY s.scope`
+      )
+      .get(scope);
+    if (snapshot === undefined) return;
+
+    this.#db.db
+      .prepare(
+        `INSERT INTO synthesis_versions (scope, version, content, source_memory_hash, synthesized_at)
+         VALUES (?, ?, ?, ?, ?)`
+      )
+      .run(
+        scope,
+        snapshot.next_version,
+        snapshot.content,
+        snapshot.source_memory_hash,
+        snapshot.synthesized_at
+      );
+
+    this.#db.db
+      .prepare(`DELETE FROM synthesis_versions WHERE scope = ? AND version <= ?`)
+      .run(scope, snapshot.next_version - MAX_SYNTHESIS_VERSIONS);
   }
 
   getSynthesis(scope: string): Synthesis | undefined {
@@ -102,7 +179,6 @@ class SqliteSynthesisRepository implements SynthesisRepository {
         .prepare("UPDATE syntheses SET in_flight_since = ?, updated_at = ? WHERE scope = ?")
         .run(now, now, scope);
     } else {
-      // Create a placeholder row so in_flight_since is tracked before the first synthesis
       const id = randomUUID();
       const future = new Date(Date.now() + STALENESS_DAYS * 24 * 60 * 60 * 1000).toISOString();
       this.#db.db
@@ -159,7 +235,7 @@ class SqliteSynthesisRepository implements SynthesisRepository {
         .prepare<[string], SynthesisRow>("SELECT * FROM syntheses WHERE scope = ?")
         .get(scope);
 
-      if (row === undefined || (row.content === "pending" && row.source_memory_hash === "")) {
+      if (row === undefined || isPlaceholderRow(row)) {
         results.push({ scope, reason: "missing" });
         continue;
       }

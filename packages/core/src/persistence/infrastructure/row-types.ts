@@ -1,5 +1,6 @@
 import type { MemoryVersion } from "../../memory/domain/memory-version.js";
 import { MemoryTypeSchema, ReviewEventRowSchema, TagsJsonSchema } from "../../schemas.js";
+import type { SynthesisVersion } from "../../synthesis/domain/synthesis-version.js";
 import type {
   Memory,
   MemoryRow,
@@ -8,6 +9,7 @@ import type {
   ProjectRow,
   ReviewEvent,
   ReviewEventRow,
+  SynthesisVersionRow,
 } from "../../types.js";
 
 export function rowToMemory(
@@ -58,6 +60,16 @@ export function rowToMemoryVersion(row: MemoryVersionRow): MemoryVersion {
   return {
     version: row.version,
     content: row.content,
+    createdAt: row.created_at,
+  };
+}
+
+export function rowToSynthesisVersion(row: SynthesisVersionRow): SynthesisVersion {
+  return {
+    version: row.version,
+    content: row.content,
+    sourceMemoryHash: row.source_memory_hash,
+    synthesizedAt: row.synthesized_at,
     createdAt: row.created_at,
   };
 }

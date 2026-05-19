@@ -23,11 +23,14 @@ import { pinCommand } from "./commands/pin.js";
 import { queryCommand } from "./commands/query.js";
 import { reviewCommand } from "./commands/review.js";
 import { statsCommand } from "./commands/stats.js";
+import { synthesizeDiffCommand } from "./commands/synthesize/diff.js";
+import { synthesizeHistoryCommand } from "./commands/synthesize/history.js";
 import {
   synthesizeRunCommand,
   synthesizeShowCommand,
   synthesizeStatusCommand,
-} from "./commands/synthesize.js";
+} from "./commands/synthesize/index.js";
+import { synthesizeRevertCommand } from "./commands/synthesize/revert.js";
 import { unpinCommand } from "./commands/unpin.js";
 import { Formatter } from "./formatter.js";
 import { PromptHelper } from "./prompt-helper.js";
@@ -489,13 +492,20 @@ synthesizeCmd
 
 synthesizeCmd
   .command("show")
-  .description("display current synthesis for a scope")
+  .description("display current synthesis for a scope, or a specific archived version")
   .option("--scope <scope>", "scope to show (default: global)")
-  .action((cmdOptions: { scope?: string }) => {
+  .option("--version <n>", "show this archived version number instead of the active synthesis")
+  .action((cmdOptions: { scope?: string; version?: string }) => {
     const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
     const formatter = Formatter.create(globalOpts.json === true);
     try {
-      synthesizeShowCommand(cmdOptions, formatter);
+      synthesizeShowCommand(
+        {
+          ...(cmdOptions.scope !== undefined && { scope: cmdOptions.scope }),
+          ...(cmdOptions.version !== undefined && { version: Number(cmdOptions.version) }),
+        },
+        formatter
+      );
     } catch (err) {
       formatter.error(err instanceof Error ? err.message : String(err));
       process.exit(2);
@@ -510,6 +520,52 @@ synthesizeCmd
     const formatter = Formatter.create(globalOpts.json === true);
     try {
       synthesizeStatusCommand(formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+synthesizeCmd
+  .command("history")
+  .description("list archived synthesis versions for a scope")
+  .option("--scope <scope>", "scope to list history for (default: global)")
+  .action((cmdOptions: { scope?: string }) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    try {
+      synthesizeHistoryCommand(cmdOptions, formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+synthesizeCmd
+  .command("diff <v1> <v2>")
+  .description("show a line diff between two archived synthesis versions")
+  .option("--scope <scope>", "scope to diff (default: global)")
+  .action((v1: string, v2: string, cmdOptions: { scope?: string }) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    try {
+      synthesizeDiffCommand(Number(v1), Number(v2), cmdOptions, formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+synthesizeCmd
+  .command("revert <version>")
+  .description("revert the active synthesis to a previous archived version (records a new version)")
+  .option("--scope <scope>", "scope to revert (default: global)")
+  .action(async (version: string, cmdOptions: { scope?: string }) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    const prompt = new PromptHelper(globalOpts.yes === true);
+    try {
+      await synthesizeRevertCommand(Number(version), cmdOptions, formatter, prompt);
     } catch (err) {
       formatter.error(err instanceof Error ? err.message : String(err));
       process.exit(2);

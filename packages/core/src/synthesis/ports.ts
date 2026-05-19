@@ -1,5 +1,6 @@
 import type { Synthesis } from "../schemas.js";
 import type { DirtyScope } from "./domain/synthesis-job.js";
+import type { SynthesisVersion } from "./domain/synthesis-version.js";
 
 export interface SynthesisConfig {
   enabled: boolean;
@@ -27,6 +28,8 @@ export interface SynthesisRepository {
   saveSynthesis(scope: string, content: string, sourceHash: string): Synthesis;
   getSynthesis(scope: string): Synthesis | undefined;
   listAll(): Synthesis[];
+  listVersions(scope: string): SynthesisVersion[];
+  getVersion(scope: string, version: number): SynthesisVersion | undefined;
   markInFlight(scope: string): void;
   clearInFlight(scope: string): void;
   clearStaleInFlight(thresholdMs: number): void;

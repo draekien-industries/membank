@@ -129,7 +129,7 @@ describe("DatabaseManager", () => {
         .get();
 
       expect(row).not.toBeUndefined();
-      expect(row?.value).toBe("12");
+      expect(row?.value).toBe("13");
 
       mgr.close();
     });
@@ -147,8 +147,8 @@ describe("DatabaseManager", () => {
         .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
         .get();
 
-      expect(v1?.value).toBe("12");
-      expect(v2?.value).toBe("12");
+      expect(v1?.value).toBe("13");
+      expect(v2?.value).toBe("13");
 
       mgr1.close();
       mgr2.close();

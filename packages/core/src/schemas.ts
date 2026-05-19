@@ -132,6 +132,17 @@ export const MemoryVersionRowSchema = z.object({
 });
 export type MemoryVersionRow = z.infer<typeof MemoryVersionRowSchema>;
 
+export const SynthesisVersionRowSchema = z.object({
+  id: z.number(),
+  scope: z.string(),
+  version: z.number(),
+  content: z.string(),
+  source_memory_hash: z.string(),
+  synthesized_at: z.string(),
+  created_at: z.string(),
+});
+export type SynthesisVersionRow = z.infer<typeof SynthesisVersionRowSchema>;
+
 export const ProjectRowSchema = z.object({
   id: z.string(),
   name: z.string(),
