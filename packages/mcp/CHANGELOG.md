@@ -1,5 +1,20 @@
 # @membank/mcp
 
+## 0.16.0
+
+### Minor Changes
+
+- 58be30f: Added 5-version history with diff and revert for project syntheses.
+- e8ddcbc: Added versioned memory history: each content update now archives the previous content (up to 10 versions per memory), enabling history inspection, diffing, and revert via `membank memory history|show|diff|revert` CLI commands and the `list_memory_history` MCP tool.
+
+### Patch Changes
+
+- a0d8705: Fixed type errors raised by enabling exactOptionalPropertyTypes in tsconfig.
+- Updated dependencies [a0d8705]
+- Updated dependencies [58be30f]
+- Updated dependencies [e8ddcbc]
+  - @membank/core@0.14.0
+
 ## 0.15.0
 
 ### Minor Changes
