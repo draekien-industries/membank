@@ -1,4 +1,4 @@
-import { createSynthesisRepository, DatabaseManager } from "@membank/core";
+import { createSynthesisRepository, DatabaseManager, GLOBAL_PROJECT_NAME } from "@membank/core";
 import { diffLines } from "@membank/core/client";
 import chalk from "chalk";
 import type { Formatter } from "../../formatter.js";
@@ -12,7 +12,7 @@ export function synthesizeDiffCommand(
 ): void {
   const db = DatabaseManager.open();
   try {
-    const scope = opts.scope ?? "global";
+    const scope = opts.scope ?? GLOBAL_PROJECT_NAME;
     const resolvedScope = resolveScope(scope, db);
     const repo = createSynthesisRepository(db);
 

@@ -23,6 +23,7 @@ import {
   deleteManyMemories,
   deleteMemory,
   EmbeddingService,
+  GLOBAL_PROJECT_NAME,
   GLOBAL_SCOPE_HASH,
   isSynthesisEnabled,
   MEMORY_TYPE_VALUES,
@@ -211,7 +212,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
 async function scopeToProjectHash(
   scope: "current" | "global" | "all" | undefined
 ): Promise<string | undefined> {
-  if (scope === "global") return GLOBAL_SCOPE_HASH;
+  if (scope === GLOBAL_PROJECT_NAME) return GLOBAL_SCOPE_HASH;
   if (scope === "all") return undefined;
   return (await resolveProject()).hash;
 }
@@ -856,7 +857,7 @@ export function createServer(core: CoreServices): Server {
 
     if (request.params.name === "list_synthesis_history") {
       const args = parseArgs(ListSynthesisHistoryArgsSchema, request.params.arguments);
-      const scope = args.scope === "global" ? GLOBAL_SCOPE_HASH : args.scope;
+      const scope = args.scope === GLOBAL_PROJECT_NAME ? GLOBAL_SCOPE_HASH : args.scope;
       const versions = core.synthRepo.listVersions(scope);
       return { content: [{ type: "text", text: JSON.stringify(versions) }] };
     }

@@ -2,6 +2,7 @@ import {
   createProjectRepository,
   createSynthesisRepository,
   DatabaseManager,
+  GLOBAL_PROJECT_NAME,
   GLOBAL_SCOPE_HASH,
 } from "@membank/core";
 import { runSynthesis } from "@membank/mcp";
@@ -12,7 +13,7 @@ export async function synthesizeRunCommand(
   opts: { scope?: string },
   formatter: Formatter
 ): Promise<void> {
-  const scope = opts.scope ?? "global";
+  const scope = opts.scope ?? GLOBAL_PROJECT_NAME;
   if (!formatter.isJson) {
     process.stdout.write(`Running synthesis for scope: ${scope}\n`);
   }
@@ -30,7 +31,7 @@ export function synthesizeShowCommand(
 ): void {
   const db = DatabaseManager.open();
   try {
-    const scope = opts.scope ?? "global";
+    const scope = opts.scope ?? GLOBAL_PROJECT_NAME;
     const resolvedScope = resolveScope(scope, db);
     const repo = createSynthesisRepository(db);
 
@@ -103,7 +104,8 @@ export function synthesizeStatusCommand(formatter: Formatter): void {
     process.stdout.write("\n");
     for (const s of syntheses) {
       const project = s.scope !== GLOBAL_SCOPE_HASH ? projectRepo.getByHash(s.scope) : undefined;
-      const displayScope = project?.name ?? (s.scope === GLOBAL_SCOPE_HASH ? "global" : s.scope);
+      const displayScope =
+        project?.name ?? (s.scope === GLOBAL_SCOPE_HASH ? GLOBAL_PROJECT_NAME : s.scope);
       const inFlight = s.inFlightSince !== null ? " [in-flight]" : "";
       const synthesized = new Date(s.synthesizedAt).toLocaleString();
       const expires = new Date(s.expiresAt).toLocaleString();

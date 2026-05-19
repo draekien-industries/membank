@@ -1,4 +1,4 @@
-import { diffLines } from "@membank/core/client";
+import { diffLines, GLOBAL_PROJECT_NAME } from "@membank/core/client";
 import { ArrowsClockwise, Lightning, WarningCircle } from "@phosphor-icons/react";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useCallback, useMemo, useState } from "react";
@@ -636,7 +636,7 @@ function SessionContextPanel({
             <XmlOpen tag="pinned-memories" />
             {pinnedGlobal.length > 0 && (
               <div className="space-y-0.5">
-                <ScopeLabel label="global" count={pinnedGlobal.length} />
+                <ScopeLabel label={GLOBAL_PROJECT_NAME} count={pinnedGlobal.length} />
                 {pinnedGlobal.map((m) => (
                   <MemoryLine key={m.id} memory={m} />
                 ))}

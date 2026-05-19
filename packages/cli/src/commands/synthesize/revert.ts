@@ -1,4 +1,9 @@
-import { createSynthesisRepository, DatabaseManager, revertSynthesis } from "@membank/core";
+import {
+  createSynthesisRepository,
+  DatabaseManager,
+  GLOBAL_PROJECT_NAME,
+  revertSynthesis,
+} from "@membank/core";
 import chalk from "chalk";
 import type { Formatter } from "../../formatter.js";
 import type { PromptHelper } from "../../prompt-helper.js";
@@ -12,7 +17,7 @@ export async function synthesizeRevertCommand(
 ): Promise<void> {
   const db = DatabaseManager.open();
   try {
-    const scope = opts.scope ?? "global";
+    const scope = opts.scope ?? GLOBAL_PROJECT_NAME;
     const resolvedScope = resolveScope(scope, db);
     const repo = createSynthesisRepository(db);
 

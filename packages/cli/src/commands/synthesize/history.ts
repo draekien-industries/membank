@@ -1,4 +1,4 @@
-import { createSynthesisRepository, DatabaseManager } from "@membank/core";
+import { createSynthesisRepository, DatabaseManager, GLOBAL_PROJECT_NAME } from "@membank/core";
 import chalk from "chalk";
 import Table from "cli-table3";
 import type { Formatter } from "../../formatter.js";
@@ -11,7 +11,7 @@ function truncate(str: string, max: number): string {
 export function synthesizeHistoryCommand(opts: { scope?: string }, formatter: Formatter): void {
   const db = DatabaseManager.open();
   try {
-    const scope = opts.scope ?? "global";
+    const scope = opts.scope ?? GLOBAL_PROJECT_NAME;
     const resolvedScope = resolveScope(scope, db);
     const versions = createSynthesisRepository(db).listVersions(resolvedScope);
 
