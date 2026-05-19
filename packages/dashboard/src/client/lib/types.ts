@@ -114,3 +114,9 @@ export interface ActivityEventFilter {
   since?: string;
   limit?: number;
 }
+
+export interface MemoryVersion {
+  version: number;
+  content: string;
+  createdAt: string;
+}

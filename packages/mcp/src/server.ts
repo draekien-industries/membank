@@ -50,6 +50,7 @@ import {
   DeleteMemoryArgsSchema,
   GetMemorySummaryArgsSchema,
   ListFlaggedMemoriesArgsSchema,
+  ListMemoryHistoryArgsSchema,
   MergeMemoriesArgsSchema,
   PinMemoryArgsSchema,
   QueryMemoryArgsSchema,
@@ -475,6 +476,21 @@ export function createServer(core: CoreServices): Server {
           required: ["keep_id", "drop_ids", "merged_content"],
         },
       },
+      {
+        name: "list_memory_history",
+        description:
+          "List the version history of a memory. Returns up to 10 past content snapshots in descending version order. To revert, call update_memory with the content from the desired version.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+              description: "Memory ID to retrieve version history for",
+            },
+          },
+          required: ["id"],
+        },
+      },
     ],
   }));
 
@@ -810,6 +826,12 @@ export function createServer(core: CoreServices): Server {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: message }], isError: true };
       }
+    }
+
+    if (request.params.name === "list_memory_history") {
+      const args = parseArgs(ListMemoryHistoryArgsSchema, request.params.arguments);
+      const versions = core.repo.listVersions(args.id);
+      return { content: [{ type: "text", text: JSON.stringify(versions) }] };
     }
 
     throw new Error(`Unknown tool: ${request.params.name}`);

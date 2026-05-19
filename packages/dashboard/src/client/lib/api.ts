@@ -5,6 +5,7 @@ import type {
   Filters,
   Memory,
   MemoryType,
+  MemoryVersion,
   Project,
   ProjectStats,
   Stats,
@@ -112,6 +113,18 @@ export function getProjectActivity(projectId: string, days?: number): Promise<Ac
 export function getGlobalActivity(days?: number): Promise<ActivityDay[]> {
   const qs = days !== undefined ? `?days=${days}` : "";
   return request<ActivityDay[]>(`/activity${qs}`);
+}
+
+export function getMemoryHistory(memoryId: string): Promise<MemoryVersion[]> {
+  return request<MemoryVersion[]>(`/memories/${memoryId}/history`);
+}
+
+export function revertMemoryToVersion(memoryId: string, version: number): Promise<Memory> {
+  return request<Memory>(`/memories/${memoryId}/revert`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ version }),
+  });
 }
 
 export function getActivityEvents(filter: ActivityEventFilter): Promise<ActivityEvent[]> {

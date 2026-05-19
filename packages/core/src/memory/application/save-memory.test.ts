@@ -81,6 +81,8 @@ function makeFakeRepo(
     incrementAccessCount: () => {},
     exportAll: () => [],
     importAll: () => {},
+    listVersions: () => [],
+    getVersion: () => undefined,
   };
 }
 

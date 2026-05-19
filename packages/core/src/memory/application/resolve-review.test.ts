@@ -37,6 +37,8 @@ function makeFakeRepo(): MemoryRepository & { resolveCalls: string[] } {
     incrementAccessCount: () => {},
     exportAll: () => [],
     importAll: () => {},
+    listVersions: () => [],
+    getVersion: () => undefined,
   };
 }
 

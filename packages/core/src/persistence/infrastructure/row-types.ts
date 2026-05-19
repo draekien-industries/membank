@@ -1,7 +1,9 @@
+import type { MemoryVersion } from "../../memory/domain/memory-version.js";
 import { MemoryTypeSchema, ReviewEventRowSchema, TagsJsonSchema } from "../../schemas.js";
 import type {
   Memory,
   MemoryRow,
+  MemoryVersionRow,
   Project,
   ProjectRow,
   ReviewEvent,
@@ -49,5 +51,13 @@ export function rowToProject(row: ProjectRow): Project {
     scopeHash: row.scope_hash,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+export function rowToMemoryVersion(row: MemoryVersionRow): MemoryVersion {
+  return {
+    version: row.version,
+    content: row.content,
+    createdAt: row.created_at,
   };
 }

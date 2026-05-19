@@ -30,6 +30,7 @@ import {
   isSynthesisEnabled,
   listEvents,
   QueryEngine,
+  revertMemory,
   runSynthesis,
   updateMemory,
 } from "@membank/core";
@@ -171,6 +172,22 @@ export function createApiApp(
   app.delete("/api/memories/:id", async (c) => {
     await deleteMemory(c.req.param("id"), repo, activityLogger);
     return c.json({ ok: true });
+  });
+
+  app.get("/api/memories/:id/history", (c) => {
+    return c.json(repo.listVersions(c.req.param("id")));
+  });
+
+  app.post("/api/memories/:id/revert", async (c) => {
+    const id = c.req.param("id");
+    const body = await c.req.json<{ version: number }>();
+    try {
+      const updated = await revertMemory(id, body.version, { repo, embedder, activityLogger });
+      return c.json(updated);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return c.json({ error: message }, 404);
+    }
   });
 
   app.post("/api/memories/:id/projects", async (c) => {

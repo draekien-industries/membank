@@ -6,8 +6,10 @@ export type { MergeMemoriesResult } from "./application/merge-memories.js";
 export { mergeMemories } from "./application/merge-memories.js";
 export { resolveReview } from "./application/resolve-review.js";
 export { resolveReviewMany } from "./application/resolve-review-many.js";
+export { revertMemory } from "./application/revert-memory.js";
 export { saveMemory } from "./application/save-memory.js";
 export { updateMemory } from "./application/update-memory.js";
+export type { MemoryVersion } from "./domain/memory-version.js";
 export { isOverBudget, PIN_BUDGET_THRESHOLD } from "./domain/pin-budget.js";
 export {
   createMemoryRepository,

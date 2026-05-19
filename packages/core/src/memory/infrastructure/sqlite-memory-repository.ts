@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseManager } from "../../db/manager.js";
-import { rowToMemory, rowToReviewEvent } from "../../persistence/infrastructure/row-types.js";
+import {
+  rowToMemory,
+  rowToMemoryVersion,
+  rowToReviewEvent,
+} from "../../persistence/infrastructure/row-types.js";
 import { GLOBAL_PROJECT_NAME, GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type { ProjectRepository } from "../../project/ports.js";
-import type { MemoryRow, ReviewEventRow } from "../../schemas.js";
+import type { MemoryRow, MemoryVersionRow, ReviewEventRow } from "../../schemas.js";
 import {
   MEMORY_TYPE_VALUES,
   MemoryPatchSchema,
@@ -13,6 +17,7 @@ import {
   TagsJsonSchema,
 } from "../../schemas.js";
 import type { Memory, MemoryPatch, MemoryType } from "../domain/memory.js";
+import type { MemoryVersion } from "../domain/memory-version.js";
 import type { ReviewEvent } from "../domain/review-event.js";
 import type {
   CreateMemoryOpts,
@@ -23,6 +28,8 @@ import type {
   SimilarMemoryResult,
   StatsResult,
 } from "../ports.js";
+
+const MAX_VERSIONS = 10;
 
 interface SimilarityRow extends MemoryRow {
   rowid: number;
@@ -107,9 +114,12 @@ export class SqliteMemoryRepository implements MemoryRepository {
     const now = new Date().toISOString();
     const embeddingBlob = Buffer.from(embedding.buffer);
 
-    this.#db.db
-      .prepare(`UPDATE memories SET content = ?, updated_at = ? WHERE id = ?`)
-      .run(content, now, id);
+    this.#db.db.transaction(() => {
+      this.#archiveCurrentContent(id);
+      this.#db.db
+        .prepare(`UPDATE memories SET content = ?, updated_at = ? WHERE id = ?`)
+        .run(content, now, id);
+    })();
 
     const rowid = this.#db.db
       .prepare<[string], { rowid: number }>(`SELECT rowid FROM memories WHERE id = ?`)
@@ -188,7 +198,10 @@ export class SqliteMemoryRepository implements MemoryRepository {
     }
 
     values.push(id);
-    this.#db.db.prepare(`UPDATE memories SET ${sets.join(", ")} WHERE id = ?`).run(...values);
+    this.#db.db.transaction(() => {
+      if (content !== undefined) this.#archiveCurrentContent(id);
+      this.#db.db.prepare(`UPDATE memories SET ${sets.join(", ")} WHERE id = ?`).run(...values);
+    })();
 
     if (embedding !== undefined) {
       const embeddingBlob = Buffer.from(embedding.buffer);
@@ -664,6 +677,49 @@ export class SqliteMemoryRepository implements MemoryRepository {
       SELECT 1 FROM memory_projects mp JOIN projects p ON p.id = mp.project_id
       WHERE mp.memory_id = ${tableAlias}.id AND (p.scope_hash = ? OR p.scope_hash = '${GLOBAL_SCOPE_HASH}')
     )`;
+  }
+
+  listVersions(memoryId: string): MemoryVersion[] {
+    const rows = this.#db.db
+      .prepare<[string], MemoryVersionRow>(
+        `SELECT * FROM memory_versions WHERE memory_id = ? ORDER BY version DESC`
+      )
+      .all(memoryId);
+    return rows.map(rowToMemoryVersion);
+  }
+
+  getVersion(memoryId: string, version: number): MemoryVersion | undefined {
+    const row = this.#db.db
+      .prepare<[string, number], MemoryVersionRow>(
+        `SELECT * FROM memory_versions WHERE memory_id = ? AND version = ?`
+      )
+      .get(memoryId, version);
+    return row !== undefined ? rowToMemoryVersion(row) : undefined;
+  }
+
+  #archiveCurrentContent(id: string): void {
+    const snapshot = this.#db.db
+      .prepare<[string], { content: string; next_version: number }>(
+        `SELECT m.content, COALESCE(MAX(v.version), 0) + 1 AS next_version
+         FROM memories m
+         LEFT JOIN memory_versions v ON v.memory_id = m.id
+         WHERE m.id = ?
+         GROUP BY m.id`
+      )
+      .get(id);
+    if (snapshot === undefined) return;
+
+    this.#db.db
+      .prepare(`INSERT INTO memory_versions (memory_id, version, content) VALUES (?, ?, ?)`)
+      .run(id, snapshot.next_version, snapshot.content);
+
+    this.#db.db
+      .prepare(
+        `DELETE FROM memory_versions WHERE memory_id = ? AND version <= (
+           SELECT MAX(version) - ${MAX_VERSIONS} FROM memory_versions WHERE memory_id = ?
+         )`
+      )
+      .run(id, id);
   }
 
   #getEventsForMemories(

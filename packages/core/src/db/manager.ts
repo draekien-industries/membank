@@ -309,6 +309,21 @@ COMMIT;
 PRAGMA foreign_keys = ON;
 `,
   ],
+  [
+    12,
+    `
+CREATE TABLE memory_versions (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  memory_id   TEXT    NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+  version     INTEGER NOT NULL,
+  content     TEXT    NOT NULL,
+  created_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (memory_id, version)
+);
+
+CREATE INDEX idx_memory_versions_memory_id ON memory_versions(memory_id, version DESC);
+`,
+  ],
 ];
 
 export class DatabaseManager {
