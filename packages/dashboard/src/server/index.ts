@@ -31,6 +31,7 @@ import {
   listEvents,
   QueryEngine,
   revertMemory,
+  revertSynthesis,
   runSynthesis,
   updateMemory,
 } from "@membank/core";
@@ -244,6 +245,26 @@ export function createApiApp(
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
     synthRepo.clearInFlight(project.scopeHash);
+    return c.json({ ok: true });
+  });
+
+  app.get("/api/projects/:id/synthesis/history", (c) => {
+    const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
+    if (!project) return c.json({ error: "Not found" }, 404);
+    return c.json(synthRepo.listVersions(project.scopeHash));
+  });
+
+  app.post("/api/projects/:id/synthesis/revert", async (c) => {
+    const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
+    if (!project) return c.json({ error: "Not found" }, 404);
+    const body = await c.req.json<{ version?: unknown }>();
+    const version = typeof body.version === "number" ? body.version : NaN;
+    if (Number.isNaN(version)) return c.json({ error: "version must be a number" }, 400);
+    try {
+      revertSynthesis(project.scopeHash, version, synthRepo);
+    } catch {
+      return c.json({ error: "Version not found" }, 404);
+    }
     return c.json({ ok: true });
   });
 
