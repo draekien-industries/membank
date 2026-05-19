@@ -14,6 +14,10 @@ import { extractCommand } from "./commands/extract.js";
 import { importCommand } from "./commands/import.js";
 import { injectCommand } from "./commands/inject.js";
 import { listCommand } from "./commands/list.js";
+import { memoryDiffCommand } from "./commands/memory/diff.js";
+import { memoryHistoryCommand } from "./commands/memory/history.js";
+import { memoryRevertCommand } from "./commands/memory/revert.js";
+import { memoryShowCommand } from "./commands/memory/show.js";
 import { migrateCommand } from "./commands/migrate.js";
 import { pinCommand } from "./commands/pin.js";
 import { queryCommand } from "./commands/query.js";
@@ -506,6 +510,72 @@ synthesizeCmd
     const formatter = Formatter.create(globalOpts.json === true);
     try {
       synthesizeStatusCommand(formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+const memoryCmd = program.command("memory").description("view and manage memory version history");
+
+memoryCmd
+  .command("history <id>")
+  .description("list version history for a memory")
+  .action((id: string) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    const db = DatabaseManager.open();
+    try {
+      memoryHistoryCommand(id, db, formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+memoryCmd
+  .command("show <id>")
+  .description("show content of a memory, optionally at a specific version")
+  .option("--version <n>", "show this version number instead of current content")
+  .action((id: string, cmdOptions: { version?: string }) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    const db = DatabaseManager.open();
+    try {
+      memoryShowCommand(id, db, formatter, {
+        ...(cmdOptions.version !== undefined && { version: Number(cmdOptions.version) }),
+      });
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+memoryCmd
+  .command("diff <id> <v1> <v2>")
+  .description("show a line diff between two versions of a memory")
+  .action((id: string, v1: string, v2: string) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    const db = DatabaseManager.open();
+    try {
+      memoryDiffCommand(id, Number(v1), Number(v2), db, formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+memoryCmd
+  .command("revert <id> <version>")
+  .description("revert a memory to a previous version (records the revert as a new version)")
+  .action(async (id: string, version: string) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    const db = DatabaseManager.open();
+    const prompt = new PromptHelper(globalOpts.yes === true);
+    try {
+      await memoryRevertCommand(id, Number(version), db, formatter, prompt);
     } catch (err) {
       formatter.error(err instanceof Error ? err.message : String(err));
       process.exit(2);

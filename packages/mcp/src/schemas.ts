@@ -91,3 +91,7 @@ export const MergeMemoriesArgsSchema = z.object({
   drop_ids: z.array(z.string().min(1)).min(1).max(20),
   merged_content: z.string().min(1),
 });
+
+export const ListMemoryHistoryArgsSchema = z.object({
+  id: z.string().min(1).describe("Memory ID to retrieve version history for"),
+});

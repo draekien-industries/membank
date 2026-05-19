@@ -1,4 +1,5 @@
 import type { Memory, MemoryPatch, MemoryType } from "./domain/memory.js";
+import type { MemoryVersion } from "./domain/memory-version.js";
 import type { ReviewEvent } from "./domain/review-event.js";
 
 export interface SimilarMemoryResult {
@@ -101,6 +102,8 @@ export interface MemoryRepository {
   incrementAccessCount(id: string): void;
   exportAll(): MemoryExportRecord[];
   importAll(records: MemoryExportRecord[]): void;
+  listVersions(memoryId: string): MemoryVersion[];
+  getVersion(memoryId: string, version: number): MemoryVersion | undefined;
 }
 
 export interface Embedder {

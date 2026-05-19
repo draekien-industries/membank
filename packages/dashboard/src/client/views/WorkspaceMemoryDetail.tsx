@@ -6,13 +6,21 @@ import * as z from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { useMemoryHistory } from "@/hooks/useMemoryHistory";
 import { useWorkspaceMemoryDetail } from "@/hooks/useWorkspaceMemoryDetail";
 import { memoriesCollection } from "@/lib/collections";
-import type { Memory, MemoryType } from "@/lib/types";
+import type { Memory, MemoryType, MemoryVersion } from "@/lib/types";
 import { MEMORY_TYPES, TYPE_DESCRIPTIONS } from "@/lib/types";
 import { capitalize } from "@/lib/utils";
 import { Route as WorkspaceRoute } from "@/routes/$projectId";
@@ -22,6 +30,95 @@ const memoryFormSchema = z.object({
   type: z.enum(MEMORY_TYPES),
   tagsInput: z.string(),
 });
+
+interface RevertDialogProps {
+  version: MemoryVersion;
+  reverting: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}
+
+function RevertDialog({ version, reverting, onConfirm, onClose }: RevertDialogProps) {
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Revert to version {version.version}?</DialogTitle>
+      </DialogHeader>
+      <p className="text-xs text-muted-foreground">
+        The current content will be archived as a new version before restoring this snapshot.
+      </p>
+      <pre className="text-[11px] font-mono whitespace-pre-wrap rounded border border-border bg-muted px-2 py-1.5 max-h-40 overflow-y-auto">
+        {version.content}
+      </pre>
+      <DialogFooter>
+        <Button variant="outline" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="default" size="sm" disabled={reverting} onClick={onConfirm}>
+          {reverting ? "Reverting…" : "Revert"}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+interface MemoryHistorySectionProps {
+  memoryId: string;
+}
+
+function MemoryHistorySection({ memoryId }: MemoryHistorySectionProps) {
+  const { versions, isLoading, reverting, revert } = useMemoryHistory(memoryId);
+  const [selected, setSelected] = useState<MemoryVersion | null>(null);
+
+  const handleConfirm = async () => {
+    if (!selected) return;
+    const ok = await revert(selected.version);
+    if (ok) setSelected(null);
+  };
+
+  if (!isLoading && versions.length === 0) return null;
+
+  return (
+    <Dialog open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
+      <Collapsible className="group pt-2 border-t border-border">
+        <CollapsibleTrigger className="flex items-center gap-1 cursor-pointer text-[11px] uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors select-none w-full">
+          <span className="transition-transform group-data-[open]:rotate-90">›</span>
+          History{versions.length > 0 ? ` (${versions.length})` : ""}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-1 mt-2">
+          {isLoading ? (
+            <p className="text-[11px] font-mono text-muted-foreground">Loading…</p>
+          ) : (
+            versions.map((v) => (
+              <button
+                key={v.version}
+                type="button"
+                className="w-full text-left rounded border border-border px-2 py-1.5 space-y-0.5 hover:bg-muted transition-colors"
+                onClick={() => setSelected(v)}
+              >
+                <div className="flex justify-between text-[11px] font-mono text-muted-foreground">
+                  <span className="font-medium text-foreground">v{v.version}</span>
+                  <span>{new Date(v.createdAt).toLocaleString()}</span>
+                </div>
+                <p className="text-[11px] font-mono text-muted-foreground truncate">
+                  {v.content.slice(0, 80)}
+                </p>
+              </button>
+            ))
+          )}
+        </CollapsibleContent>
+      </Collapsible>
+      {selected !== null && (
+        <RevertDialog
+          version={selected}
+          reverting={reverting}
+          onConfirm={() => void handleConfirm()}
+          onClose={() => setSelected(null)}
+        />
+      )}
+    </Dialog>
+  );
+}
 
 interface FormFieldProps {
   field: {
@@ -321,6 +418,8 @@ export function WorkspaceMemoryDetailForm({
             </div>
           </CollapsibleContent>
         </Collapsible>
+
+        <MemoryHistorySection memoryId={memory.id} />
       </div>
 
       <div className="flex items-center gap-2 px-4 py-3 border-t border-border shrink-0">
