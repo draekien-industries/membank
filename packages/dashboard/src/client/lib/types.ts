@@ -120,3 +120,11 @@ export interface MemoryVersion {
   content: string;
   createdAt: string;
 }
+
+export type SynthesisVersion = {
+  version: number;
+  content: string;
+  sourceMemoryHash: string;
+  synthesizedAt: string;
+  createdAt: string;
+};

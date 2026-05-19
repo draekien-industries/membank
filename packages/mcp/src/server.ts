@@ -9,6 +9,7 @@ import type {
   ProjectRepository,
   Querier,
   SynthesisConfig,
+  SynthesisRepository,
   SynthesisTools,
 } from "@membank/core";
 import {
@@ -22,6 +23,7 @@ import {
   deleteManyMemories,
   deleteMemory,
   EmbeddingService,
+  GLOBAL_PROJECT_NAME,
   GLOBAL_SCOPE_HASH,
   isSynthesisEnabled,
   MEMORY_TYPE_VALUES,
@@ -51,6 +53,7 @@ import {
   GetMemorySummaryArgsSchema,
   ListFlaggedMemoriesArgsSchema,
   ListMemoryHistoryArgsSchema,
+  ListSynthesisHistoryArgsSchema,
   MergeMemoriesArgsSchema,
   PinMemoryArgsSchema,
   QueryMemoryArgsSchema,
@@ -71,6 +74,7 @@ export interface CoreServices {
   query: Querier;
   projects: ProjectRepository;
   activityLogger: ActivityLogger;
+  synthRepo: SynthesisRepository;
   synthEngine?: SynthesisEngine;
 }
 
@@ -184,11 +188,11 @@ export function initCore(options: ServerOptions = {}): CoreServices {
   const activityLogger = createActivityLogger(db);
   const query = new QueryEngine(db, embedding, repo, activityLogger);
 
+  const synthRepo = createSynthesisRepository(db);
   const synthConfig = loadSynthesisConfig();
   let synthEngine: SynthesisEngine | undefined;
 
   if (synthConfig.enabled) {
-    const synthRepo = createSynthesisRepository(db);
     const agentRunner = createSynthesisAgentRunner(buildSynthesisTools(repo, query), synthConfig);
     synthEngine = new SynthesisEngine(synthRepo, synthConfig, agentRunner);
   }
@@ -200,6 +204,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
     query,
     projects,
     activityLogger,
+    synthRepo,
     ...(synthEngine !== undefined && { synthEngine }),
   };
 }
@@ -207,7 +212,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
 async function scopeToProjectHash(
   scope: "current" | "global" | "all" | undefined
 ): Promise<string | undefined> {
-  if (scope === "global") return GLOBAL_SCOPE_HASH;
+  if (scope === GLOBAL_PROJECT_NAME) return GLOBAL_SCOPE_HASH;
   if (scope === "all") return undefined;
   return (await resolveProject()).hash;
 }
@@ -489,6 +494,22 @@ export function createServer(core: CoreServices): Server {
             },
           },
           required: ["id"],
+        },
+      },
+      {
+        name: "list_synthesis_history",
+        description:
+          "List the version history of a synthesis. Returns up to 5 past synthesis snapshots in descending version order. To revert, use the CLI: membank synthesize revert <version>.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            scope: {
+              type: "string",
+              description:
+                'Scope to retrieve history for. Use "global" for global scope or a 16-char hex scope hash.',
+            },
+          },
+          required: ["scope"],
         },
       },
     ],
@@ -831,6 +852,13 @@ export function createServer(core: CoreServices): Server {
     if (request.params.name === "list_memory_history") {
       const args = parseArgs(ListMemoryHistoryArgsSchema, request.params.arguments);
       const versions = core.repo.listVersions(args.id);
+      return { content: [{ type: "text", text: JSON.stringify(versions) }] };
+    }
+
+    if (request.params.name === "list_synthesis_history") {
+      const args = parseArgs(ListSynthesisHistoryArgsSchema, request.params.arguments);
+      const scope = args.scope === GLOBAL_PROJECT_NAME ? GLOBAL_SCOPE_HASH : args.scope;
+      const versions = core.synthRepo.listVersions(scope);
       return { content: [{ type: "text", text: JSON.stringify(versions) }] };
     }
 

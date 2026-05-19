@@ -95,3 +95,12 @@ export const MergeMemoriesArgsSchema = z.object({
 export const ListMemoryHistoryArgsSchema = z.object({
   id: z.string().min(1).describe("Memory ID to retrieve version history for"),
 });
+
+export const ListSynthesisHistoryArgsSchema = z.object({
+  scope: z
+    .string()
+    .min(1)
+    .describe(
+      'Scope to retrieve synthesis history for. Use "global" for global scope, a project name, or a 16-char hex scope hash.'
+    ),
+});

@@ -1,14 +1,24 @@
+import { diffLines, GLOBAL_PROJECT_NAME } from "@membank/core/client";
 import { ArrowsClockwise, Lightning, WarningCircle } from "@phosphor-icons/react";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { useProjectSynthesis } from "@/hooks/useProjectSynthesis";
+import { useSynthesisHistory } from "@/hooks/useSynthesisHistory";
 import { memoriesCollection } from "@/lib/collections";
 import { typeColorVariants } from "@/lib/typeColors";
-import type { Memory, MemoryType, Project, Synthesis } from "@/lib/types";
+import type { Memory, MemoryType, Project, Synthesis, SynthesisVersion } from "@/lib/types";
 import { MEMORY_TYPES, SYNTHESIS_PENDING } from "@/lib/types";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import {
@@ -110,6 +120,200 @@ function InFlightIndicator({
   );
 }
 
+type SynthesisRevertDialogProps = {
+  version: SynthesisVersion;
+  reverting: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+};
+
+function SynthesisRevertDialogContent({
+  version,
+  reverting,
+  onConfirm,
+  onClose,
+}: SynthesisRevertDialogProps) {
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Revert synthesis to version {version.version}?</DialogTitle>
+      </DialogHeader>
+      <p className="text-xs text-muted-foreground">
+        The active synthesis will be archived as a new version before restoring this snapshot.
+      </p>
+      <pre className="text-[11px] font-mono whitespace-pre-wrap rounded border border-border bg-muted px-2 py-1.5 max-h-40 overflow-y-auto">
+        {version.content}
+      </pre>
+      <DialogFooter>
+        <Button variant="outline" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="default" size="sm" disabled={reverting} onClick={onConfirm}>
+          {reverting ? "Reverting…" : "Revert"}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+type SynthesisDiffDialogProps = {
+  a: SynthesisVersion;
+  b: SynthesisVersion;
+  onClose: () => void;
+};
+
+function SynthesisDiffDialogContent({ a, b, onClose }: SynthesisDiffDialogProps) {
+  const entries = diffLines(a.content, b.content).map((entry, pos) => ({ ...entry, pos }));
+  return (
+    <DialogContent className="max-w-2xl">
+      <DialogHeader>
+        <DialogTitle>
+          Compare v{a.version} → v{b.version}
+        </DialogTitle>
+      </DialogHeader>
+      <ScrollArea className="max-h-[60vh]">
+        <pre className="text-[11px] font-mono leading-relaxed">
+          {entries.map((entry) => (
+            <div
+              key={entry.pos}
+              className={cn(
+                "px-2",
+                entry.kind === "added" &&
+                  "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+                entry.kind === "removed" && "bg-rose-500/10 text-rose-700 dark:text-rose-400",
+                entry.kind === "context" && "text-muted-foreground"
+              )}
+            >
+              {entry.kind === "added" ? "+ " : entry.kind === "removed" ? "- " : "  "}
+              {entry.line}
+            </div>
+          ))}
+        </pre>
+      </ScrollArea>
+      <DialogFooter>
+        <Button variant="outline" size="sm" onClick={onClose}>
+          Close
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function SynthesisHistorySection({ projectId }: { projectId: string }) {
+  const { versions, isLoading, reverting, revert } = useSynthesisHistory(projectId);
+  const [revertTarget, setRevertTarget] = useState<SynthesisVersion | null>(null);
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareVersions, setCompareVersions] = useState<SynthesisVersion[]>([]);
+
+  if (!isLoading && versions.length === 0) return null;
+
+  const diffA = compareVersions[0];
+  const diffB = compareVersions[1];
+  const hasDiffPair = diffA !== undefined && diffB !== undefined;
+
+  const handleRowClick = (v: SynthesisVersion) => {
+    if (compareMode) {
+      setCompareVersions((prev) => {
+        if (prev.some((x) => x.version === v.version)) {
+          return prev.filter((x) => x.version !== v.version);
+        }
+        const next = [...prev, v];
+        return next.length > 2 ? next.slice(-2) : next;
+      });
+    } else {
+      setRevertTarget(v);
+    }
+  };
+
+  const exitCompare = () => {
+    setCompareMode(false);
+    setCompareVersions([]);
+  };
+
+  const handleRevertConfirm = async () => {
+    if (!revertTarget) return;
+    const ok = await revert(revertTarget.version);
+    if (ok) setRevertTarget(null);
+  };
+
+  return (
+    <>
+      <Dialog open={revertTarget !== null} onOpenChange={(open) => !open && setRevertTarget(null)}>
+        <Collapsible className="group pt-1.5 border-t border-border/50">
+          <div className="flex items-center justify-between">
+            <CollapsibleTrigger className="flex items-center gap-1 cursor-pointer text-[11px] uppercase tracking-wide text-muted-foreground/60 hover:text-muted-foreground transition-colors select-none">
+              <span className="transition-transform group-data-[open]:rotate-90">›</span>
+              History{versions.length > 0 ? ` (${versions.length})` : ""}
+            </CollapsibleTrigger>
+            {versions.length >= 2 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (compareMode) {
+                    exitCompare();
+                  } else {
+                    setCompareMode(true);
+                  }
+                }}
+                className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+              >
+                {compareMode ? "Cancel" : "Compare"}
+              </button>
+            )}
+          </div>
+          <CollapsibleContent className="space-y-1 mt-1.5">
+            {isLoading ? (
+              <p className="text-[11px] text-muted-foreground">Loading…</p>
+            ) : (
+              <>
+                {versions.map((v) => (
+                  <button
+                    key={v.version}
+                    type="button"
+                    className={cn(
+                      "w-full text-left rounded border border-border px-2 py-1.5 space-y-0.5 hover:bg-muted transition-colors",
+                      compareMode &&
+                        compareVersions.some((x) => x.version === v.version) &&
+                        "border-primary/50 bg-primary/5"
+                    )}
+                    onClick={() => handleRowClick(v)}
+                  >
+                    <div className="flex justify-between text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground">v{v.version}</span>
+                      <span>{formatRelativeTime(v.synthesizedAt)}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {v.content.slice(0, 80)}
+                    </p>
+                  </button>
+                ))}
+                {compareMode && compareVersions.length === 1 && (
+                  <p className="text-[11px] text-muted-foreground/60 py-0.5">
+                    Select one more version to compare
+                  </p>
+                )}
+              </>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+        {revertTarget !== null && (
+          <SynthesisRevertDialogContent
+            version={revertTarget}
+            reverting={reverting}
+            onConfirm={() => void handleRevertConfirm()}
+            onClose={() => setRevertTarget(null)}
+          />
+        )}
+      </Dialog>
+      {hasDiffPair && (
+        <Dialog open={true} onOpenChange={(open) => !open && exitCompare()}>
+          <SynthesisDiffDialogContent a={diffA} b={diffB} onClose={exitCompare} />
+        </Dialog>
+      )}
+    </>
+  );
+}
+
 function MemoryLine({ memory }: { memory: Memory }) {
   const content = memory.content.length > 140 ? `${memory.content.slice(0, 140)}…` : memory.content;
   return (
@@ -139,6 +343,7 @@ interface SynthesisSectionProps {
   error: string | null;
   onRun: () => Promise<void>;
   onReset: () => Promise<void>;
+  projectId: string;
 }
 
 function SynthesisSection({
@@ -149,6 +354,7 @@ function SynthesisSection({
   error,
   onRun,
   onReset,
+  projectId,
 }: SynthesisSectionProps) {
   const isInFlight = synthesis?.inFlightSince != null;
   const hasPriorContent = isInFlight && synthesis?.content !== SYNTHESIS_PENDING;
@@ -266,6 +472,8 @@ function SynthesisSection({
           </ScrollArea>
         </div>
       )}
+
+      <SynthesisHistorySection projectId={projectId} />
 
       <XmlClose tag="synthesis" />
     </div>
@@ -420,6 +628,7 @@ function SessionContextPanel({
           error={error}
           onRun={onRun}
           onReset={onReset}
+          projectId={project.id}
         />
 
         {settledSynthesis === null && hasPinned && (
@@ -427,7 +636,7 @@ function SessionContextPanel({
             <XmlOpen tag="pinned-memories" />
             {pinnedGlobal.length > 0 && (
               <div className="space-y-0.5">
-                <ScopeLabel label="global" count={pinnedGlobal.length} />
+                <ScopeLabel label={GLOBAL_PROJECT_NAME} count={pinnedGlobal.length} />
                 {pinnedGlobal.map((m) => (
                   <MemoryLine key={m.id} memory={m} />
                 ))}

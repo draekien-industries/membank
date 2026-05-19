@@ -287,6 +287,36 @@ describe("error hardening", () => {
           getProjectsForMemories: vi.fn().mockReturnValue(new Map()),
         } as unknown as ProjectRepository,
         activityLogger: { logEvent: vi.fn() },
+        synthRepo: {
+          saveSynthesis: () => {
+            throw dbError;
+          },
+          getSynthesis: () => {
+            throw dbError;
+          },
+          listAll: () => {
+            throw dbError;
+          },
+          listVersions: () => {
+            throw dbError;
+          },
+          getVersion: () => {
+            throw dbError;
+          },
+          markInFlight: () => {},
+          clearInFlight: () => {},
+          clearStaleInFlight: () => {},
+          computeSourceMemoryHash: () => {
+            throw dbError;
+          },
+          getExpiredOrDirtyScopes: () => {
+            throw dbError;
+          },
+          getAllActiveScopes: () => {
+            throw dbError;
+          },
+          expireStale: () => {},
+        },
       };
 
       const server = createServer(stubCore);

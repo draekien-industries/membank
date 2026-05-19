@@ -2,16 +2,18 @@ import {
   createProjectRepository,
   createSynthesisRepository,
   DatabaseManager,
+  GLOBAL_PROJECT_NAME,
   GLOBAL_SCOPE_HASH,
 } from "@membank/core";
 import { runSynthesis } from "@membank/mcp";
-import type { Formatter } from "../formatter.js";
+import type { Formatter } from "../../formatter.js";
+import { resolveScope } from "./resolve-scope.js";
 
 export async function synthesizeRunCommand(
   opts: { scope?: string },
   formatter: Formatter
 ): Promise<void> {
-  const scope = opts.scope ?? "global";
+  const scope = opts.scope ?? GLOBAL_PROJECT_NAME;
   if (!formatter.isJson) {
     process.stdout.write(`Running synthesis for scope: ${scope}\n`);
   }
@@ -23,21 +25,38 @@ export async function synthesizeRunCommand(
   }
 }
 
-export function synthesizeShowCommand(opts: { scope?: string }, formatter: Formatter): void {
+export function synthesizeShowCommand(
+  opts: { scope?: string; version?: number },
+  formatter: Formatter
+): void {
   const db = DatabaseManager.open();
   try {
-    const scope = opts.scope ?? "global";
-    let resolvedScope = scope;
-    if (scope === "global") {
-      resolvedScope = GLOBAL_SCOPE_HASH;
-    } else if (!/^[0-9a-f]{16}$/.test(scope)) {
-      const project = createProjectRepository(db).getByName(scope);
-      if (project !== undefined) {
-        resolvedScope = project.scopeHash;
+    const scope = opts.scope ?? GLOBAL_PROJECT_NAME;
+    const resolvedScope = resolveScope(scope, db);
+    const repo = createSynthesisRepository(db);
+
+    if (opts.version !== undefined) {
+      const version = repo.getVersion(resolvedScope, opts.version);
+      if (version === undefined) {
+        if (formatter.isJson) {
+          process.stdout.write(`${JSON.stringify(null)}\n`);
+        } else {
+          process.stdout.write(`Version ${opts.version} not found for scope: ${scope}\n`);
+        }
+        return;
       }
+      if (formatter.isJson) {
+        process.stdout.write(`${JSON.stringify(version)}\n`);
+      } else {
+        process.stdout.write(`\nScope: ${resolvedScope} (version ${version.version})\n`);
+        process.stdout.write(`Synthesized: ${new Date(version.synthesizedAt).toLocaleString()}\n`);
+        process.stdout.write(`Archived: ${new Date(version.createdAt).toLocaleString()}\n`);
+        process.stdout.write(`\n${version.content}\n\n`);
+      }
+      return;
     }
 
-    const synthesis = createSynthesisRepository(db).getSynthesis(resolvedScope);
+    const synthesis = repo.getSynthesis(resolvedScope);
 
     if (synthesis === undefined) {
       if (formatter.isJson) {
@@ -85,7 +104,8 @@ export function synthesizeStatusCommand(formatter: Formatter): void {
     process.stdout.write("\n");
     for (const s of syntheses) {
       const project = s.scope !== GLOBAL_SCOPE_HASH ? projectRepo.getByHash(s.scope) : undefined;
-      const displayScope = project?.name ?? (s.scope === GLOBAL_SCOPE_HASH ? "global" : s.scope);
+      const displayScope =
+        project?.name ?? (s.scope === GLOBAL_SCOPE_HASH ? GLOBAL_PROJECT_NAME : s.scope);
       const inFlight = s.inFlightSince !== null ? " [in-flight]" : "";
       const synthesized = new Date(s.synthesizedAt).toLocaleString();
       const expires = new Date(s.expiresAt).toLocaleString();

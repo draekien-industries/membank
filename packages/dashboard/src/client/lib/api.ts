@@ -10,6 +10,7 @@ import type {
   ProjectStats,
   Stats,
   Synthesis,
+  SynthesisVersion,
 } from "./types";
 
 const BASE = "/api";
@@ -121,6 +122,18 @@ export function getMemoryHistory(memoryId: string): Promise<MemoryVersion[]> {
 
 export function revertMemoryToVersion(memoryId: string, version: number): Promise<Memory> {
   return request<Memory>(`/memories/${memoryId}/revert`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ version }),
+  });
+}
+
+export function getSynthesisHistory(projectId: string): Promise<SynthesisVersion[]> {
+  return request<SynthesisVersion[]>(`/projects/${projectId}/synthesis/history`);
+}
+
+export function revertSynthesisToVersion(projectId: string, version: number): Promise<void> {
+  return request<void>(`/projects/${projectId}/synthesis/revert`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ version }),

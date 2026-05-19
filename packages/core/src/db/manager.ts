@@ -324,6 +324,23 @@ CREATE TABLE memory_versions (
 CREATE INDEX idx_memory_versions_memory_id ON memory_versions(memory_id, version DESC);
 `,
   ],
+  [
+    13,
+    `
+CREATE TABLE synthesis_versions (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  scope              TEXT    NOT NULL REFERENCES projects(scope_hash) ON DELETE CASCADE,
+  version            INTEGER NOT NULL,
+  content            TEXT    NOT NULL,
+  source_memory_hash TEXT    NOT NULL,
+  synthesized_at     TEXT    NOT NULL,
+  created_at         TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (scope, version)
+);
+
+CREATE INDEX idx_synthesis_versions_scope ON synthesis_versions(scope, version DESC);
+`,
+  ],
 ];
 
 export class DatabaseManager {
