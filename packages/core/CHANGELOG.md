@@ -1,5 +1,11 @@
 # @membank/core
 
+## 0.15.0
+
+### Minor Changes
+
+- 0d0c2ba: Activity events now capture content snapshots and query text in their payloads, enabling the dashboard's activity rows to expand and show the actual memory content that was saved, updated, deleted, or queried.
+
 ## 0.14.1
 
 ### Patch Changes
