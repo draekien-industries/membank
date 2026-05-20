@@ -52,12 +52,17 @@ export async function saveMemory(
         projectHash: scope,
         eventType: "memory.created",
         memoryId: newMemory.id,
+        payload: { contentSnapshot: content.slice(0, 1000), memoryType: type },
       });
       activityLogger.logEvent({
         projectHash: scope,
         eventType: "memory.flagged",
         memoryId: top.id,
-        payload: { conflictingMemoryId: newMemory.id, similarity: top.similarity },
+        payload: {
+          conflictingMemoryId: newMemory.id,
+          similarity: top.similarity,
+          conflictSnapshot: content.slice(0, 1000),
+        },
       });
       return newMemory;
     }
@@ -76,6 +81,7 @@ export async function saveMemory(
     projectHash: scope,
     eventType: "memory.created",
     memoryId: created.id,
+    payload: { contentSnapshot: content.slice(0, 1000), memoryType: type },
   });
   return created;
 }

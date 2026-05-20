@@ -81,7 +81,7 @@ function WorkspaceLayout() {
             <WorkspaceCenter selectedId={selectedId} list={list} />
           </TabsContent>
           <TabsContent value="activity" className="flex-1 min-h-0 overflow-hidden">
-            <ActivityTimeline scope={project?.scopeHash} />
+            <ActivityTimeline scope={project?.scopeHash} projectId={projectId} />
           </TabsContent>
         </Tabs>
         {selectedId && <MemoryDetailDrawer selectedId={selectedId} projectId={projectId} />}

@@ -79,7 +79,11 @@ export async function mergeMemories(
     projectHash: scope,
     eventType: "memory.updated",
     memoryId: keepId,
-    payload: { merged: dropIds },
+    payload: {
+      merged: dropIds,
+      contentSnapshot: mergedContent.slice(0, 1000),
+      memoryType: kept.type,
+    },
   });
 
   kept = repo.findById(keepId) ?? kept;

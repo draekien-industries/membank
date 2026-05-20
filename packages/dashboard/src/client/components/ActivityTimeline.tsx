@@ -4,9 +4,10 @@ import { useActivityEvents } from "@/hooks/useActivityEvents";
 import type { ActivityEvent } from "@/lib/types";
 import { ActivityEventRow } from "./ActivityEventRow";
 
-interface ActivityTimelineProps {
+type ActivityTimelineProps = {
   scope?: string;
-}
+  projectId?: string;
+};
 
 function groupByDay(events: ActivityEvent[]): { day: string; events: ActivityEvent[] }[] {
   const map = new Map<string, ActivityEvent[]>();
@@ -36,7 +37,7 @@ function formatDayHeading(iso: string): string {
   });
 }
 
-export function ActivityTimeline({ scope }: ActivityTimelineProps) {
+export function ActivityTimeline({ scope, projectId }: ActivityTimelineProps) {
   const { events, loading } = useActivityEvents({ scope, limit: 200 });
   const groups = useMemo(() => groupByDay(events), [events]);
 
@@ -68,7 +69,7 @@ export function ActivityTimeline({ scope }: ActivityTimelineProps) {
             </div>
             <ul className="m-0 p-0">
               {dayEvents.map((e) => (
-                <ActivityEventRow key={e.id} event={e} />
+                <ActivityEventRow key={e.id} event={e} projectId={projectId} />
               ))}
             </ul>
           </section>
