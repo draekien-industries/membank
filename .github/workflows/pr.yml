@@ -4,6 +4,14 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - 'packages/**'
+      - 'tools/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'turbo.json'
+      - 'tsconfig.json'
+      - '.github/workflows/pr.yml'
 
 concurrency:
   group: pr-${{ github.ref }}
