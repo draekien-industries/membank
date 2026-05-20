@@ -1,4 +1,11 @@
-import { ArrowLeft, CheckCircle, Lightning, Trash, Warning } from "@phosphor-icons/react";
+import {
+  ArrowLeft,
+  CheckCircle,
+  FolderSimple,
+  Lightning,
+  Trash,
+  Warning,
+} from "@phosphor-icons/react";
 import { useLiveQuery } from "@tanstack/react-db";
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
@@ -16,7 +23,7 @@ import {
   suggestMerge,
 } from "@/lib/api";
 import { projectsCollection, queryClient } from "@/lib/collections";
-import type { Memory, MemoryCluster } from "@/lib/types";
+import type { Memory, MemoryCluster, Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Route } from "../routes/review";
 
@@ -24,6 +31,43 @@ function similarityLabel(sim: number): string {
   if (sim >= 0.9) return "high";
   if (sim >= 0.75) return "mid";
   return "low";
+}
+
+function uniqueProjects(memories: Memory[]): Project[] {
+  const seen = new Set<string>();
+  const result: Project[] = [];
+  for (const m of memories) {
+    for (const p of m.projects) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        result.push(p);
+      }
+    }
+  }
+  return result;
+}
+
+function ProjectLabel({ projects }: { projects: Project[] }) {
+  if (projects.length === 0) return null;
+  return (
+    <div className="flex items-center gap-1 min-w-0">
+      <FolderSimple
+        weight="regular"
+        className={cn(
+          "size-2.5 shrink-0",
+          projects.length > 1 ? "text-[color:oklch(0.75_0.14_75)]" : "text-muted-foreground/50"
+        )}
+      />
+      <span
+        className={cn(
+          "text-[10px] font-mono truncate",
+          projects.length > 1 ? "text-[color:oklch(0.75_0.14_75)]" : "text-muted-foreground/60"
+        )}
+      >
+        {projects.map((p) => p.name).join(" · ")}
+      </span>
+    </div>
+  );
 }
 
 function ClusterListItem({
@@ -36,6 +80,7 @@ function ClusterListItem({
   onClick: () => void;
 }) {
   const snippet = cluster.memories[0]?.content.slice(0, 60) ?? "";
+  const projects = uniqueProjects(cluster.memories);
   return (
     <button
       type="button"
@@ -47,7 +92,7 @@ function ClusterListItem({
           : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
       )}
     >
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2 mb-0.5">
         {cluster.isStale ? (
           <Badge variant="outline" className="text-[10px] px-1.5 py-0">
             stale
@@ -66,7 +111,8 @@ function ClusterListItem({
           </span>
         )}
       </div>
-      <p className="text-xs font-mono truncate">{snippet}…</p>
+      <ProjectLabel projects={projects} />
+      <p className="text-xs font-mono truncate mt-0.5">{snippet}…</p>
     </button>
   );
 }
@@ -75,15 +121,28 @@ function MemoryCard({ memory }: { memory: Memory }) {
   return (
     <div className="flex flex-col h-full border border-border rounded-sm overflow-hidden">
       <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border bg-muted/30 shrink-0">
-        <Badge variant={memory.type} className="text-[10px]">
+        <Badge variant={memory.type} className="text-[10px] shrink-0">
           {memory.type}
         </Badge>
         {memory.pinned && (
-          <Badge variant="default" className="text-[10px]">
+          <Badge variant="default" className="text-[10px] shrink-0">
             pinned
           </Badge>
         )}
-        <span className="ml-auto text-[10px] font-mono text-muted-foreground truncate">
+        <div className="flex items-center gap-1 min-w-0 flex-1 px-0.5">
+          {memory.projects.length > 0 && (
+            <>
+              <FolderSimple
+                weight="regular"
+                className="size-2.5 text-muted-foreground/50 shrink-0"
+              />
+              <span className="text-[10px] font-mono text-muted-foreground/60 truncate">
+                {memory.projects.map((p) => p.name).join(", ")}
+              </span>
+            </>
+          )}
+        </div>
+        <span className="text-[10px] font-mono text-muted-foreground shrink-0">
           {memory.id.slice(0, 8)}
         </span>
       </div>
@@ -183,6 +242,7 @@ function ClusterDetail({ cluster, onResolved }: ClusterDetailProps) {
   };
 
   const [primary] = cluster.memories;
+  const projects = uniqueProjects(cluster.memories);
 
   if (cluster.isStale && primary !== undefined) {
     return (
@@ -193,6 +253,9 @@ function ClusterDetail({ cluster, onResolved }: ClusterDetailProps) {
             <span className="text-xs font-mono text-muted-foreground">
               Stale flag — conflicting memory was deleted
             </span>
+          </div>
+          <div className="mt-1.5">
+            <ProjectLabel projects={projects} />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -236,6 +299,9 @@ function ClusterDetail({ cluster, onResolved }: ClusterDetailProps) {
           <span className="text-xs font-mono text-muted-foreground">
             {cluster.memories.length} memories · select merged content below, then save
           </span>
+        </div>
+        <div className="mt-1.5">
+          <ProjectLabel projects={projects} />
         </div>
       </div>
 
