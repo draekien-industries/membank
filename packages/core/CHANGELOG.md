@@ -1,5 +1,11 @@
 # @membank/core
 
+## 0.14.1
+
+### Patch Changes
+
+- 70139fe: Exported `suggestMerge` from the public API so the dashboard can use it at runtime.
+
 ## 0.14.0
 
 ### Minor Changes
