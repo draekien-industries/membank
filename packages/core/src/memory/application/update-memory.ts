@@ -16,6 +16,11 @@ export async function updateMemory(
     parsed.content !== undefined ? await embedder.embed(parsed.content) : undefined;
   const updated = repo.update(id, parsed, newEmbedding);
   const scope = updated.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH;
-  activityLogger.logEvent({ projectHash: scope, eventType: "memory.updated", memoryId: id });
+  activityLogger.logEvent({
+    projectHash: scope,
+    eventType: "memory.updated",
+    memoryId: id,
+    payload: { contentSnapshot: updated.content.slice(0, 1000), memoryType: updated.type },
+  });
   return updated;
 }

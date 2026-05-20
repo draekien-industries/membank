@@ -11,6 +11,16 @@ export function deleteMemory(
   const memory = repo.findById(id);
   const scope = memory?.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH;
   repo.delete(id);
-  activityLogger.logEvent({ projectHash: scope, eventType: "memory.deleted", memoryId: id });
+  activityLogger.logEvent({
+    projectHash: scope,
+    eventType: "memory.deleted",
+    memoryId: id,
+    payload: {
+      ...(memory !== undefined && {
+        contentSnapshot: memory.content.slice(0, 1000),
+        memoryType: memory.type,
+      }),
+    },
+  });
   return Promise.resolve();
 }

@@ -23,7 +23,11 @@ export async function revertMemory(
     projectHash: scope,
     eventType: "memory.updated",
     memoryId: id,
-    payload: { revertedToVersion: version },
+    payload: {
+      revertedToVersion: version,
+      contentSnapshot: updated.content.slice(0, 1000),
+      memoryType: updated.type,
+    },
   });
   return updated;
 }

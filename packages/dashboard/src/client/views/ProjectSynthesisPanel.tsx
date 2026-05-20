@@ -696,7 +696,7 @@ export function ProjectOverviewTab({ project }: { project: Project }) {
                 isStuck={isStuck}
                 isLoading={isLoading}
               />
-              <RecentActivityList scope={project.scopeHash} />
+              <RecentActivityList scope={project.scopeHash} projectId={project.id} />
             </div>
           </div>
           <SessionContextPanel

@@ -244,7 +244,7 @@ function getSynthLine({
   };
 }
 
-export function RecentActivityList({ scope }: { scope: string }) {
+export function RecentActivityList({ scope, projectId }: { scope: string; projectId?: string }) {
   const { events, loading } = useActivityEvents({ scope, limit: 4 });
 
   return (
@@ -260,7 +260,7 @@ export function RecentActivityList({ scope }: { scope: string }) {
         <div>
           <ul className="-mx-4 border-t border-border/50">
             {events.map((event) => (
-              <ActivityEventRow key={event.id} event={event} />
+              <ActivityEventRow key={event.id} event={event} projectId={projectId} />
             ))}
           </ul>
           <AppLink

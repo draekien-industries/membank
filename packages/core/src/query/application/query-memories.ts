@@ -47,6 +47,7 @@ export async function queryMemories(
     projectHash: projectHash ?? GLOBAL_SCOPE_HASH,
     eventType: "memory.queried",
     payload: {
+      query,
       resultCount: results.length,
       topScores: results.slice(0, 3).map((r) => r.score),
     },
