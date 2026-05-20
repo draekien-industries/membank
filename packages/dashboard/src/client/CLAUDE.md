@@ -14,6 +14,12 @@ React frontend for the Membank dashboard.
 - Use shadcn components from the project registry — do not hand-roll primitives that shadcn already provides.
 - Check existing components in `components/` before creating new ones.
 
+## Navigation
+
+Use `AppLink` (from `@/components/AppLink`) for all in-app navigation rendered as UI elements. Never use `<button onClick={() => navigate(...)}>` — it produces non-anchor elements that break right-click, preloading, and keyboard accessibility.
+
+Reserve `useNavigate()` for programmatic navigation only: keyboard event handlers, component callback APIs (e.g. `Tabs.onValueChange`), and post-mutation redirects.
+
 ## Imports from @membank/core
 
 **Never import from `@membank/core` in client code** — it pulls `better-sqlite3` and other Node.js-only native modules into the browser bundle. Use `@membank/core/client` instead.

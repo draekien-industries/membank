@@ -1,7 +1,7 @@
 import { useLiveQuery } from "@tanstack/react-db";
-import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { ActivityEventRow } from "@/components/ActivityEventRow";
+import { AppLink } from "@/components/AppLink";
 import { useActivityEvents } from "@/hooks/useActivityEvents";
 import { countReviewClusters } from "@/hooks/useStats";
 import { memoriesCollection } from "@/lib/collections";
@@ -96,7 +96,6 @@ export function OverviewHeader({ project }: { project: Project }) {
 
 export function CompositionBars({ projectId }: { projectId: string }) {
   const bars = useCompositionBars(projectId);
-  const navigate = useNavigate({ from: "/$projectId" });
 
   return (
     <div className="space-y-3">
@@ -106,12 +105,11 @@ export function CompositionBars({ projectId }: { projectId: string }) {
       ) : (
         <div className="space-y-3">
           {bars.map(({ type, count, pct }) => (
-            <button
+            <AppLink
               key={type}
-              type="button"
-              onClick={() =>
-                void navigate({ search: (prev) => ({ ...prev, tab: "memories", type }) })
-              }
+              to="/$projectId"
+              params={{ projectId }}
+              search={(prev) => ({ ...prev, tab: "memories", type })}
               className="group w-full cursor-pointer space-y-1.5 text-left"
             >
               <div className="flex items-center justify-between gap-2">
@@ -134,7 +132,7 @@ export function CompositionBars({ projectId }: { projectId: string }) {
                   style={{ width: `${pct}%` }}
                 />
               </div>
-            </button>
+            </AppLink>
           ))}
         </div>
       )}
@@ -158,7 +156,6 @@ export function AttentionBlock({
   isLoading,
 }: AttentionBlockProps) {
   const { flaggedCount, pinnedGlobal, pinnedProject } = useAttentionData(project.id);
-  const navigate = useNavigate({ from: "/$projectId" });
 
   const isInFlight = synthesis?.inFlightSince != null;
   const synthesizedAt = synthesis?.synthesizedAt ?? null;
@@ -179,14 +176,14 @@ export function AttentionBlock({
       <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Attention</span>
       <div className="space-y-2.5 font-mono text-[11px]">
         {flaggedCount > 0 && (
-          <button
-            type="button"
-            onClick={() => void navigate({ to: "/review", search: { projectId: project.id } })}
+          <AppLink
+            to="/review"
+            search={{ projectId: project.id }}
             className="group flex w-full items-center justify-between text-destructive hover:text-destructive/80 transition-colors cursor-pointer"
           >
             <span>{flaggedCount} flagged for review</span>
             <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
-          </button>
+          </AppLink>
         )}
         <div className={synthLine.className}>{synthLine.text}</div>
         {pinnedTotal > 0 && (
@@ -249,7 +246,6 @@ function getSynthLine({
 
 export function RecentActivityList({ scope }: { scope: string }) {
   const { events, loading } = useActivityEvents({ scope, limit: 4 });
-  const navigate = useNavigate({ from: "/$projectId" });
 
   return (
     <div className="space-y-3">
@@ -267,13 +263,13 @@ export function RecentActivityList({ scope }: { scope: string }) {
               <ActivityEventRow key={event.id} event={event} />
             ))}
           </ul>
-          <button
-            type="button"
-            onClick={() => void navigate({ search: (prev) => ({ ...prev, tab: "activity" }) })}
+          <AppLink
+            from="/$projectId"
+            search={(prev) => ({ ...prev, tab: "activity" })}
             className="mt-2 font-mono text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
           >
             view all →
-          </button>
+          </AppLink>
         </div>
       )}
     </div>

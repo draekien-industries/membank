@@ -1,7 +1,7 @@
 import { ArrowLeft, PushPin, Warning } from "@phosphor-icons/react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { cva } from "class-variance-authority";
-import type { MemoryType } from "@/lib/types";
+import { AppLink } from "@/components/AppLink";
 import { MEMORY_TYPES } from "@/lib/types";
 import { capitalize } from "@/lib/utils";
 import { Route as WorkspaceRoute } from "@/routes/$projectId";
@@ -11,7 +11,7 @@ interface WorkspaceNavProps {
 }
 
 const navFilterButtonVariants = cva(
-  "w-full text-left py-1 px-4 text-xs font-mono transition-colors",
+  "block w-full text-left py-1 px-4 text-xs font-mono transition-colors",
   {
     variants: {
       active: {
@@ -41,28 +41,6 @@ const navToggleButtonVariants = cva(
 export function WorkspaceNav({ projectName }: WorkspaceNavProps) {
   const { projectId } = WorkspaceRoute.useParams();
   const search = WorkspaceRoute.useSearch();
-  const navigate = useNavigate();
-
-  const setType = (type: MemoryType | undefined) =>
-    void navigate({
-      to: "/$projectId",
-      params: { projectId },
-      search: (prev) => ({ ...prev, type }),
-    });
-
-  const togglePinned = () =>
-    void navigate({
-      to: "/$projectId",
-      params: { projectId },
-      search: (prev) => ({ ...prev, pinned: !prev.pinned }),
-    });
-
-  const toggleReview = () =>
-    void navigate({
-      to: "/$projectId",
-      params: { projectId },
-      search: (prev) => ({ ...prev, needsReview: !prev.needsReview }),
-    });
 
   return (
     <nav className="flex flex-col h-full bg-background border-r border-border py-3 overflow-y-auto">
@@ -83,44 +61,48 @@ export function WorkspaceNav({ projectName }: WorkspaceNavProps) {
         <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-mono mb-1 px-4">
           Types
         </p>
-        <button
-          type="button"
-          onClick={() => setType(undefined)}
+        <AppLink
+          to="/$projectId"
+          params={{ projectId }}
+          search={(prev) => ({ ...prev, type: undefined })}
           className={navFilterButtonVariants({ active: !search.type })}
         >
           All
-        </button>
+        </AppLink>
         {MEMORY_TYPES.map((t) => (
-          <button
+          <AppLink
             key={t}
-            type="button"
-            onClick={() => setType(t)}
+            to="/$projectId"
+            params={{ projectId }}
+            search={(prev) => ({ ...prev, type: t })}
             className={navFilterButtonVariants({ active: search.type === t })}
           >
             {capitalize(t)}
-          </button>
+          </AppLink>
         ))}
       </div>
 
       <div className="border-t border-border my-3" />
 
-      <button
-        type="button"
-        onClick={togglePinned}
+      <AppLink
+        to="/$projectId"
+        params={{ projectId }}
+        search={(prev) => ({ ...prev, pinned: !prev.pinned })}
         className={navToggleButtonVariants({ active: search.pinned, color: "primary" })}
       >
         <PushPin weight={search.pinned ? "fill" : "regular"} className="size-3 shrink-0" />
         Pinned only
-      </button>
+      </AppLink>
 
-      <button
-        type="button"
-        onClick={toggleReview}
+      <AppLink
+        to="/$projectId"
+        params={{ projectId }}
+        search={(prev) => ({ ...prev, needsReview: !prev.needsReview })}
         className={navToggleButtonVariants({ active: search.needsReview, color: "destructive" })}
       >
         <Warning weight={search.needsReview ? "fill" : "regular"} className="size-3 shrink-0" />
         Needs review
-      </button>
+      </AppLink>
     </nav>
   );
 }
