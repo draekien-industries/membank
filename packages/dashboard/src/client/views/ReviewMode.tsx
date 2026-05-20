@@ -1,4 +1,5 @@
 import { ArrowLeft, CheckCircle, Lightning, Trash, Warning } from "@phosphor-icons/react";
+import { useLiveQuery } from "@tanstack/react-db";
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -14,9 +15,10 @@ import {
   resolveManyMemories,
   suggestMerge,
 } from "@/lib/api";
-import { queryClient } from "@/lib/collections";
+import { projectsCollection, queryClient } from "@/lib/collections";
 import type { Memory, MemoryCluster } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Route } from "../routes/review";
 
 function similarityLabel(sim: number): string {
   if (sim >= 0.9) return "high";
@@ -311,6 +313,10 @@ function ClusterDetail({ cluster, onResolved }: ClusterDetailProps) {
 }
 
 export function ReviewMode() {
+  const { projectId } = Route.useSearch();
+  const { data: allProjects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
+  const project = projectId !== undefined ? allProjects.find((p) => p.id === projectId) : undefined;
+
   const [clusters, setClusters] = useState<MemoryCluster[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -318,7 +324,7 @@ export function ReviewMode() {
   const loadClusters = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getFlaggedClusters();
+      const data = await getFlaggedClusters(projectId);
       setClusters(data);
       setSelectedId((prev) => {
         if (prev !== null && data.some((cl) => cl.clusterId === prev)) return prev;
@@ -329,7 +335,7 @@ export function ReviewMode() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     void loadClusters();
@@ -349,6 +355,12 @@ export function ReviewMode() {
         </Link>
         <span className="text-xs font-mono text-muted-foreground">·</span>
         <span className="text-xs font-mono font-medium">Review</span>
+        {project !== undefined && (
+          <>
+            <span className="text-xs font-mono text-muted-foreground">·</span>
+            <span className="text-xs font-mono text-muted-foreground">{project.name}</span>
+          </>
+        )}
         {!loading && (
           <>
             <span className="text-xs font-mono text-muted-foreground">·</span>

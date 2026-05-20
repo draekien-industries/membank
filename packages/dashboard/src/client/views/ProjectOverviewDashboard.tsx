@@ -61,7 +61,8 @@ function useAttentionData(projectId: string): AttentionData {
   return useMemo(() => {
     const projectMemories = allMemories.filter((m) => m.projects.some((p) => p.id === projectId));
     return {
-      flaggedCount: projectMemories.filter((m) => m.reviewEvents.length > 0).length,
+      flaggedCount: projectMemories.filter((m) => m.reviewEvents.some((e) => e.resolvedAt === null))
+        .length,
       pinnedGlobal: allMemories.filter((m) => m.pinned && m.projects.length === 0).length,
       pinnedProject: allMemories.filter(
         (m) => m.pinned && m.projects.some((p) => p.id === projectId)
@@ -180,11 +181,7 @@ export function AttentionBlock({
         {flaggedCount > 0 && (
           <button
             type="button"
-            onClick={() =>
-              void navigate({
-                search: (prev) => ({ ...prev, tab: "memories", needsReview: true }),
-              })
-            }
+            onClick={() => void navigate({ to: "/review", search: { projectId: project.id } })}
             className="group flex w-full items-center justify-between text-destructive hover:text-destructive/80 transition-colors cursor-pointer"
           >
             <span>{flaggedCount} flagged for review</span>

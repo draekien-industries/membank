@@ -145,7 +145,12 @@ export function createApiApp(
   });
 
   app.get("/api/memories/flagged-clusters", (c) => {
-    const edges = repo.listReviewEdges();
+    const projectIdParam = c.req.query("projectId");
+    const project = projectIdParam
+      ? projectRepo.list().find((p) => p.id === projectIdParam)
+      : undefined;
+
+    const edges = repo.listReviewEdges(project?.scopeHash);
     const clusters = clusterFlagged(edges);
     const inActiveCluster = new Set(clusters.flatMap((cl) => cl.memoryIds));
 
@@ -159,7 +164,7 @@ export function createApiApp(
     });
 
     const staleResults = repo
-      .list({ needsReview: true })
+      .list({ needsReview: true, ...(project && { projectId: project.id }) })
       .filter((m) => !inActiveCluster.has(m.id))
       .map((m) => ({ clusterId: m.id, memories: [m], maxSimilarity: 0, isStale: true }));
 

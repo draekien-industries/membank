@@ -138,8 +138,9 @@ export function revertSynthesisToVersion(projectId: string, version: number): Pr
   return postJson<void>(`/projects/${projectId}/synthesis/revert`, { version });
 }
 
-export function getFlaggedClusters(): Promise<MemoryCluster[]> {
-  return request<MemoryCluster[]>("/memories/flagged-clusters");
+export function getFlaggedClusters(projectId?: string): Promise<MemoryCluster[]> {
+  const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+  return request<MemoryCluster[]>(`/memories/flagged-clusters${qs}`);
 }
 
 export function mergeMemories(
