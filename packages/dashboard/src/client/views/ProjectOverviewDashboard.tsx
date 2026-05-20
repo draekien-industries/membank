@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { ActivityEventRow } from "@/components/ActivityEventRow";
 import { useActivityEvents } from "@/hooks/useActivityEvents";
+import { countReviewClusters } from "@/hooks/useStats";
 import { memoriesCollection } from "@/lib/collections";
 import { typeColorVariants } from "@/lib/typeColors";
 import type { Memory, MemoryType, Project, Synthesis } from "@/lib/types";
@@ -61,8 +62,7 @@ function useAttentionData(projectId: string): AttentionData {
   return useMemo(() => {
     const projectMemories = allMemories.filter((m) => m.projects.some((p) => p.id === projectId));
     return {
-      flaggedCount: projectMemories.filter((m) => m.reviewEvents.some((e) => e.resolvedAt === null))
-        .length,
+      flaggedCount: countReviewClusters(projectMemories),
       pinnedGlobal: allMemories.filter((m) => m.pinned && m.projects.length === 0).length,
       pinnedProject: allMemories.filter(
         (m) => m.pinned && m.projects.some((p) => p.id === projectId)
