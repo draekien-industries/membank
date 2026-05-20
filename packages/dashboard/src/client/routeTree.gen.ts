@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ReviewRouteImport } from './routes/review'
 import { Route as ProjectIdRouteImport } from './routes/$projectId'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectIdIndexRouteImport } from './routes/$projectId.index'
 import { Route as ProjectIdMemoryIdRouteImport } from './routes/$projectId.$memoryId'
 
+const ReviewRoute = ReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectIdRoute = ProjectIdRouteImport.update({
   id: '/$projectId',
   path: '/$projectId',
@@ -38,11 +44,13 @@ const ProjectIdMemoryIdRoute = ProjectIdMemoryIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$projectId': typeof ProjectIdRouteWithChildren
+  '/review': typeof ReviewRoute
   '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
   '/$projectId/': typeof ProjectIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/review': typeof ReviewRoute
   '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
   '/$projectId': typeof ProjectIdIndexRoute
 }
@@ -50,18 +58,25 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$projectId': typeof ProjectIdRouteWithChildren
+  '/review': typeof ReviewRoute
   '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
   '/$projectId/': typeof ProjectIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$projectId' | '/$projectId/$memoryId' | '/$projectId/'
+  fullPaths:
+    | '/'
+    | '/$projectId'
+    | '/review'
+    | '/$projectId/$memoryId'
+    | '/$projectId/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$projectId/$memoryId' | '/$projectId'
+  to: '/' | '/review' | '/$projectId/$memoryId' | '/$projectId'
   id:
     | '__root__'
     | '/'
     | '/$projectId'
+    | '/review'
     | '/$projectId/$memoryId'
     | '/$projectId/'
   fileRoutesById: FileRoutesById
@@ -69,10 +84,18 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProjectIdRoute: typeof ProjectIdRouteWithChildren
+  ReviewRoute: typeof ReviewRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/review': {
+      id: '/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof ReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/$projectId': {
       id: '/$projectId'
       path: '/$projectId'
@@ -121,6 +144,7 @@ const ProjectIdRouteWithChildren = ProjectIdRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProjectIdRoute: ProjectIdRouteWithChildren,
+  ReviewRoute: ReviewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

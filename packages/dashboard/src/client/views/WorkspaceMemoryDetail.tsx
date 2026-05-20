@@ -159,6 +159,7 @@ interface WorkspaceMemoryDetailFormProps {
   handleApprove: () => void;
   handleAddProject: (projectId: string) => Promise<boolean>;
   handleRemoveProject: (projectId: string) => Promise<void>;
+  handleDeleteConflicting: (conflictingId: string) => Promise<void>;
   handleClose: () => void;
 }
 
@@ -168,6 +169,7 @@ export function WorkspaceMemoryDetailForm({
   handleApprove,
   handleAddProject,
   handleRemoveProject,
+  handleDeleteConflicting,
   handleClose,
 }: WorkspaceMemoryDetailFormProps) {
   const [saved, setSaved] = useState(false);
@@ -367,9 +369,22 @@ export function WorkspaceMemoryDetailForm({
                     <span>{new Date(event.createdAt).toLocaleString()}</span>
                   </div>
                   {event.conflictingMemoryId ? (
-                    <div className="text-muted-foreground font-mono">
-                      Conflicting memory:{" "}
-                      <span className="font-mono text-[10px]">{event.conflictingMemoryId}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-muted-foreground font-mono min-w-0">
+                        Conflicting:{" "}
+                        <span className="font-mono text-[10px]">{event.conflictingMemoryId}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive shrink-0 h-5 px-1.5 text-[10px]"
+                        onClick={() => {
+                          const id = event.conflictingMemoryId;
+                          if (id) void handleDeleteConflicting(id);
+                        }}
+                      >
+                        Delete conflicting
+                      </Button>
                     </div>
                   ) : (
                     <div className="text-muted-foreground italic">Conflicting memory deleted</div>
@@ -475,6 +490,7 @@ export function WorkspaceMemoryDetail({ id }: WorkspaceMemoryDetailProps) {
     handleApprove,
     handleAddProject,
     handleRemoveProject,
+    handleDeleteConflicting,
     handleClose,
   } = useWorkspaceMemoryDetail(id, onClose);
 
@@ -494,6 +510,7 @@ export function WorkspaceMemoryDetail({ id }: WorkspaceMemoryDetailProps) {
       handleApprove={handleApprove}
       handleAddProject={handleAddProject}
       handleRemoveProject={handleRemoveProject}
+      handleDeleteConflicting={handleDeleteConflicting}
       handleClose={handleClose}
     />
   );
