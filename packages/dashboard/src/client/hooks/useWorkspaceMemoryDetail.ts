@@ -1,6 +1,6 @@
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { toast } from "sonner";
-import { addMemoryProject, patchMemory, removeMemoryProject } from "@/lib/api";
+import { addMemoryProject, deleteMemory, patchMemory, removeMemoryProject } from "@/lib/api";
 import { memoriesCollection, projectsCollection, queryClient } from "@/lib/collections";
 
 export function useWorkspaceMemoryDetail(id: string, onClose: () => void) {
@@ -38,6 +38,15 @@ export function useWorkspaceMemoryDetail(id: string, onClose: () => void) {
     }
   };
 
+  const handleDeleteConflicting = async (conflictingId: string) => {
+    try {
+      await deleteMemory(conflictingId);
+      await queryClient.invalidateQueries({ queryKey: ["memories"] });
+    } catch {
+      toast.error("Failed to delete — try again");
+    }
+  };
+
   const availableProjects = allProjects.filter(
     (p) => !memory?.projects.some((mp) => mp.id === p.id)
   );
@@ -49,6 +58,7 @@ export function useWorkspaceMemoryDetail(id: string, onClose: () => void) {
     handleApprove,
     handleAddProject,
     handleRemoveProject,
+    handleDeleteConflicting,
     handleClose: onClose,
   };
 }

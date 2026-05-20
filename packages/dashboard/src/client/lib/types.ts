@@ -128,3 +128,16 @@ export type SynthesisVersion = {
   synthesizedAt: string;
   createdAt: string;
 };
+
+export type MemoryCluster = {
+  clusterId: string;
+  memories: Memory[];
+  maxSimilarity: number;
+  isStale: boolean;
+};
+
+export type BulkOpResult = {
+  id: string;
+  status: "ok" | "error";
+  error?: string;
+};

@@ -2,8 +2,10 @@ import type {
   ActivityDay,
   ActivityEvent,
   ActivityEventFilter,
+  BulkOpResult,
   Filters,
   Memory,
+  MemoryCluster,
   MemoryType,
   MemoryVersion,
   Project,
@@ -24,6 +26,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 function buildQs(params: URLSearchParams): string {
   const s = params.toString();
   return s ? `?${s}` : "";
+}
+
+function postJson<T>(path: string, payload: unknown): Promise<T> {
+  return request<T>(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
 
 export function getMemory(id: string): Promise<Memory> {
@@ -77,11 +87,7 @@ export function renameProject(id: string, name: string): Promise<Project> {
 }
 
 export function addMemoryProject(memoryId: string, projectId: string): Promise<void> {
-  return request<void>(`/memories/${memoryId}/projects`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ projectId }),
-  });
+  return postJson<void>(`/memories/${memoryId}/projects`, { projectId });
 }
 
 export function removeMemoryProject(memoryId: string, projectId: string): Promise<void> {
@@ -121,11 +127,7 @@ export function getMemoryHistory(memoryId: string): Promise<MemoryVersion[]> {
 }
 
 export function revertMemoryToVersion(memoryId: string, version: number): Promise<Memory> {
-  return request<Memory>(`/memories/${memoryId}/revert`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ version }),
-  });
+  return postJson<Memory>(`/memories/${memoryId}/revert`, { version });
 }
 
 export function getSynthesisHistory(projectId: string): Promise<SynthesisVersion[]> {
@@ -133,11 +135,32 @@ export function getSynthesisHistory(projectId: string): Promise<SynthesisVersion
 }
 
 export function revertSynthesisToVersion(projectId: string, version: number): Promise<void> {
-  return request<void>(`/projects/${projectId}/synthesis/revert`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ version }),
-  });
+  return postJson<void>(`/projects/${projectId}/synthesis/revert`, { version });
+}
+
+export function getFlaggedClusters(projectId?: string): Promise<MemoryCluster[]> {
+  const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+  return request<MemoryCluster[]>(`/memories/flagged-clusters${qs}`);
+}
+
+export function mergeMemories(
+  keepId: string,
+  dropIds: string[],
+  mergedContent: string
+): Promise<Memory> {
+  return postJson<Memory>("/memories/merge", { keepId, dropIds, mergedContent });
+}
+
+export function deleteManyMemories(ids: string[]): Promise<BulkOpResult[]> {
+  return postJson<BulkOpResult[]>("/memories/delete-many", { ids });
+}
+
+export function resolveManyMemories(ids: string[]): Promise<BulkOpResult[]> {
+  return postJson<BulkOpResult[]>("/memories/resolve-many", { ids });
+}
+
+export function suggestMerge(ids: string[]): Promise<{ content: string }> {
+  return postJson<{ content: string }>("/memories/merge-suggest", { ids });
 }
 
 export function getActivityEvents(filter: ActivityEventFilter): Promise<ActivityEvent[]> {

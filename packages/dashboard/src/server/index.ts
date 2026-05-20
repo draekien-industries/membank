@@ -18,6 +18,7 @@ import type {
 } from "@membank/core";
 import {
   ActivityEventTypeSchema,
+  clusterFlagged,
   createActivityLogger,
   createActivityRepository,
   createMemoryRepository,
@@ -25,14 +26,18 @@ import {
   createSynthesisAgentRunner,
   createSynthesisRepository,
   DatabaseManager,
+  deleteManyMemories,
   deleteMemory,
   EmbeddingService,
   isSynthesisEnabled,
   listEvents,
+  mergeMemories,
   QueryEngine,
+  resolveReviewMany,
   revertMemory,
   revertSynthesis,
   runSynthesis,
+  suggestMerge,
   updateMemory,
 } from "@membank/core";
 import { Hono } from "hono";
@@ -137,6 +142,93 @@ export function createApiApp(
       memories = memories.filter((m) => m.content.toLowerCase().includes(q));
     }
     return c.json(memories);
+  });
+
+  app.get("/api/memories/flagged-clusters", (c) => {
+    const projectIdParam = c.req.query("projectId");
+    const project = projectIdParam
+      ? projectRepo.list().find((p) => p.id === projectIdParam)
+      : undefined;
+
+    const edges = repo.listReviewEdges(project?.scopeHash);
+    const clusters = clusterFlagged(edges);
+    const inActiveCluster = new Set(clusters.flatMap((cl) => cl.memoryIds));
+
+    const activeResults = clusters.map((cl) => {
+      const memories = repo.findManyById(cl.memoryIds);
+      const maxSimilarity = memories.reduce((max, m) => {
+        const sim = m.reviewEvents.reduce((ms, e) => Math.max(ms, e.similarity), 0);
+        return Math.max(max, sim);
+      }, 0);
+      return { clusterId: cl.clusterId, memories, maxSimilarity, isStale: false };
+    });
+
+    const staleResults = repo
+      .list({ needsReview: true, ...(project && { projectId: project.id }) })
+      .filter((m) => !inActiveCluster.has(m.id))
+      .map((m) => ({ clusterId: m.id, memories: [m], maxSimilarity: 0, isStale: true }));
+
+    return c.json(
+      [...activeResults, ...staleResults].sort((a, b) => b.maxSimilarity - a.maxSimilarity)
+    );
+  });
+
+  app.post("/api/memories/merge", async (c) => {
+    const body = await c.req.json<{
+      keepId?: unknown;
+      dropIds?: unknown;
+      mergedContent?: unknown;
+    }>();
+    if (
+      typeof body.keepId !== "string" ||
+      !Array.isArray(body.dropIds) ||
+      typeof body.mergedContent !== "string"
+    ) {
+      return c.json({ error: "keepId, dropIds, and mergedContent are required" }, 400);
+    }
+    try {
+      const { kept } = await mergeMemories(
+        {
+          keepId: body.keepId,
+          dropIds: body.dropIds as string[],
+          mergedContent: body.mergedContent,
+        },
+        { repo, embedder, activityLogger }
+      );
+      return c.json(kept);
+    } catch (err: unknown) {
+      return c.json({ error: err instanceof Error ? err.message : String(err) }, 400);
+    }
+  });
+
+  app.post("/api/memories/merge-suggest", async (c) => {
+    if (!isSynthesisEnabled()) return c.json({ error: "Synthesis is disabled" }, 503);
+    const body = await c.req.json<{ ids?: unknown }>();
+    if (!Array.isArray(body.ids)) return c.json({ error: "ids array is required" }, 400);
+    const memories = (body.ids as string[])
+      .map((id) => repo.findById(id))
+      .filter((m): m is NonNullable<typeof m> => m !== undefined);
+    if (memories.length === 0) return c.json({ error: "No memories found for given ids" }, 404);
+    try {
+      const content = await suggestMerge(memories.map((m) => m.content));
+      return c.json({ content });
+    } catch (err: unknown) {
+      return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
+    }
+  });
+
+  app.post("/api/memories/delete-many", async (c) => {
+    const body = await c.req.json<{ ids?: unknown }>();
+    if (!Array.isArray(body.ids)) return c.json({ error: "ids array is required" }, 400);
+    const results = await deleteManyMemories(body.ids as string[], repo, activityLogger);
+    return c.json(results);
+  });
+
+  app.post("/api/memories/resolve-many", async (c) => {
+    const body = await c.req.json<{ ids?: unknown }>();
+    if (!Array.isArray(body.ids)) return c.json({ error: "ids array is required" }, 400);
+    const results = resolveReviewMany(body.ids as string[], repo);
+    return c.json(results);
   });
 
   app.get("/api/memories/:id", (c) => {

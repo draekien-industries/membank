@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { forwardRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import type { Stats } from "@/lib/types";
@@ -32,7 +33,14 @@ export const StatsBar = forwardRef<HTMLDivElement, StatsBarProps>(function Stats
       {stats.needsReview > 0 && (
         <>
           <span className="text-border">·</span>
-          <Badge variant="destructive">{stats.needsReview} to review</Badge>
+          <Link to="/review">
+            <Badge
+              variant="destructive"
+              className="cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              {stats.needsReview} to review
+            </Badge>
+          </Link>
         </>
       )}
     </div>
