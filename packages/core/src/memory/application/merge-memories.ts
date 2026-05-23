@@ -39,28 +39,15 @@ export async function mergeMemories(
   const totalAccess = allMemories.reduce((sum, m) => sum + m.accessCount, 0);
 
   const embedding = await embedder.embed(mergedContent);
-  let kept = repo.overwrite(keepId, mergedContent, embedding);
-
-  const keepTagSet = new Set(keep.tags);
-  const tagsChanged =
-    unionTags.length !== keep.tags.length || unionTags.some((t) => !keepTagSet.has(t));
-  if (tagsChanged) {
-    kept = repo.update(keepId, { tags: unionTags });
-  }
-
-  if (unionPinned && !keep.pinned) {
-    kept = repo.setPin(keepId, true);
-  }
-
-  if (totalAccess > keep.accessCount) {
-    const extra = totalAccess - keep.accessCount;
-    for (let i = 0; i < extra; i++) repo.incrementAccessCount(keepId);
-    kept = repo.findById(keepId) ?? kept;
-  }
-
-  for (const drop of drops) {
-    repo.delete(drop.id);
-  }
+  const kept = repo.atomicMerge({
+    keepId,
+    mergedContent,
+    embedding,
+    tags: unionTags,
+    pinned: unionPinned,
+    accessCount: totalAccess,
+    deleteIds: dropIds,
+  });
 
   // Re-run dedup so the merged memory gets flagged if it's near another existing memory
   const [top] = repo.findSimilar(embedding, keep.type, keep.primaryScopeHash);
@@ -73,9 +60,8 @@ export async function mergeMemories(
     });
   }
 
-  const scope = kept.primaryScopeHash;
   activityLogger.logEvent({
-    projectHash: scope,
+    projectHash: kept.primaryScopeHash,
     eventType: "memory.updated",
     memoryId: keepId,
     payload: {
@@ -85,6 +71,5 @@ export async function mergeMemories(
     },
   });
 
-  kept = repo.findById(keepId) ?? kept;
   return { kept, dropped: dropIds };
 }

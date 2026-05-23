@@ -268,6 +268,9 @@ describe("error hardening", () => {
           },
           incrementAccessCount: () => {},
           incrementAccessCountBy: () => {},
+          atomicMerge: () => {
+            throw dbError;
+          },
         } as unknown as CoreServices["repo"],
         query: {
           query: () => Promise.reject(dbError),

@@ -58,6 +58,7 @@ function makeFakeRepo(updateResult: Memory): MemoryRepository & { updateCalls: u
     setPin: () => updateResult,
     incrementAccessCount: () => {},
     incrementAccessCountBy: () => {},
+    atomicMerge: vi.fn(),
     exportAll: () => [],
     importAll: () => {},
     listVersions: () => [],

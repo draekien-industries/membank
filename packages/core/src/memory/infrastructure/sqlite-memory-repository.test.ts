@@ -434,4 +434,42 @@ describe.skipIf(!runIntegration)("SqliteMemoryRepository — integration (file-b
       .get(id) as { access_count: number };
     expect(row.access_count).toBe(5);
   });
+
+  it("atomicMerge() updates kept memory and deletes dropped memories", () => {
+    const id1 = randomUUID();
+    const id2 = randomUUID();
+
+    repo.create({
+      id: id1,
+      content: "original keep",
+      type: "fact",
+      tags: ["a"],
+      sourceHarness: null,
+      embedding: makeEmbedding(0),
+    });
+    repo.create({
+      id: id2,
+      content: "original drop",
+      type: "fact",
+      tags: ["b"],
+      sourceHarness: null,
+      embedding: makeEmbedding(1),
+    });
+
+    const result = repo.atomicMerge({
+      keepId: id1,
+      mergedContent: "merged",
+      embedding: makeEmbedding(2),
+      tags: ["a", "b"],
+      pinned: false,
+      accessCount: 5,
+      deleteIds: [id2],
+    });
+
+    expect(result.content).toBe("merged");
+    expect(result.accessCount).toBe(5);
+    expect(result.tags).toEqual(["a", "b"]);
+    expect(repo.findById(id2)).toBeUndefined();
+    expect(repo.findById(id1)?.content).toBe("merged");
+  });
 });

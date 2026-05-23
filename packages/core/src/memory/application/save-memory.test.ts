@@ -82,6 +82,7 @@ function makeFakeRepo(
     setPin: () => makeMemory(),
     incrementAccessCount: () => {},
     incrementAccessCountBy: () => {},
+    atomicMerge: vi.fn(),
     exportAll: () => [],
     importAll: () => {},
     listVersions: () => [],
