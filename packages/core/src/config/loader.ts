@@ -11,8 +11,11 @@ function loadConfig(): MemoryConfig | null {
   try {
     const raw = readFileSync(configPath, "utf8");
     return JSON.parse(raw) as MemoryConfig;
-  } catch {
-    return null;
+  } catch (err: unknown) {
+    if (err instanceof Error && (err as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+    throw err;
   }
 }
 
