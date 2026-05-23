@@ -82,4 +82,4 @@ After completing any implementation task, run `/simplify` to review the changes 
 
 ## Harness hook reference
 
-`docs/<harness>/` contains exhaustive per-hook specs for every hook system supported by claude-code, codex, copilot, and opencode. When making any implementation or design decision involving harness hooks — trigger timing, input/output shapes, blocking semantics, config format — read the relevant file(s) from this directory first rather than relying on training data.
+`docs/<harness>/hooks/` contains exhaustive per-hook specs for every hook system supported by claude-code, codex, copilot, and opencode. When making any implementation or design decision involving harness hooks — trigger timing, input/output shapes, blocking semantics, config format — read the relevant file(s) from this directory first rather than relying on training data.
