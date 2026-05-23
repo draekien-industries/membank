@@ -187,11 +187,9 @@ Output session context formatted for a harness. Called automatically by session 
 
 ```bash
 membank inject --harness claude-code
-membank inject --harness claude-code --event user-prompt-submit
-membank inject --harness claude-code --event session-stop
 ```
 
-Options: `--harness <name>` (claude-code|codex|opencode), `--event <event>` (session-start|user-prompt-submit|session-stop)
+Options: `--harness <name>` (claude-code|codex|opencode), `--event <event>` (session-start)
 
 ### `membank dashboard` (deprecated)
 
@@ -225,10 +223,10 @@ npx @membank/mcp
 
 `setup` installs hooks for each supported harness:
 
-- **claude-code** — SessionStart + SessionEnd hooks in `~/.claude/settings.json`
-- **copilot** — MCP server config only; Copilot CLI hooks do not support context injection
-- **codex** — SessionStart + UserPromptSubmit hooks in `~/.codex/hooks.json`
-- **opencode** — `experimental.chat.system.transform` plugin at `~/.config/opencode/plugins/membank.js`
+- **claude-code** — SessionStart hook (fires on startup, resume, clear, and compact) + SessionEnd hook in `~/.claude/settings.json`. Context is re-injected automatically after context compaction.
+- **codex** — SessionStart hook (fires on startup, resume, clear, and compact) in `~/.codex/hooks.json`. Context is re-injected automatically after context compaction.
+- **opencode** — plugin at `~/.config/opencode/plugins/membank.js` using `experimental.chat.system.transform` (injects on first call per session) and `experimental.compaction.autocontinue` (resets the injection flag after compaction so context is re-injected on the next LLM call).
+- **copilot** — MCP server config only; Copilot CLI hooks do not support context injection and have no post-compaction mechanism.
 
 ## Requirements
 

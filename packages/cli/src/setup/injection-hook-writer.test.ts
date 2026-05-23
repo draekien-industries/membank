@@ -304,7 +304,7 @@ describe("codex", () => {
     expect(cmd).toBe("npx -y @membank/cli inject --harness codex");
   });
 
-  it("prunes PostToolUse (legacy) but preserves UserPromptSubmit when writing SessionStart only", () => {
+  it("prunes PostToolUse and UserPromptSubmit (legacy) when writing SessionStart", () => {
     const cfgPath = join(dir, ".codex", "hooks.json");
     writeJson(cfgPath, {
       hooks: {
@@ -337,22 +337,12 @@ describe("codex", () => {
     writer.write("codex", ["SessionStart"]);
     const cfg = readJson(cfgPath);
     const hooks = cfg.hooks as Record<string, unknown>;
-    expect(Array.isArray(hooks.UserPromptSubmit)).toBe(true);
+    expect(hooks.UserPromptSubmit).toBeUndefined();
     expect(hooks.PostToolUse).toBeUndefined();
     expect(Array.isArray(hooks.SessionStart)).toBe(true);
   });
 
-  it("writes the UserPromptSubmit hook with the correct command", () => {
-    const result = writer.write("codex", ["UserPromptSubmit"]);
-    expect(result.status).toBe("written");
-    const cfg = readJson(join(dir, ".codex", "hooks.json"));
-    const hooks = cfg.hooks as Record<string, unknown>;
-    type GroupHooks = { hooks: { command: string }[] }[];
-    const cmd = (hooks.UserPromptSubmit as GroupHooks)[0]?.hooks[0]?.command ?? "";
-    expect(cmd).toBe("npx -y @membank/cli inject --harness codex --event user-prompt-submit");
-  });
-
-  it("inspect returns two hook entries and detects existing SessionStart command", () => {
+  it("inspect returns one hook entry and detects existing SessionStart command", () => {
     const cfgPath = join(dir, ".codex", "hooks.json");
     writeJson(cfgPath, {
       hooks: {
@@ -373,10 +363,8 @@ describe("codex", () => {
     const result = writer.inspect("codex");
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
-    expect(result.hooks).toHaveLength(2);
+    expect(result.hooks).toHaveLength(1);
     expect(result.hooks[0]?.existingCommand).toBe("npx @membank/cli inject --harness codex");
-    expect(result.hooks[1]?.event).toBe("UserPromptSubmit");
-    expect(result.hooks[1]?.existingCommand).toBeNull();
   });
 
   it("prunes legacy Stop entry on any write", () => {

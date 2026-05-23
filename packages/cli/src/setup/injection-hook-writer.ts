@@ -129,7 +129,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
         newHooks.SessionStart = [
           ...filterOutMembank(existing),
           {
-            matcher: "",
+            matcher: "startup|resume|clear|compact",
             hooks: [
               {
                 type: "command",
@@ -173,10 +173,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
         Array.isArray(hooks.SessionStart) ? hooks.SessionStart : []
       ).flatMap(getHooksArray);
 
-      const userPromptSubmitInner = (
-        Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : []
-      ).flatMap(getHooksArray);
-
       return {
         status: "ready",
         configPath: cfgPath,
@@ -185,11 +181,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
             event: "SessionStart",
             command: "npx -y @membank/cli inject --harness codex",
             existingCommand: extractInjectCommand(sessionStartInner) || null,
-          },
-          {
-            event: "UserPromptSubmit",
-            command: "npx -y @membank/cli inject --harness codex --event user-prompt-submit",
-            existingCommand: extractInjectCommand(userPromptSubmitInner) || null,
           },
         ],
       };
@@ -204,34 +195,18 @@ const writers: Record<string, HarnessInjectionWriter> = {
       // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
       pruneNestedEvent(newHooks, "PostToolUse");
       pruneNestedEvent(newHooks, "Stop");
+      pruneNestedEvent(newHooks, "UserPromptSubmit");
 
       if (events.includes("SessionStart")) {
         const existing = Array.isArray(hooks.SessionStart) ? hooks.SessionStart : [];
         newHooks.SessionStart = [
           ...filterOutMembank(existing),
           {
-            matcher: "",
+            matcher: "startup|resume|clear|compact",
             hooks: [
               {
                 type: "command",
                 command: "npx -y @membank/cli inject --harness codex",
-                timeout: 30,
-              },
-            ],
-          },
-        ];
-      }
-
-      if (events.includes("UserPromptSubmit")) {
-        const existing = Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : [];
-        newHooks.UserPromptSubmit = [
-          ...filterOutMembank(existing),
-          {
-            matcher: "",
-            hooks: [
-              {
-                type: "command",
-                command: "npx -y @membank/cli inject --harness codex --event user-prompt-submit",
                 timeout: 30,
               },
             ],
@@ -283,6 +258,9 @@ function newOpencodePlugin(): string {
     "  const { $ } = ctx;",
     "  const injected = new Set();",
     "  return {",
+    '    "experimental.compaction.autocontinue": async (input, _output) => {',
+    "      if (input.sessionID) injected.delete(input.sessionID);",
+    "    },",
     '    "experimental.chat.system.transform": async (input, output) => {',
     "      if (!input.sessionID) return;",
     "      if (injected.has(input.sessionID)) return;",
