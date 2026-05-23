@@ -37,4 +37,5 @@ export interface SynthesisRepository {
   getExpiredOrDirtyScopes(): DirtyScope[];
   getAllActiveScopes(): string[];
   expireStale(): void;
+  initializeAndGetDirtyScopes(inFlightTimeoutMs: number): DirtyScope[];
 }

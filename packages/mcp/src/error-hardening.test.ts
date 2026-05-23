@@ -320,6 +320,9 @@ describe("error hardening", () => {
             throw dbError;
           },
           expireStale: () => {},
+          initializeAndGetDirtyScopes: () => {
+            throw dbError;
+          },
         },
       };
 

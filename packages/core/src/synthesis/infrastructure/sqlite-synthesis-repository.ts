@@ -264,6 +264,14 @@ class SqliteSynthesisRepository implements SynthesisRepository {
     const now = new Date().toISOString();
     this.#db.db.prepare("DELETE FROM syntheses WHERE expires_at < ?").run(now);
   }
+
+  initializeAndGetDirtyScopes(inFlightTimeoutMs: number): DirtyScope[] {
+    return this.#db.db.transaction(() => {
+      this.clearStaleInFlight(inFlightTimeoutMs);
+      this.expireStale();
+      return this.getExpiredOrDirtyScopes();
+    })();
+  }
 }
 
 export function createSynthesisRepository(db: DatabaseManager): SynthesisRepository {
