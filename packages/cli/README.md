@@ -22,7 +22,7 @@ Run once to configure your LLM harness:
 membank setup
 ```
 
-This auto-detects installed harnesses (Claude Code, GitHub Copilot CLI, Codex, OpenCode), writes MCP server config, installs session hooks, and downloads the embedding model (~33 MB).
+This auto-detects installed harnesses (Claude Code, Codex, OpenCode), writes MCP server config, installs session hooks, and downloads the embedding model (~33 MB).
 
 Options:
 
@@ -33,7 +33,7 @@ Options:
 --json             Machine-readable output
 ```
 
-Supported harnesses: `claude-code`, `copilot`, `codex`, `opencode` (see `membank setup` for harness-specific setup instructions)
+Supported harnesses: `claude-code`, `codex`, `opencode` (see `membank setup` for harness-specific setup instructions)
 
 ### `membank setup upgrade`
 
@@ -191,7 +191,7 @@ membank inject --harness claude-code --event user-prompt-submit
 membank inject --harness claude-code --event session-stop
 ```
 
-Options: `--harness <name>` (claude-code|copilot-cli|codex|opencode), `--event <event>` (session-start|user-prompt-submit|session-stop)
+Options: `--harness <name>` (claude-code|codex|opencode), `--event <event>` (session-start|user-prompt-submit|session-stop)
 
 ### `membank dashboard` (deprecated)
 
@@ -225,10 +225,10 @@ npx @membank/mcp
 
 `setup` installs hooks for each supported harness:
 
-- **claude-code** — SessionStart, UserPromptSubmit, Stop hooks in `~/.claude/settings.json`
-- **copilot** — MCP server config only (no session hooks)
-- **codex** — SessionStart, UserPromptSubmit, Stop hooks in `~/.codex/hooks.json`
-- **opencode** — `session.start` plugin at `~/.config/opencode/plugins/membank.js`
+- **claude-code** — SessionStart + SessionEnd hooks in `~/.claude/settings.json`
+- **copilot** — MCP server config only; Copilot CLI hooks do not support context injection
+- **codex** — SessionStart + UserPromptSubmit hooks in `~/.codex/hooks.json`
+- **opencode** — `experimental.chat.system.transform` plugin at `~/.config/opencode/plugins/membank.js`
 
 ## Requirements
 

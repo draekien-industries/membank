@@ -76,11 +76,6 @@ function outputAdditionalContext(
     return;
   }
 
-  if (harness === "copilot-cli") {
-    process.stdout.write(JSON.stringify({ additionalContext: text }));
-    return;
-  }
-
   process.stdout.write(`${text}\n`);
 }
 

@@ -6,7 +6,7 @@ export { MemoryTypeSchema, TagsJsonSchema as TagsRowSchema } from "@membank/core
 export const SETUP_HARNESS_VALUES = ["claude-code", "copilot", "codex", "opencode"] as const;
 export const SetupHarnessSchema = z.enum(SETUP_HARNESS_VALUES);
 
-const INJECTION_HARNESS_VALUES = ["claude-code", "copilot-cli", "codex", "opencode"] as const;
+const INJECTION_HARNESS_VALUES = ["claude-code", "codex", "opencode"] as const;
 export const InjectionHarnessSchema = z.enum(INJECTION_HARNESS_VALUES);
 
 export const MigrateModeSchema = z.enum(["list", "run"]);

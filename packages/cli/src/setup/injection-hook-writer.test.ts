@@ -23,12 +23,12 @@ function writeJson(path: string, data: Record<string, unknown>): void {
 }
 
 describe("INJECTION_HARNESSES", () => {
-  it("contains all 4 harnesses", () => {
+  it("contains all 3 harnesses", () => {
     expect(INJECTION_HARNESSES).toContain("claude-code");
-    expect(INJECTION_HARNESSES).toContain("copilot-cli");
     expect(INJECTION_HARNESSES).toContain("codex");
     expect(INJECTION_HARNESSES).toContain("opencode");
-    expect(INJECTION_HARNESSES).toHaveLength(4);
+    expect(INJECTION_HARNESSES).not.toContain("copilot-cli");
+    expect(INJECTION_HARNESSES).toHaveLength(3);
   });
 });
 
@@ -281,125 +281,6 @@ describe("claude-code", () => {
   });
 });
 
-// ---------- copilot-cli ----------
-
-describe("copilot-cli", () => {
-  let writer: InjectionHookWriter;
-  let dir: string;
-
-  beforeEach(() => {
-    const tmp = makeTmpResolver();
-    dir = tmp.dir;
-    writer = new InjectionHookWriter(tmp.resolver);
-  });
-
-  it("writes the sessionStart hook with the correct command", () => {
-    const result = writer.write("copilot-cli", ["sessionStart"]);
-    expect(result.status).toBe("written");
-
-    const cfg = readJson(join(dir, ".copilot", "settings.json"));
-    const hooks = cfg.hooks as Record<string, unknown>;
-    type FlatHooks = { bash: string }[];
-    const bash = (hooks.sessionStart as FlatHooks)[0]?.bash ?? "";
-    expect(bash).toBe("npx -y @membank/cli inject --harness copilot-cli");
-  });
-
-  it("prunes postToolUseFailure (legacy) but preserves userPromptSubmitted when writing sessionStart only", () => {
-    const cfgPath = join(dir, ".copilot", "settings.json");
-    writeJson(cfgPath, {
-      version: 1,
-      hooks: {
-        userPromptSubmitted: [
-          {
-            type: "command",
-            bash: "npx @membank/cli inject --event user-prompt --harness copilot-cli",
-            timeoutSec: 30,
-          },
-        ],
-        postToolUseFailure: [
-          {
-            type: "command",
-            bash: "npx @membank/cli inject --event tool-failure --harness copilot-cli",
-            timeoutSec: 30,
-          },
-        ],
-      },
-    });
-    writer.write("copilot-cli", ["sessionStart"]);
-    const cfg = readJson(cfgPath);
-    const hooks = cfg.hooks as Record<string, unknown>;
-    expect(Array.isArray(hooks.userPromptSubmitted)).toBe(true);
-    expect(hooks.postToolUseFailure).toBeUndefined();
-    expect(Array.isArray(hooks.sessionStart)).toBe(true);
-  });
-
-  it("writes the userPromptSubmitted hook with the correct command", () => {
-    const result = writer.write("copilot-cli", ["userPromptSubmitted"]);
-    expect(result.status).toBe("written");
-    const cfg = readJson(join(dir, ".copilot", "settings.json"));
-    const hooks = cfg.hooks as Record<string, unknown>;
-    type FlatHooks = { bash: string }[];
-    const bash = (hooks.userPromptSubmitted as FlatHooks)[0]?.bash ?? "";
-    expect(bash).toBe(
-      "npx -y @membank/cli inject --harness copilot-cli --event user-prompt-submit"
-    );
-  });
-
-  it("inspect returns existing command when sessionStart hook present", () => {
-    const cfgPath = join(dir, ".copilot", "settings.json");
-    writeJson(cfgPath, {
-      version: 1,
-      hooks: {
-        sessionStart: [
-          {
-            type: "command",
-            bash: "npx @membank/cli inject --harness copilot-cli",
-            timeoutSec: 30,
-          },
-        ],
-      },
-    });
-    const result = writer.inspect("copilot-cli");
-    expect(result.status).toBe("ready");
-    if (result.status !== "ready") return;
-    expect(result.hooks).toHaveLength(2);
-    expect(result.hooks[0]?.existingCommand).toBe("npx @membank/cli inject --harness copilot-cli");
-    expect(result.hooks[1]?.event).toBe("userPromptSubmitted");
-    expect(result.hooks[1]?.existingCommand).toBeNull();
-  });
-
-  it("inspect returns two hook entries when not configured", () => {
-    const result = writer.inspect("copilot-cli");
-    expect(result.status).toBe("ready");
-    if (result.status !== "ready") return;
-    expect(result.hooks).toHaveLength(2);
-    expect(result.hooks[0]?.event).toBe("sessionStart");
-    expect(result.hooks[0]?.existingCommand).toBeNull();
-    expect(result.hooks[1]?.event).toBe("userPromptSubmitted");
-    expect(result.hooks[1]?.existingCommand).toBeNull();
-  });
-
-  it("prunes legacy sessionEnd entry on any write", () => {
-    const cfgPath = join(dir, ".copilot", "settings.json");
-    writeJson(cfgPath, {
-      version: 1,
-      hooks: {
-        sessionEnd: [
-          {
-            type: "command",
-            bash: "npx @membank/cli inject --harness copilot-cli --event session-stop",
-            timeoutSec: 30,
-          },
-        ],
-      },
-    });
-    writer.write("copilot-cli", ["sessionStart"]);
-    const cfg = readJson(cfgPath);
-    const hooks = cfg.hooks as Record<string, unknown>;
-    expect(hooks.sessionEnd).toBeUndefined();
-  });
-});
-
 // ---------- codex ----------
 
 describe("codex", () => {
@@ -535,7 +416,7 @@ describe("opencode", () => {
     writer = new InjectionHookWriter(tmp.resolver);
   });
 
-  it("writes membank.js plugin with only the session.start hook", () => {
+  it("writes membank.js plugin using experimental.chat.system.transform", () => {
     const result = writer.write("opencode", ["plugin"]);
     expect(result.status).toBe("written");
 
@@ -543,9 +424,10 @@ describe("opencode", () => {
     expect(existsSync(pluginPath)).toBe(true);
 
     const content = readFileSync(pluginPath, "utf8");
-    expect(content).toContain("session.start");
+    expect(content).toContain("experimental.chat.system.transform");
+    expect(content).toContain("output.system.push");
+    expect(content).not.toContain("session.start");
     expect(content).not.toContain("chat.message");
-    expect(content).not.toContain("tool.execute.after");
     expect(content).not.toContain("--event user-prompt");
     expect(content).not.toContain("--event tool-failure");
   });
@@ -571,7 +453,7 @@ describe("opencode", () => {
     expect(result.hooks[0]?.existingCommand).toBe(pluginPath);
   });
 
-  it("overwrites plugin when called with plugin event (replaces legacy multi-hook plugin)", () => {
+  it("overwrites plugin when called with plugin event (replaces legacy plugin)", () => {
     const pluginPath = join(dir, ".config", "opencode", "plugins", "membank.js");
     mkdirSync(join(pluginPath, ".."), { recursive: true });
     writeFileSync(
@@ -580,7 +462,6 @@ describe("opencode", () => {
         "export default {",
         "  hooks: {",
         '    "session.start": async ({ $ }) => $`npx @membank/cli inject`.text(),',
-        '    "chat.message": async ({ $, message }) => $`npx @membank/cli inject --event user-prompt`.text(),',
         "  },",
         "};",
       ].join("\n")
@@ -588,7 +469,7 @@ describe("opencode", () => {
     const result = writer.write("opencode", ["plugin"]);
     expect(result.status).toBe("written");
     const content = readFileSync(pluginPath, "utf8");
-    expect(content).toContain("session.start");
-    expect(content).not.toContain("chat.message");
+    expect(content).toContain("experimental.chat.system.transform");
+    expect(content).not.toContain("session.start");
   });
 });
