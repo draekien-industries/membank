@@ -110,7 +110,8 @@ function extractDetail(event: ActivityEvent): EventDetail | null {
     case "memory.deleted": {
       const result = contentPayloadSchema.safeParse(p);
       if (!result.success) return null;
-      return { kind: "content", ...result.data };
+      const { contentSnapshot, memoryType } = result.data;
+      return { kind: "content", contentSnapshot, memoryType };
     }
     case "memory.queried": {
       const result = queryPayloadSchema.safeParse(p);
@@ -122,7 +123,8 @@ function extractDetail(event: ActivityEvent): EventDetail | null {
     case "memory.flagged": {
       const result = flaggedPayloadSchema.safeParse(p);
       if (!result.success) return null;
-      return { kind: "flagged", ...result.data };
+      const { similarity, conflictingMemoryId, conflictSnapshot } = result.data;
+      return { kind: "flagged", similarity, conflictingMemoryId, conflictSnapshot };
     }
   }
 }
