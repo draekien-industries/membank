@@ -1,9 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabaseManager } from "../../db/manager.js";
 import { rowToSynthesisVersion } from "../../persistence/infrastructure/row-types.js";
-import type { Synthesis } from "../../schemas.js";
+import type { Synthesis, SynthesisVersionRow } from "../../schemas.js";
 import { SynthesisSchema } from "../../schemas.js";
-import type { SynthesisVersionRow } from "../../types.js";
 import type { DirtyScope } from "../domain/synthesis-job.js";
 import type { SynthesisVersion } from "../domain/synthesis-version.js";
 import type { SynthesisRepository } from "../ports.js";

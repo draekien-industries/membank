@@ -1,5 +1,5 @@
 import type { Memory, MemoryType } from "../memory/domain/memory.js";
-import type { QueryOptions } from "../types.js";
+import type { QueryOptions } from "../schemas.js";
 
 export interface ScoredMemory extends Memory {
   score: number;

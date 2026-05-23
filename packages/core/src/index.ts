@@ -7,7 +7,7 @@ export * from "./memory/index.js";
 export * from "./migrations/index.js";
 export * from "./project/index.js";
 export * from "./query/index.js";
+export * from "./schemas.js";
 export * from "./scope/index.js";
 export * from "./session/index.js";
 export * from "./synthesis/index.js";
-export * from "./types.js";

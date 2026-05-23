@@ -2,7 +2,7 @@ import type { DatabaseManager } from "../../db/manager.js";
 import type { Memory, MemoryType } from "../../memory/domain/memory.js";
 import { rowToMemory } from "../../persistence/infrastructure/row-types.js";
 import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
-import type { MemoryRow } from "../../types.js";
+import type { MemoryRow } from "../../schemas.js";
 import type { QueryAdapter } from "../ports.js";
 
 interface QueryMemoryRow extends MemoryRow {

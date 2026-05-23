@@ -2,8 +2,8 @@ import type { ActivityLogger } from "../../activity/ports.js";
 import { noopActivityLogger } from "../../activity/ports.js";
 import type { Embedder, MemoryRepository } from "../../memory/ports.js";
 import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
+import type { QueryOptions } from "../../schemas.js";
 import { QueryOptionsSchema } from "../../schemas.js";
-import type { QueryOptions } from "../../types.js";
 import { computeScore } from "../domain/scoring.js";
 import type { QueryAdapter, ScoredMemory } from "../ports.js";
 

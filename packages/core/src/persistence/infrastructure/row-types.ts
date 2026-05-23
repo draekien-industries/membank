@@ -1,6 +1,4 @@
 import type { MemoryVersion } from "../../memory/domain/memory-version.js";
-import { MemoryTypeSchema, ReviewEventRowSchema, TagsJsonSchema } from "../../schemas.js";
-import type { SynthesisVersion } from "../../synthesis/domain/synthesis-version.js";
 import type {
   Memory,
   MemoryRow,
@@ -10,7 +8,9 @@ import type {
   ReviewEvent,
   ReviewEventRow,
   SynthesisVersionRow,
-} from "../../types.js";
+} from "../../schemas.js";
+import { MemoryTypeSchema, ReviewEventRowSchema, TagsJsonSchema } from "../../schemas.js";
+import type { SynthesisVersion } from "../../synthesis/domain/synthesis-version.js";
 
 export function rowToMemory(
   row: MemoryRow,

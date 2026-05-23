@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseManager } from "../../db/manager.js";
 import { rowToProject } from "../../persistence/infrastructure/row-types.js";
+import type { Project, ProjectRow } from "../../schemas.js";
 import { ProjectRowSchema } from "../../schemas.js";
-import type { Project, ProjectRow } from "../../types.js";
 import {
   GLOBAL_PROJECT_ID,
   GLOBAL_PROJECT_NAME,

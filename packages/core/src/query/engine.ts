@@ -2,7 +2,7 @@ import type { ActivityLogger } from "../activity/ports.js";
 import { noopActivityLogger } from "../activity/ports.js";
 import type { DatabaseManager } from "../db/manager.js";
 import type { Embedder, MemoryRepository } from "../memory/ports.js";
-import type { QueryOptions } from "../types.js";
+import type { QueryOptions } from "../schemas.js";
 import { queryMemories } from "./application/query-memories.js";
 import { SqliteQueryAdapter } from "./infrastructure/sqlite-query-adapter.js";
 import type { Querier, ScoredMemory } from "./ports.js";

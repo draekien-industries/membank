@@ -1,5 +1,5 @@
 import type { MemoryRepository } from "../../memory/ports.js";
-import type { SessionContext } from "../../types.js";
+import type { SessionContext } from "../../schemas.js";
 
 export function getSessionContext(
   opts: { projectHash: string; synthesis?: string },
