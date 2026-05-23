@@ -33,8 +33,9 @@ export interface SynthesisRepository {
   markInFlight(scope: string): void;
   clearInFlight(scope: string): void;
   clearStaleInFlight(thresholdMs: number): void;
-  computeSourceMemoryHash(scope: string): string;
+  sourceMemoryHash(scope: string): string;
   getExpiredOrDirtyScopes(): DirtyScope[];
   getAllActiveScopes(): string[];
   expireStale(): void;
+  initializeAndGetDirtyScopes(inFlightTimeoutMs: number): DirtyScope[];
 }

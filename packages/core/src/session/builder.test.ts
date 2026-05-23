@@ -73,6 +73,8 @@ describe("SessionContextBuilder", () => {
   it("returns pinned global memories", () => {
     insertMemory(db, { pinned: true, content: "global pinned" });
     const ctx = builder.getSessionContext("project-x");
+    expect(ctx.mode).toBe("pinned");
+    if (ctx.mode !== "pinned") return;
     expect(ctx.pinnedGlobal).toHaveLength(1);
     expect(ctx.pinnedGlobal[0]?.content).toBe("global pinned");
   });
@@ -80,6 +82,8 @@ describe("SessionContextBuilder", () => {
   it("does NOT return unpinned global memories in pinnedGlobal", () => {
     insertMemory(db, { pinned: false, content: "unpinned global" });
     const ctx = builder.getSessionContext("project-x");
+    expect(ctx.mode).toBe("pinned");
+    if (ctx.mode !== "pinned") return;
     expect(ctx.pinnedGlobal).toHaveLength(0);
   });
 
@@ -87,6 +91,8 @@ describe("SessionContextBuilder", () => {
     const projId = insertProject(db, "aa00000000000000");
     insertMemory(db, { pinned: true, content: "project-a pinned", projectId: projId });
     const ctx = builder.getSessionContext("aa00000000000000");
+    expect(ctx.mode).toBe("pinned");
+    if (ctx.mode !== "pinned") return;
     expect(ctx.pinnedProject).toHaveLength(1);
     expect(ctx.pinnedProject[0]?.content).toBe("project-a pinned");
   });
@@ -95,6 +101,8 @@ describe("SessionContextBuilder", () => {
     const projId = insertProject(db, "bb00000000000000");
     insertMemory(db, { pinned: true, content: "project-b pinned", projectId: projId });
     const ctx = builder.getSessionContext("aa00000000000000");
+    expect(ctx.mode).toBe("pinned");
+    if (ctx.mode !== "pinned") return;
     expect(ctx.pinnedProject).toHaveLength(0);
   });
 
@@ -102,6 +110,8 @@ describe("SessionContextBuilder", () => {
     const projId = insertProject(db, "cc00000000000000");
     insertMemory(db, { pinned: true, content: "project memory", projectId: projId });
     const ctx = builder.getSessionContext("dd00000000000000");
+    expect(ctx.mode).toBe("pinned");
+    if (ctx.mode !== "pinned") return;
     expect(ctx.pinnedGlobal).toHaveLength(0);
   });
 
@@ -132,6 +142,8 @@ describe("SessionContextBuilder", () => {
       source: "claude",
     });
     const ctx = builder.getSessionContext("project-x");
+    expect(ctx.mode).toBe("pinned");
+    if (ctx.mode !== "pinned") return;
     const mem = ctx.pinnedGlobal[0];
     expect(mem).toBeDefined();
     if (!mem) return;

@@ -1,6 +1,6 @@
 import type { MemoryRepository } from "../memory/ports.js";
+import type { MemoryType, SessionContext } from "../schemas.js";
 import { MEMORY_TYPE_VALUES } from "../schemas.js";
-import type { MemoryType, SessionContext } from "../types.js";
 import { getSessionContext } from "./application/get-session-context.js";
 
 export function listMemoryTypes(): MemoryType[] {

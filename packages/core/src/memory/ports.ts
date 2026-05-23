@@ -34,6 +34,16 @@ export interface MergeMemoriesOpts {
   mergedContent: string;
 }
 
+export interface AtomicMergeOpts {
+  keepId: string;
+  mergedContent: string;
+  embedding: Float32Array;
+  tags: string[];
+  pinned: boolean;
+  accessCount: number;
+  deleteIds: string[];
+}
+
 export interface MemoryExportRecord {
   id: string;
   content: string;
@@ -100,6 +110,8 @@ export interface MemoryRepository {
   resolveReviewEvents(memoryId: string): void;
   setPin(id: string, pinned: boolean): Memory;
   incrementAccessCount(id: string): void;
+  incrementAccessCountBy(id: string, delta: number): void;
+  atomicMerge(opts: AtomicMergeOpts): Memory;
   exportAll(): MemoryExportRecord[];
   importAll(records: MemoryExportRecord[]): void;
   listVersions(memoryId: string): MemoryVersion[];

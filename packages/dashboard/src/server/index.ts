@@ -13,6 +13,7 @@ import type {
   MemoryType,
   ProjectRepository,
   Querier,
+  QueryEngine,
   SynthesisRepository,
   SynthesisTools,
 } from "@membank/core";
@@ -23,6 +24,7 @@ import {
   createActivityRepository,
   createMemoryRepository,
   createProjectRepository,
+  createQueryEngine,
   createSynthesisAgentRunner,
   createSynthesisRepository,
   DatabaseManager,
@@ -32,7 +34,6 @@ import {
   isSynthesisEnabled,
   listEvents,
   mergeMemories,
-  QueryEngine,
   resolveReviewMany,
   revertMemory,
   revertSynthesis,
@@ -461,7 +462,7 @@ export async function startDashboard(opts?: {
   const repo = createMemoryRepository(db, projects);
   const activityLogger = createActivityLogger(db);
   const activityRepo = createActivityRepository(db);
-  const queryEngine = new QueryEngine(db, embedding, repo, activityLogger);
+  const queryEngine = createQueryEngine(db, embedding, activityLogger);
   const synthRepo = createSynthesisRepository(db);
 
   const app = createApiApp(

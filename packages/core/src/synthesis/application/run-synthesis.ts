@@ -10,7 +10,7 @@ export async function runSynthesis(
   try {
     const [content, sourceHash] = await Promise.all([
       deps.agentRunner.run(scope, projectHash),
-      Promise.resolve(deps.synthRepo.computeSourceMemoryHash(scope)),
+      Promise.resolve(deps.synthRepo.sourceMemoryHash(scope)),
     ]);
     deps.synthRepo.saveSynthesis(scope, content, sourceHash);
     return content;

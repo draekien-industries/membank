@@ -6,13 +6,13 @@ import {
   createExtractionRunRepository,
   createMemoryRepository,
   createProjectRepository,
+  createQueryEngine,
   createSynthesisAgentRunner,
   createSynthesisRepository,
   DatabaseManager,
   EmbeddingService,
   GLOBAL_SCOPE_HASH,
   isSynthesisEnabled,
-  QueryEngine,
   type RunExtractionInput,
   type RunExtractionResult,
   resolveProject,
@@ -68,7 +68,7 @@ export async function runSynthesis(scope: string): Promise<string> {
   const embedding = new EmbeddingService();
   const projects = createProjectRepository(db);
   const repo = createMemoryRepository(db, projects);
-  const queryEngine = new QueryEngine(db, embedding, repo);
+  const queryEngine = createQueryEngine(db, embedding);
   const synthRepo = createSynthesisRepository(db);
   const agentRunner = createSynthesisAgentRunner(buildSynthesisTools(repo, queryEngine), {
     enabled: true,
@@ -103,7 +103,7 @@ export async function runExtraction(opts: RunExtractionOptions): Promise<RunExtr
     const embedding = new EmbeddingService();
     const projects = createProjectRepository(db);
     const repo = createMemoryRepository(db, projects);
-    const queryEngine = new QueryEngine(db, embedding, repo);
+    const queryEngine = createQueryEngine(db, embedding);
     const runRepo = createExtractionRunRepository(db);
     const tools = buildExtractionTools(repo, queryEngine, embedding);
     const agent = createExtractionAgentRunner(tools);

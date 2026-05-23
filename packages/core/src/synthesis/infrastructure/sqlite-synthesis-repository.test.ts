@@ -64,14 +64,14 @@ describe("SqliteSynthesisRepository", () => {
     expect(result).toBeUndefined();
   });
 
-  it("computeSourceMemoryHash() returns consistent hash for same data", () => {
-    const hash1 = repo.computeSourceMemoryHash(GLOBAL_SCOPE_HASH);
-    const hash2 = repo.computeSourceMemoryHash(GLOBAL_SCOPE_HASH);
+  it("sourceMemoryHash() returns consistent hash for same data", () => {
+    const hash1 = repo.sourceMemoryHash(GLOBAL_SCOPE_HASH);
+    const hash2 = repo.sourceMemoryHash(GLOBAL_SCOPE_HASH);
     expect(hash1).toBe(hash2);
   });
 
-  it("computeSourceMemoryHash() returns different hash when memories differ", () => {
-    const hashEmpty = repo.computeSourceMemoryHash(GLOBAL_SCOPE_HASH);
+  it("sourceMemoryHash() returns different hash when memories differ", () => {
+    const hashEmpty = repo.sourceMemoryHash(GLOBAL_SCOPE_HASH);
 
     db.db
       .prepare(
@@ -85,7 +85,7 @@ describe("SqliteSynthesisRepository", () => {
       )
       .run();
 
-    const hashWithMemory = repo.computeSourceMemoryHash(GLOBAL_SCOPE_HASH);
+    const hashWithMemory = repo.sourceMemoryHash(GLOBAL_SCOPE_HASH);
     expect(hashWithMemory).not.toBe(hashEmpty);
   });
 
@@ -184,6 +184,34 @@ describe("SqliteSynthesisRepository", () => {
     const globalScope = scopes.find((s) => s.scope === GLOBAL_SCOPE_HASH);
 
     expect(globalScope?.reason).toBe("dirty");
+  });
+
+  it("initializeAndGetDirtyScopes() clears stale in-flight, expires stale rows, and returns dirty scopes atomically", () => {
+    insertProject(db, EXPIRED_SCOPE);
+
+    const staleInFlight = new Date(Date.now() - 120_000 - 1000).toISOString();
+    const pastExpiry = new Date(Date.now() - 1000).toISOString();
+    const veryPast = new Date(Date.now() - 2000).toISOString();
+
+    // Stale in-flight + already expired: clearStaleInFlight clears it, expireStale removes it
+    db.db
+      .prepare(
+        `INSERT INTO syntheses (id, scope, content, source_memory_hash, synthesized_at, expires_at, in_flight_since, created_at, updated_at)
+         VALUES ('s1', ?, 'old', 'h1', ?, ?, ?, ?, ?)`
+      )
+      .run(EXPIRED_SCOPE, veryPast, pastExpiry, staleInFlight, veryPast, veryPast);
+
+    const dirty = repo.initializeAndGetDirtyScopes(120_000);
+
+    // EXPIRED_SCOPE had an expired synthesis — returned as dirty before the row was deleted
+    const scopeNames = dirty.map((d) => d.scope);
+    expect(scopeNames).toContain(EXPIRED_SCOPE);
+
+    // expireStale() removed the expired row entirely
+    const expiredRow = db.db
+      .prepare<[string], { id: string }>("SELECT id FROM syntheses WHERE scope = ?")
+      .get(EXPIRED_SCOPE);
+    expect(expiredRow).toBeUndefined();
   });
 
   it("markInFlight() / clearInFlight() toggle in_flight_since", () => {

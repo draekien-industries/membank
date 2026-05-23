@@ -17,6 +17,7 @@ import {
   createActivityLogger,
   createMemoryRepository,
   createProjectRepository,
+  createQueryEngine,
   createSynthesisAgentRunner,
   createSynthesisRepository,
   DatabaseManager,
@@ -31,7 +32,6 @@ import {
   MIGRATIONS,
   mergeMemories,
   PIN_BUDGET_THRESHOLD,
-  QueryEngine,
   resolveProject,
   resolveReviewMany,
   runScopeToProjectsMigration,
@@ -186,7 +186,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
   const projects = createProjectRepository(db);
   const repo = createMemoryRepository(db, projects);
   const activityLogger = createActivityLogger(db);
-  const query = new QueryEngine(db, embedding, repo, activityLogger);
+  const query = createQueryEngine(db, embedding, activityLogger);
 
   const synthRepo = createSynthesisRepository(db);
   const synthConfig = loadSynthesisConfig();
@@ -527,11 +527,7 @@ export function createServer(core: CoreServices): Server {
         );
 
         if (core.synthEngine !== undefined) {
-          const scope =
-            memory.projects.length > 0
-              ? (memory.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH)
-              : "global";
-          core.synthEngine.markDirty(scope);
+          core.synthEngine.markDirty(memory.primaryScopeHash);
         }
 
         return {
@@ -554,11 +550,7 @@ export function createServer(core: CoreServices): Server {
         );
 
         if (core.synthEngine !== undefined) {
-          const scope =
-            memory.projects.length > 0
-              ? (memory.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH)
-              : "global";
-          core.synthEngine.markDirty(scope);
+          core.synthEngine.markDirty(memory.primaryScopeHash);
         }
 
         return { content: [{ type: "text", text: JSON.stringify(memory) }] };
@@ -582,9 +574,7 @@ export function createServer(core: CoreServices): Server {
         }
 
         const memoryScopeBeforeDelete =
-          core.synthEngine !== undefined
-            ? (memory.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH)
-            : undefined;
+          core.synthEngine !== undefined ? memory.primaryScopeHash : undefined;
 
         await deleteMemory(args.id, core.repo, core.activityLogger);
 
@@ -805,7 +795,7 @@ export function createServer(core: CoreServices): Server {
                   args.ids
                     .map((id) => core.repo.findById(id))
                     .filter((m) => m !== undefined)
-                    .map((m) => m.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH)
+                    .map((m) => m.primaryScopeHash)
                 ),
               ]
             : [];
@@ -839,8 +829,7 @@ export function createServer(core: CoreServices): Server {
           { repo: core.repo, embedder: core.embedding, activityLogger: core.activityLogger }
         );
         if (core.synthEngine !== undefined) {
-          const scope = result.kept.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH;
-          core.synthEngine.markDirty(scope);
+          core.synthEngine.markDirty(result.kept.primaryScopeHash);
         }
         return { content: [{ type: "text", text: JSON.stringify(result) }] };
       } catch (err) {

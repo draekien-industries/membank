@@ -1,4 +1,4 @@
-import type { Project } from "../types.js";
+import type { Project } from "../schemas.js";
 
 export interface ProjectRepository {
   upsertByHash(hash: string, name: string): Project;

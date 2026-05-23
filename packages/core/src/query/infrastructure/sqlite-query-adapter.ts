@@ -2,7 +2,7 @@ import type { DatabaseManager } from "../../db/manager.js";
 import type { Memory, MemoryType } from "../../memory/domain/memory.js";
 import { rowToMemory } from "../../persistence/infrastructure/row-types.js";
 import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
-import type { MemoryRow } from "../../types.js";
+import type { MemoryRow } from "../../schemas.js";
 import type { QueryAdapter } from "../ports.js";
 
 interface QueryMemoryRow extends MemoryRow {
@@ -17,12 +17,13 @@ export class SqliteQueryAdapter implements QueryAdapter {
   }
 
   findByEmbedding(
-    embedding: Buffer,
+    embedding: Float32Array,
     opts: { type?: MemoryType; projectHash?: string; includePinned?: boolean }
   ): Array<Memory & { cosineSim: number }> {
+    const blob = Buffer.from(embedding.buffer);
     const { type, projectHash, includePinned } = opts;
     const whereClauses: string[] = [];
-    const params: unknown[] = [embedding];
+    const params: unknown[] = [blob];
     let joinClause = "";
 
     if (!includePinned) {
@@ -49,5 +50,9 @@ export class SqliteQueryAdapter implements QueryAdapter {
 
     const rows = this.#db.db.prepare<unknown[], QueryMemoryRow>(sql).all(...params);
     return rows.map((row) => ({ ...rowToMemory(row, []), cosineSim: row.cosine_sim }));
+  }
+
+  incrementAccessCount(id: string): void {
+    this.#db.db.prepare("UPDATE memories SET access_count = access_count + 1 WHERE id = ?").run(id);
   }
 }

@@ -1,6 +1,5 @@
 import type { ActivityLogger } from "../../activity/ports.js";
 import { noopActivityLogger } from "../../activity/ports.js";
-import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type { Memory } from "../domain/memory.js";
 import type { Embedder, MemoryRepository } from "../ports.js";
 
@@ -18,7 +17,7 @@ export async function revertMemory(
 
   const embedding = await embedder.embed(target.content);
   const updated = repo.update(id, { content: target.content }, embedding);
-  const scope = updated.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH;
+  const scope = updated.primaryScopeHash;
   activityLogger.logEvent({
     projectHash: scope,
     eventType: "memory.updated",

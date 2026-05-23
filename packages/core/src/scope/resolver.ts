@@ -33,15 +33,5 @@ export async function resolveProject(): Promise<{ hash: string; name: string }> 
 }
 
 export async function resolveScope(): Promise<string> {
-  try {
-    const { stdout } = await execFileAsync("git", ["remote", "get-url", "origin"]);
-    const url = stdout.trim();
-    if (url) {
-      return sha256Truncated(url);
-    }
-  } catch {
-    // git not available, not a repo, or no remote — fall through to cwd fallback
-  }
-
-  return sha256Truncated(process.cwd());
+  return (await resolveProject()).hash;
 }

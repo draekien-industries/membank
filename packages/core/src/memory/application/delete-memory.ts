@@ -9,7 +9,7 @@ export function deleteMemory(
   activityLogger: ActivityLogger = noopActivityLogger
 ): Promise<void> {
   const memory = repo.findById(id);
-  const scope = memory?.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH;
+  const scope = memory?.primaryScopeHash ?? GLOBAL_SCOPE_HASH;
   repo.delete(id);
   activityLogger.logEvent({
     projectHash: scope,

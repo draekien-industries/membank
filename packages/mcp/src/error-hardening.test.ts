@@ -267,6 +267,10 @@ describe("error hardening", () => {
             throw dbError;
           },
           incrementAccessCount: () => {},
+          incrementAccessCountBy: () => {},
+          atomicMerge: () => {
+            throw dbError;
+          },
         } as unknown as CoreServices["repo"],
         query: {
           query: () => Promise.reject(dbError),
@@ -306,7 +310,7 @@ describe("error hardening", () => {
           markInFlight: () => {},
           clearInFlight: () => {},
           clearStaleInFlight: () => {},
-          computeSourceMemoryHash: () => {
+          sourceMemoryHash: () => {
             throw dbError;
           },
           getExpiredOrDirtyScopes: () => {
@@ -316,6 +320,9 @@ describe("error hardening", () => {
             throw dbError;
           },
           expireStale: () => {},
+          initializeAndGetDirtyScopes: () => {
+            throw dbError;
+          },
         },
       };
 

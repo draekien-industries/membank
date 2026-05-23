@@ -20,6 +20,7 @@ import type { Memory, MemoryPatch, MemoryType } from "../domain/memory.js";
 import type { MemoryVersion } from "../domain/memory-version.js";
 import type { ReviewEvent } from "../domain/review-event.js";
 import type {
+  AtomicMergeOpts,
   CreateMemoryOpts,
   CreateReviewEventOpts,
   MemoryExportRecord,
@@ -609,6 +610,58 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
   incrementAccessCount(id: string): void {
     this.#db.db.prepare(`UPDATE memories SET access_count = access_count + 1 WHERE id = ?`).run(id);
+  }
+
+  incrementAccessCountBy(id: string, delta: number): void {
+    this.#db.db
+      .prepare(`UPDATE memories SET access_count = access_count + ? WHERE id = ?`)
+      .run(delta, id);
+  }
+
+  atomicMerge(opts: AtomicMergeOpts): Memory {
+    const { keepId, mergedContent, embedding, tags, pinned, accessCount, deleteIds } = opts;
+    const now = new Date().toISOString();
+    const embeddingBlob = Buffer.from(embedding.buffer);
+
+    this.#db.db.transaction(() => {
+      this.#archiveCurrentContent(keepId);
+
+      this.#db.db
+        .prepare(
+          `UPDATE memories SET content = ?, updated_at = ?, access_count = ?, pinned = ?, tags = ? WHERE id = ?`
+        )
+        .run(mergedContent, now, accessCount, pinned ? 1 : 0, JSON.stringify(tags), keepId);
+
+      const rowid = this.#db.db
+        .prepare<[string], { rowid: number }>(`SELECT rowid FROM memories WHERE id = ?`)
+        .get(keepId)?.rowid;
+
+      if (rowid !== undefined) {
+        this.#db.db
+          .prepare(`UPDATE embeddings SET embedding = ? WHERE rowid = ?`)
+          .run(embeddingBlob, rowid);
+      }
+
+      for (const dropId of deleteIds) {
+        const dropRow = this.#db.db
+          .prepare<[string], { rowid: number }>(`SELECT rowid FROM memories WHERE id = ?`)
+          .get(dropId);
+
+        if (dropRow !== undefined) {
+          this.#db.db.prepare(`DELETE FROM embeddings WHERE rowid = ?`).run(dropRow.rowid);
+        }
+
+        this.#db.db.prepare(`DELETE FROM memories WHERE id = ?`).run(dropId);
+      }
+    })();
+
+    const updated = MemoryRowSchema.parse(
+      this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(keepId)
+    );
+
+    const projectMap = this.#projects.getProjectsForMemories([keepId]);
+    const events = this.#getEventsForMemories([keepId]);
+    return rowToMemory(updated, projectMap.get(keepId) ?? [], events.get(keepId) ?? []);
   }
 
   exportAll(): MemoryExportRecord[] {

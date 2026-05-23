@@ -4,10 +4,10 @@ import {
   createActivityRepository,
   createMemoryRepository,
   createProjectRepository,
+  createQueryEngine,
   createSynthesisRepository,
   DatabaseManager,
   EmbeddingService,
-  QueryEngine,
 } from "@membank/core";
 import { createApiApp } from "./index.js";
 
@@ -19,7 +19,7 @@ const projects = createProjectRepository(db);
 const repo = createMemoryRepository(db, projects);
 const activityLogger = createActivityLogger(db);
 const activityRepo = createActivityRepository(db);
-const queryEngine = new QueryEngine(db, embedding, repo, activityLogger);
+const queryEngine = createQueryEngine(db, embedding, activityLogger);
 const synthRepo = createSynthesisRepository(db);
 
 const app = createApiApp(

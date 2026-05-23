@@ -23,10 +23,9 @@ export class SynthesisEngine {
   }
 
   async init(): Promise<void> {
-    this.#synthRepo.clearStaleInFlight(this.#config.inFlightTimeoutMs ?? IN_FLIGHT_TIMEOUT_MS);
-    this.#synthRepo.expireStale();
-
-    const stale = this.#synthRepo.getExpiredOrDirtyScopes();
+    const stale = this.#synthRepo.initializeAndGetDirtyScopes(
+      this.#config.inFlightTimeoutMs ?? IN_FLIGHT_TIMEOUT_MS
+    );
     for (const { scope } of stale) {
       this.#dirtyScopes.add(scope);
     }
@@ -96,7 +95,7 @@ export class SynthesisEngine {
     try {
       const projectHash = scope === GLOBAL_SCOPE_HASH ? undefined : scope;
       const content = await this.#agentRunner.run(scope, projectHash);
-      const sourceHash = this.#synthRepo.computeSourceMemoryHash(scope);
+      const sourceHash = this.#synthRepo.sourceMemoryHash(scope);
       this.#synthRepo.saveSynthesis(scope, content, sourceHash);
       this.#failureCounts.delete(scope);
     } catch (err) {
