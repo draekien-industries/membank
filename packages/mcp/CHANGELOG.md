@@ -1,5 +1,21 @@
 # @membank/mcp
 
+## 0.16.3
+
+### Patch Changes
+
+- 6d462ec: Added `primaryScopeHash` to the `Memory` type so callers no longer need to navigate `memory.projects[0]?.scopeHash` to get the effective scope hash.
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+  - @membank/core@0.16.0
+
 ## 0.16.2
 
 ### Patch Changes

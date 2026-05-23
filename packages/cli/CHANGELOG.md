@@ -1,5 +1,21 @@
 # @membank/cli
 
+## 0.18.1
+
+### Patch Changes
+
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+  - @membank/core@0.16.0
+  - @membank/mcp@0.16.3
+
 ## 0.18.0
 
 ### Minor Changes
