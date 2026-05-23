@@ -79,6 +79,7 @@ function makeFakeRepo(
     resolveReviewEvents: () => {},
     setPin: () => makeMemory(),
     incrementAccessCount: () => {},
+    incrementAccessCountBy: () => {},
     exportAll: () => [],
     importAll: () => {},
     listVersions: () => [],

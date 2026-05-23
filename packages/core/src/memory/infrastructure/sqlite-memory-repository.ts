@@ -611,6 +611,12 @@ export class SqliteMemoryRepository implements MemoryRepository {
     this.#db.db.prepare(`UPDATE memories SET access_count = access_count + 1 WHERE id = ?`).run(id);
   }
 
+  incrementAccessCountBy(id: string, delta: number): void {
+    this.#db.db
+      .prepare(`UPDATE memories SET access_count = access_count + ? WHERE id = ?`)
+      .run(delta, id);
+  }
+
   exportAll(): MemoryExportRecord[] {
     interface ExportRow extends MemoryRow {
       embedding: Buffer | null;

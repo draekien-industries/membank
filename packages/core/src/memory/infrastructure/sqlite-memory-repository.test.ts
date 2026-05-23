@@ -415,4 +415,23 @@ describe.skipIf(!runIntegration)("SqliteMemoryRepository — integration (file-b
       .get(id) as { access_count: number };
     expect(row.access_count).toBe(2);
   });
+
+  it("incrementAccessCountBy() increments the counter by the given delta", () => {
+    const id = randomUUID();
+    repo.create({
+      id,
+      content: "B",
+      type: "fact",
+      tags: [],
+      sourceHarness: null,
+      embedding: makeEmbedding(0),
+    });
+
+    repo.incrementAccessCountBy(id, 5);
+
+    const row = db.db
+      .prepare<[string], { access_count: number }>("SELECT access_count FROM memories WHERE id = ?")
+      .get(id) as { access_count: number };
+    expect(row.access_count).toBe(5);
+  });
 });

@@ -100,6 +100,7 @@ export interface MemoryRepository {
   resolveReviewEvents(memoryId: string): void;
   setPin(id: string, pinned: boolean): Memory;
   incrementAccessCount(id: string): void;
+  incrementAccessCountBy(id: string, delta: number): void;
   exportAll(): MemoryExportRecord[];
   importAll(records: MemoryExportRecord[]): void;
   listVersions(memoryId: string): MemoryVersion[];

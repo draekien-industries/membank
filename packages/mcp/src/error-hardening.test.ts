@@ -267,6 +267,7 @@ describe("error hardening", () => {
             throw dbError;
           },
           incrementAccessCount: () => {},
+          incrementAccessCountBy: () => {},
         } as unknown as CoreServices["repo"],
         query: {
           query: () => Promise.reject(dbError),

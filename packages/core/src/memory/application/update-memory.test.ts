@@ -55,6 +55,7 @@ function makeFakeRepo(updateResult: Memory): MemoryRepository & { updateCalls: u
     resolveReviewEvents: () => {},
     setPin: () => updateResult,
     incrementAccessCount: () => {},
+    incrementAccessCountBy: () => {},
     exportAll: () => [],
     importAll: () => {},
     listVersions: () => [],
