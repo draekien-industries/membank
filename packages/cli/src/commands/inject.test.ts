@@ -11,6 +11,7 @@ vi.mock("@membank/core", async (importOriginal) => {
     },
     SessionContextBuilder: vi.fn().mockImplementation(() => ({
       getSessionContext: vi.fn().mockReturnValue({
+        mode: "pinned",
         stats: {},
         pinnedGlobal: [],
         pinnedProject: [],

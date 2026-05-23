@@ -42,7 +42,7 @@ function formatContext(ctx: SessionContext, guidance: string): string {
     parts.push(`<memory-stats>\n${statParts.join(", ")}\n</memory-stats>`);
   }
 
-  if (ctx.synthesis !== undefined && ctx.synthesis.length > 0) {
+  if (ctx.mode === "synthesis") {
     parts.push(`<synthesis>\n${ctx.synthesis}\n</synthesis>`);
   } else {
     const allPinned: Memory[] = [...ctx.pinnedGlobal, ...ctx.pinnedProject];

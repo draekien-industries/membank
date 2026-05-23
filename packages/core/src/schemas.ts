@@ -103,12 +103,23 @@ export const SynthesisSchema = z.object({
 });
 export type Synthesis = z.infer<typeof SynthesisSchema>;
 
-export const SessionContextSchema = z.object({
+const SessionContextSynthesisSchema = z.object({
+  mode: z.literal("synthesis"),
+  stats: z.record(MemoryTypeSchema, z.number()),
+  synthesis: z.string(),
+});
+
+const SessionContextPinnedSchema = z.object({
+  mode: z.literal("pinned"),
   stats: z.record(MemoryTypeSchema, z.number()),
   pinnedGlobal: z.array(MemorySchema),
   pinnedProject: z.array(MemorySchema),
-  synthesis: z.string().optional(),
 });
+
+export const SessionContextSchema = z.discriminatedUnion("mode", [
+  SessionContextSynthesisSchema,
+  SessionContextPinnedSchema,
+]);
 export type SessionContext = z.infer<typeof SessionContextSchema>;
 
 export const MemoryRowSchema = z.object({
