@@ -1,6 +1,5 @@
 import type { ActivityLogger } from "../../activity/ports.js";
 import { noopActivityLogger } from "../../activity/ports.js";
-import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import { classifyDuplicate } from "../domain/dedup-policy.js";
 import type { Memory } from "../domain/memory.js";
 import type { Embedder, MemoryRepository, MergeMemoriesOpts } from "../ports.js";
@@ -64,7 +63,7 @@ export async function mergeMemories(
   }
 
   // Re-run dedup so the merged memory gets flagged if it's near another existing memory
-  const [top] = repo.findSimilar(embedding, keep.type, keep.projects[0]?.scopeHash);
+  const [top] = repo.findSimilar(embedding, keep.type, keep.primaryScopeHash);
   if (top !== undefined && top.id !== keepId && classifyDuplicate(top.similarity) === "flag") {
     repo.createReviewEvent({
       memoryId: keepId,
@@ -74,7 +73,7 @@ export async function mergeMemories(
     });
   }
 
-  const scope = kept.projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH;
+  const scope = kept.primaryScopeHash;
   activityLogger.logEvent({
     projectHash: scope,
     eventType: "memory.updated",

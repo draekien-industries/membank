@@ -55,6 +55,7 @@ export const MemorySchema = z.object({
   type: MemoryTypeSchema,
   tags: z.array(z.string()),
   projects: z.array(ProjectSchema),
+  primaryScopeHash: z.string(),
   sourceHarness: z.string().nullable(),
   accessCount: z.number().int().nonnegative(),
   pinned: z.boolean(),

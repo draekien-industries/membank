@@ -1,4 +1,5 @@
 import type { MemoryVersion } from "../../memory/domain/memory-version.js";
+import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type {
   Memory,
   MemoryRow,
@@ -23,6 +24,7 @@ export function rowToMemory(
     type: MemoryTypeSchema.parse(row.type),
     tags: TagsJsonSchema.parse(JSON.parse(row.tags)),
     projects,
+    primaryScopeHash: projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH,
     sourceHarness: row.source,
     accessCount: row.access_count,
     pinned: row.pinned !== 0,

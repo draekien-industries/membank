@@ -9,6 +9,7 @@ function makeResult(overrides: Partial<QueryResult> = {}): QueryResult {
     type: "preference",
     tags: ["typescript"],
     projects: [],
+    primaryScopeHash: "0000000000000000",
     score: 0.85,
     sourceHarness: null,
     accessCount: 0,

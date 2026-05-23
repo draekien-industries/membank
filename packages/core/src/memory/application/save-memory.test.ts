@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type { Memory, MemoryType } from "../domain/memory.js";
 import type {
   CreateMemoryOpts,
@@ -19,6 +20,7 @@ function makeMemory(overrides: Partial<Memory> = {}): Memory {
     type: "fact",
     tags: [],
     projects: [],
+    primaryScopeHash: GLOBAL_SCOPE_HASH,
     sourceHarness: null,
     accessCount: 0,
     pinned: false,
