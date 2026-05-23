@@ -1,5 +1,20 @@
 # @membank/dashboard
 
+## 0.12.1
+
+### Patch Changes
+
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+- Updated dependencies [6d462ec]
+  - @membank/core@0.16.0
+
 ## 0.12.0
 
 ### Minor Changes

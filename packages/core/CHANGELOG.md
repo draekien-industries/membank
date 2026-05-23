@@ -1,5 +1,22 @@
 # @membank/core
 
+## 0.16.0
+
+### Minor Changes
+
+- 6d462ec: Added `incrementAccessCountBy(id, delta)` to `MemoryRepository` to enable writing a bulk delta in one DB statement instead of N individual calls.
+- 6d462ec: Added `primaryScopeHash` to the `Memory` type so callers no longer need to navigate `memory.projects[0]?.scopeHash` to get the effective scope hash.
+
+### Patch Changes
+
+- 6d462ec: Added `atomicMerge` to `MemoryRepository`, collapsing the 5-step merge sequence into a single SQLite transaction to prevent partial-merge corruption.
+- 6d462ec: Changed `classifyDuplicate` to return `null` instead of `"none"` when no duplicate is detected, making the absence-of-match case idiomatic.
+- 6d462ec: Fixed config loader silently swallowing all errors; now only suppresses ENOENT so malformed config.json surfaces to the user.
+- 6d462ec: Refactored core package internals to address design-principle violations identified in audit: eliminated temporal decomposition in merge and synthesis init, fixed Law of Demeter violations on the Memory type, corrected information hiding in the query layer, and removed several shallow or duplicate abstractions.
+- 6d462ec: Added `initializeAndGetDirtyScopes` to `SynthesisRepository` so the synthesis startup sequence (clear stale in-flight markers, expire stale records, return dirty scopes) executes atomically in a single transaction.
+- 6d462ec: Refactored query layer to inject QueryAdapter into QueryEngine, moved Buffer conversion and incrementAccessCount into the adapter, and added createQueryEngine factory to keep SqliteQueryAdapter private.
+- 6d462ec: Replaced flat `SessionContext` type with a discriminated union on `mode` field, making the two modes (synthesis vs pinned) explicit and preventing silent zeroing of pinned arrays when synthesis is present.
+
 ## 0.15.0
 
 ### Minor Changes
