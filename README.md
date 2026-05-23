@@ -24,7 +24,7 @@ npx @membank/cli setup
 
 `setup` auto-detects your installed LLM harness and writes the MCP server config and injection hooks. Use `--harness <name>` to target a specific harness, `--yes` to skip prompts, `--json` for machine-readable output.
 
-Supported harnesses: `claude-code`, `copilot`, `codex`, `opencode`.
+Supported harnesses: `claude-code`, `codex`, `opencode`.
 
 After setup, restart your harness. Membank will start injecting memories into every session.
 
@@ -68,10 +68,10 @@ Supported harnesses and their hook mechanisms:
 
 | Harness | MCP config location | Session hooks |
 |---------|------------------|---------------|
-| `claude-code` | Managed by `claude mcp` | SessionStart, UserPromptSubmit, Stop |
-| `copilot` | `~/.copilot/mcp-config.json` | MCP server only |
-| `codex` | Managed by `codex mcp` | SessionStart, UserPromptSubmit, Stop |
-| `opencode` | `~/.config/opencode/opencode.json` | session.start plugin |
+| `claude-code` | Managed by `claude mcp` | SessionStart, SessionEnd |
+| `copilot` | `~/.copilot/mcp-config.json` | MCP server only (hooks not supported) |
+| `codex` | Managed by `codex mcp` | SessionStart, UserPromptSubmit |
+| `opencode` | `~/.config/opencode/opencode.json` | `experimental.chat.system.transform` plugin |
 
 ## Web dashboard
 

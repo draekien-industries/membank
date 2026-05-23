@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { MaybeJsonObjectSchema, OptionalNumberSchema } from "../schemas.js";
+import { MaybeJsonObjectSchema } from "../schemas.js";
 import { readJson, writeJsonAtomic } from "../utils/json.js";
 
 export type HookPlan = {
@@ -59,30 +59,12 @@ function filterOutMembank(groups: unknown[]): unknown[] {
   return groups.filter((g) => !containsMembankInject(getHooksArray(g)));
 }
 
-// Removes flat hook entries that contain any membank inject command.
-function filterOutMembankFlat(hooks: unknown[]): unknown[] {
-  return hooks.filter((h) => !containsMembankInject([h]));
-}
-
 // Strip every membank entry from a nested-group event slot. If the slot ends up empty,
 // delete the key so the config stays tidy.
 function pruneNestedEvent(hooks: Record<string, unknown>, eventKey: string): void {
   const existing = hooks[eventKey];
   if (!Array.isArray(existing)) return;
   const cleaned = filterOutMembank(existing);
-  if (cleaned.length === 0) {
-    delete hooks[eventKey];
-  } else {
-    hooks[eventKey] = cleaned;
-  }
-}
-
-// Strip every membank entry from a flat-array event slot. If the slot ends up empty,
-// delete the key so the config stays tidy.
-function pruneFlatEvent(hooks: Record<string, unknown>, eventKey: string): void {
-  const existing = hooks[eventKey];
-  if (!Array.isArray(existing)) return;
-  const cleaned = filterOutMembankFlat(existing);
   if (cleaned.length === 0) {
     delete hooks[eventKey];
   } else {
@@ -147,7 +129,7 @@ const writers: Record<string, HarnessInjectionWriter> = {
         newHooks.SessionStart = [
           ...filterOutMembank(existing),
           {
-            matcher: "",
+            matcher: "startup|resume|clear|compact",
             hooks: [
               {
                 type: "command",
@@ -181,78 +163,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
     },
   },
 
-  "copilot-cli": {
-    inspect(resolver) {
-      const cfgPath = join(resolver.home(), ".copilot", "settings.json");
-      const cfg = readJson(cfgPath);
-      const hooks = MaybeJsonObjectSchema.parse(cfg.hooks) ?? {};
-
-      const sessionStart = Array.isArray(hooks.sessionStart) ? hooks.sessionStart : [];
-      const userPromptSubmitted = Array.isArray(hooks.userPromptSubmitted)
-        ? hooks.userPromptSubmitted
-        : [];
-
-      return {
-        status: "ready",
-        configPath: cfgPath,
-        hooks: [
-          {
-            event: "sessionStart",
-            command: "npx -y @membank/cli inject --harness copilot-cli",
-            existingCommand: extractInjectCommand(sessionStart) || null,
-          },
-          {
-            event: "userPromptSubmitted",
-            command: "npx -y @membank/cli inject --harness copilot-cli --event user-prompt-submit",
-            existingCommand: extractInjectCommand(userPromptSubmitted) || null,
-          },
-        ],
-      };
-    },
-
-    write(resolver, events) {
-      const cfgPath = join(resolver.home(), ".copilot", "settings.json");
-      const cfg = readJson(cfgPath);
-      const hooks = MaybeJsonObjectSchema.parse(cfg.hooks) ?? {};
-      const newHooks: Record<string, unknown> = { ...hooks };
-
-      // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
-      pruneFlatEvent(newHooks, "postToolUseFailure");
-      pruneFlatEvent(newHooks, "sessionEnd");
-
-      if (events.includes("sessionStart")) {
-        const existing = Array.isArray(hooks.sessionStart) ? hooks.sessionStart : [];
-        newHooks.sessionStart = [
-          ...filterOutMembankFlat(existing),
-          {
-            type: "command",
-            bash: "npx -y @membank/cli inject --harness copilot-cli",
-            timeoutSec: 30,
-          },
-        ];
-      }
-
-      if (events.includes("userPromptSubmitted")) {
-        const existing = Array.isArray(hooks.userPromptSubmitted) ? hooks.userPromptSubmitted : [];
-        newHooks.userPromptSubmitted = [
-          ...filterOutMembankFlat(existing),
-          {
-            type: "command",
-            bash: "npx -y @membank/cli inject --harness copilot-cli --event user-prompt-submit",
-            timeoutSec: 30,
-          },
-        ];
-      }
-
-      writeJsonAtomic(cfgPath, {
-        version: OptionalNumberSchema.parse(cfg.version) ?? 1,
-        ...cfg,
-        hooks: newHooks,
-      });
-      return { status: "written" };
-    },
-  },
-
   codex: {
     inspect(resolver) {
       const cfgPath = join(resolver.home(), ".codex", "hooks.json");
@@ -263,10 +173,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
         Array.isArray(hooks.SessionStart) ? hooks.SessionStart : []
       ).flatMap(getHooksArray);
 
-      const userPromptSubmitInner = (
-        Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : []
-      ).flatMap(getHooksArray);
-
       return {
         status: "ready",
         configPath: cfgPath,
@@ -275,11 +181,6 @@ const writers: Record<string, HarnessInjectionWriter> = {
             event: "SessionStart",
             command: "npx -y @membank/cli inject --harness codex",
             existingCommand: extractInjectCommand(sessionStartInner) || null,
-          },
-          {
-            event: "UserPromptSubmit",
-            command: "npx -y @membank/cli inject --harness codex --event user-prompt-submit",
-            existingCommand: extractInjectCommand(userPromptSubmitInner) || null,
           },
         ],
       };
@@ -294,34 +195,18 @@ const writers: Record<string, HarnessInjectionWriter> = {
       // Cleanup: drop legacy membank entries from removed event slots regardless of `events`.
       pruneNestedEvent(newHooks, "PostToolUse");
       pruneNestedEvent(newHooks, "Stop");
+      pruneNestedEvent(newHooks, "UserPromptSubmit");
 
       if (events.includes("SessionStart")) {
         const existing = Array.isArray(hooks.SessionStart) ? hooks.SessionStart : [];
         newHooks.SessionStart = [
           ...filterOutMembank(existing),
           {
-            matcher: "",
+            matcher: "startup|resume|clear|compact",
             hooks: [
               {
                 type: "command",
                 command: "npx -y @membank/cli inject --harness codex",
-                timeout: 30,
-              },
-            ],
-          },
-        ];
-      }
-
-      if (events.includes("UserPromptSubmit")) {
-        const existing = Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit : [];
-        newHooks.UserPromptSubmit = [
-          ...filterOutMembank(existing),
-          {
-            matcher: "",
-            hooks: [
-              {
-                type: "command",
-                command: "npx -y @membank/cli inject --harness codex --event user-prompt-submit",
                 timeout: 30,
               },
             ],
@@ -369,12 +254,20 @@ const writers: Record<string, HarnessInjectionWriter> = {
 
 function newOpencodePlugin(): string {
   return [
-    "export default {",
-    "  hooks: {",
-    '    "session.start": async ({ $ }) => {',
-    "      return await $`npx -y @membank/cli inject`.text();",
+    "export default async (ctx) => {",
+    "  const { $ } = ctx;",
+    "  const injected = new Set();",
+    "  return {",
+    '    "experimental.compaction.autocontinue": async (input, _output) => {',
+    "      if (input.sessionID) injected.delete(input.sessionID);",
     "    },",
-    "  },",
+    '    "experimental.chat.system.transform": async (input, output) => {',
+    "      if (!input.sessionID) return;",
+    "      if (injected.has(input.sessionID)) return;",
+    "      injected.add(input.sessionID);",
+    "      output.system.push(await $`npx -y @membank/cli inject`.text());",
+    "    },",
+    "  };",
     "};",
   ].join("\n");
 }

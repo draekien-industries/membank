@@ -4,8 +4,7 @@ import { z } from "zod";
 const ExtractionHarnessSchema = z.enum(["claude-code"]);
 export type ExtractionHarness = z.infer<typeof ExtractionHarnessSchema>;
 
-// Stdin schema for Claude Code's SessionEnd hook. Other harnesses will need their own schema
-// (e.g. copilot-cli, codex) — add cases to parseHookPayload() when those land.
+// Stdin schema for Claude Code's SessionEnd hook.
 const ClaudeCodeSessionEndInputSchema = z.object({
   session_id: z.string(),
   transcript_path: z.string(),
