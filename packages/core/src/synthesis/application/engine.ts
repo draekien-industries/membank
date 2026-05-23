@@ -96,7 +96,7 @@ export class SynthesisEngine {
     try {
       const projectHash = scope === GLOBAL_SCOPE_HASH ? undefined : scope;
       const content = await this.#agentRunner.run(scope, projectHash);
-      const sourceHash = this.#synthRepo.computeSourceMemoryHash(scope);
+      const sourceHash = this.#synthRepo.sourceMemoryHash(scope);
       this.#synthRepo.saveSynthesis(scope, content, sourceHash);
       this.#failureCounts.delete(scope);
     } catch (err) {

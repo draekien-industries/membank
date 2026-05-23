@@ -64,14 +64,14 @@ describe("SqliteSynthesisRepository", () => {
     expect(result).toBeUndefined();
   });
 
-  it("computeSourceMemoryHash() returns consistent hash for same data", () => {
-    const hash1 = repo.computeSourceMemoryHash(GLOBAL_SCOPE_HASH);
-    const hash2 = repo.computeSourceMemoryHash(GLOBAL_SCOPE_HASH);
+  it("sourceMemoryHash() returns consistent hash for same data", () => {
+    const hash1 = repo.sourceMemoryHash(GLOBAL_SCOPE_HASH);
+    const hash2 = repo.sourceMemoryHash(GLOBAL_SCOPE_HASH);
     expect(hash1).toBe(hash2);
   });
 
-  it("computeSourceMemoryHash() returns different hash when memories differ", () => {
-    const hashEmpty = repo.computeSourceMemoryHash(GLOBAL_SCOPE_HASH);
+  it("sourceMemoryHash() returns different hash when memories differ", () => {
+    const hashEmpty = repo.sourceMemoryHash(GLOBAL_SCOPE_HASH);
 
     db.db
       .prepare(
@@ -85,7 +85,7 @@ describe("SqliteSynthesisRepository", () => {
       )
       .run();
 
-    const hashWithMemory = repo.computeSourceMemoryHash(GLOBAL_SCOPE_HASH);
+    const hashWithMemory = repo.sourceMemoryHash(GLOBAL_SCOPE_HASH);
     expect(hashWithMemory).not.toBe(hashEmpty);
   });
 

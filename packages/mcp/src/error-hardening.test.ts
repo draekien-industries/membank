@@ -306,7 +306,7 @@ describe("error hardening", () => {
           markInFlight: () => {},
           clearInFlight: () => {},
           clearStaleInFlight: () => {},
-          computeSourceMemoryHash: () => {
+          sourceMemoryHash: () => {
             throw dbError;
           },
           getExpiredOrDirtyScopes: () => {

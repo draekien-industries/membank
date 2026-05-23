@@ -209,7 +209,7 @@ class SqliteSynthesisRepository implements SynthesisRepository {
       .run(now, cutoff);
   }
 
-  computeSourceMemoryHash(scope: string): string {
+  sourceMemoryHash(scope: string): string {
     const contents = this.#db.db
       .prepare<[string], { content: string }>(
         `SELECT m.content FROM memories m
@@ -245,7 +245,7 @@ class SqliteSynthesisRepository implements SynthesisRepository {
         continue;
       }
 
-      const currentHash = this.computeSourceMemoryHash(scope);
+      const currentHash = this.sourceMemoryHash(scope);
       if (currentHash !== row.source_memory_hash) {
         results.push({ scope, reason: "dirty" });
       }
