@@ -7,9 +7,10 @@ export interface ScoredMemory extends Memory {
 
 export interface QueryAdapter {
   findByEmbedding(
-    embedding: Buffer,
+    embedding: Float32Array,
     opts: { type?: MemoryType; projectHash?: string; includePinned?: boolean }
   ): Array<Memory & { cosineSim: number }>;
+  incrementAccessCount(id: string): void;
 }
 
 export interface Querier {

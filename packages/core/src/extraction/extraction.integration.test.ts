@@ -8,7 +8,7 @@ import { EmbeddingService } from "../embedding/index.js";
 import type { MemoryRepository } from "../memory/index.js";
 import { createMemoryRepository, saveMemory, updateMemory } from "../memory/index.js";
 import { createProjectRepository } from "../project/index.js";
-import { QueryEngine } from "../query/index.js";
+import { createQueryEngine, type QueryEngine } from "../query/index.js";
 import { runExtraction } from "./application/run-extraction.js";
 import { createExtractionAgentRunner } from "./infrastructure/claude-agent-runner.js";
 import { createExtractionRunRepository } from "./infrastructure/sqlite-extraction-run-repository.js";
@@ -112,7 +112,7 @@ describe.skipIf(!runIntegration)("extraction — integration (real Claude Haiku 
     projects.upsertByHash(projectHash, projectName);
     const repo = createMemoryRepository(db, projects);
     const embedding = new EmbeddingService();
-    const queryEngine = new QueryEngine(db, embedding, repo);
+    const queryEngine = createQueryEngine(db, embedding);
     const tools = buildLocalExtractionTools(repo, queryEngine, embedding, projectHash, projectName);
     const runRepo = createExtractionRunRepository(db);
     return { db, projectHash, tools, runRepo };

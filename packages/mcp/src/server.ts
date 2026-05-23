@@ -17,6 +17,7 @@ import {
   createActivityLogger,
   createMemoryRepository,
   createProjectRepository,
+  createQueryEngine,
   createSynthesisAgentRunner,
   createSynthesisRepository,
   DatabaseManager,
@@ -31,7 +32,6 @@ import {
   MIGRATIONS,
   mergeMemories,
   PIN_BUDGET_THRESHOLD,
-  QueryEngine,
   resolveProject,
   resolveReviewMany,
   runScopeToProjectsMigration,
@@ -186,7 +186,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
   const projects = createProjectRepository(db);
   const repo = createMemoryRepository(db, projects);
   const activityLogger = createActivityLogger(db);
-  const query = new QueryEngine(db, embedding, repo, activityLogger);
+  const query = createQueryEngine(db, embedding, activityLogger);
 
   const synthRepo = createSynthesisRepository(db);
   const synthConfig = loadSynthesisConfig();

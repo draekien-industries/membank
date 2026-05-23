@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseManager } from "../db/manager.js";
-import type { Embedder, MemoryRepository } from "../memory/ports.js";
-import { QueryEngine } from "./engine.js";
+import type { Embedder } from "../memory/ports.js";
+import type { QueryEngine } from "./engine.js";
+import { createQueryEngine } from "./index.js";
 
 function unitVec(dim: number, size = 384): Float32Array {
   const v = new Float32Array(size).fill(0);
@@ -66,17 +67,22 @@ function associateMemoryProject(db: DatabaseManager, memoryId: string, projectId
     .run(memoryId, projectId);
 }
 
+function getAccessCount(db: DatabaseManager, id: string): number {
+  const row = db.db
+    .prepare<[string], { access_count: number }>("SELECT access_count FROM memories WHERE id = ?")
+    .get(id);
+  return row?.access_count ?? 0;
+}
+
 describe("QueryEngine", () => {
   let dbManager: DatabaseManager;
   let embeddingStub: Embedder;
-  let repoStub: Pick<MemoryRepository, "incrementAccessCount">;
   let engine: QueryEngine;
 
   beforeEach(() => {
     dbManager = DatabaseManager.openInMemory();
     embeddingStub = { embed: vi.fn() };
-    repoStub = { incrementAccessCount: vi.fn() };
-    engine = new QueryEngine(dbManager, embeddingStub, repoStub as MemoryRepository);
+    engine = createQueryEngine(dbManager, embeddingStub);
   });
 
   it("returns empty array when no memories exist", async () => {
@@ -218,7 +224,7 @@ describe("QueryEngine", () => {
     expect(ids).toEqual(["global-1", "project-1"]);
   });
 
-  it("calls incrementAccessCount once per result", async () => {
+  it("increments access_count in the DB once per result", async () => {
     insertMemory(dbManager, {
       id: "mem-1",
       content: "Memory one",
@@ -237,9 +243,8 @@ describe("QueryEngine", () => {
     const results = await engine.query({ query: "test" });
 
     expect(results.length).toBe(2);
-    expect(repoStub.incrementAccessCount).toHaveBeenCalledTimes(2);
-    expect(repoStub.incrementAccessCount).toHaveBeenCalledWith("mem-1");
-    expect(repoStub.incrementAccessCount).toHaveBeenCalledWith("mem-2");
+    expect(getAccessCount(dbManager, "mem-1")).toBe(1);
+    expect(getAccessCount(dbManager, "mem-2")).toBe(1);
   });
 
   it("each result has a score field", async () => {

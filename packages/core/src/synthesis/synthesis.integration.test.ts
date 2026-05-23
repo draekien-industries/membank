@@ -8,7 +8,7 @@ import { EmbeddingService } from "../embedding/index.js";
 import type { MemoryRepository } from "../memory/index.js";
 import { createMemoryRepository, saveMemory } from "../memory/index.js";
 import { createProjectRepository } from "../project/index.js";
-import { QueryEngine } from "../query/index.js";
+import { createQueryEngine, type QueryEngine } from "../query/index.js";
 import { runSynthesis } from "./application/run-synthesis.js";
 import { createSynthesisAgentRunner } from "./infrastructure/claude-agent-runner.js";
 import { createSynthesisRepository } from "./infrastructure/sqlite-synthesis-repository.js";
@@ -64,7 +64,7 @@ describe.skipIf(!runIntegration)("synthesis — integration (real Claude Haiku a
     projects.upsertByHash(projectHash, "membank-int-synth");
     const repo = createMemoryRepository(db, projects);
     const embedding = new EmbeddingService();
-    const queryEngine = new QueryEngine(db, embedding, repo);
+    const queryEngine = createQueryEngine(db, embedding);
     const synthRepo = createSynthesisRepository(db);
 
     // Seed unique, distinctive memories. If the agent reads from the host's real
