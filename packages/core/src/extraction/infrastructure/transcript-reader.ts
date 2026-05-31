@@ -1,11 +1,8 @@
 import { readFile } from "node:fs/promises";
+import { CHUNK_MAX_CHARS, chunkTurns } from "../domain/transcript-chunking.js";
 import type { TranscriptReader } from "../ports.js";
 
-const DEFAULT_MAX_TURNS = 80;
-const DEFAULT_MAX_CHARS = 60_000;
-
 interface TranscriptReaderOptions {
-  maxTurns?: number;
   maxChars?: number;
 }
 
@@ -36,15 +33,13 @@ function extractText(content: unknown): string {
 }
 
 class ClaudeCodeTranscriptReader implements TranscriptReader {
-  readonly #maxTurns: number;
   readonly #maxChars: number;
 
   constructor(opts: TranscriptReaderOptions = {}) {
-    this.#maxTurns = opts.maxTurns ?? DEFAULT_MAX_TURNS;
-    this.#maxChars = opts.maxChars ?? DEFAULT_MAX_CHARS;
+    this.#maxChars = opts.maxChars ?? CHUNK_MAX_CHARS;
   }
 
-  async read(transcriptPath: string): Promise<string> {
+  async read(transcriptPath: string): Promise<string[]> {
     const raw = await readFile(transcriptPath, "utf8");
     const lines = raw.split("\n").filter((l) => l.length > 0);
 
@@ -63,9 +58,7 @@ class ClaudeCodeTranscriptReader implements TranscriptReader {
       turns.push(`${role}: ${text}`);
     }
 
-    const tail = turns.slice(-this.#maxTurns).join("\n\n");
-    if (tail.length <= this.#maxChars) return tail;
-    return tail.slice(tail.length - this.#maxChars);
+    return chunkTurns(turns, this.#maxChars);
   }
 }
 

@@ -1,3 +1,4 @@
+import { MAX_EXTRACTION_CHUNKS } from "../domain/transcript-chunking.js";
 import type {
   ExtractionAgentRunner,
   ExtractionConfig,
@@ -39,12 +40,24 @@ export async function runExtraction(
   }
 
   try {
-    const transcript = await deps.transcripts.read(input.transcriptPath);
-    await deps.agent.run({
-      transcript,
-      projectHash: input.projectHash,
-      sessionId: input.sessionId,
-    });
+    const chunks = await deps.transcripts.read(input.transcriptPath);
+    const bounded =
+      chunks.length > MAX_EXTRACTION_CHUNKS ? chunks.slice(-MAX_EXTRACTION_CHUNKS) : chunks;
+    if (bounded.length < chunks.length) {
+      process.stderr.write(
+        `membank extraction: transcript exceeded cap, processing most recent ` +
+          `${MAX_EXTRACTION_CHUNKS}/${chunks.length} chunks\n`
+      );
+    }
+    // Sequential, not parallel: concurrent runs would race on save_memory's
+    // cosine-similarity dedup and could persist near-duplicate memories.
+    for (const transcript of bounded) {
+      await deps.agent.run({
+        transcript,
+        projectHash: input.projectHash,
+        sessionId: input.sessionId,
+      });
+    }
     deps.repo.markCompleted(input.sessionId, now());
     return { status: "completed" };
   } catch (err) {

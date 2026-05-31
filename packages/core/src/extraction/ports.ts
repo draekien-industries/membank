@@ -22,8 +22,8 @@ export interface ExtractionRunRepository {
 }
 
 export interface TranscriptReader {
-  /** Returns the recent transcript content (plain text) for the agent to inspect. */
-  read(transcriptPath: string): Promise<string>;
+  /** Returns the transcript split into turn-aligned chunks for the agent to process. */
+  read(transcriptPath: string): Promise<string[]>;
 }
 
 export interface ExtractionAgentRunner {

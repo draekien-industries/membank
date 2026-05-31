@@ -56,7 +56,7 @@ function makeFakeRepo(initial?: ExtractionRunRecord): ExtractionRunRepository & 
 }
 
 const transcripts: TranscriptReader = {
-  read: async () => "user: hi\nassistant: hello",
+  read: async () => ["user: hi\nassistant: hello"],
 };
 
 const config: ExtractionConfig = {};
@@ -78,6 +78,55 @@ describe("runExtraction", () => {
       sessionId: "s1",
     });
     expect(repo.state.record?.status).toBe("completed");
+  });
+
+  it("runs the agent once per chunk", async () => {
+    const repo = makeFakeRepo();
+    const agent: ExtractionAgentRunner = { run: vi.fn().mockResolvedValue(undefined) };
+    const chunked: TranscriptReader = { read: async () => ["chunk-1", "chunk-2", "chunk-3"] };
+
+    const result = await runExtraction(
+      { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
+      { repo, transcripts: chunked, agent, config }
+    );
+
+    expect(result).toEqual({ status: "completed" });
+    expect(agent.run).toHaveBeenCalledTimes(3);
+    expect(agent.run).toHaveBeenNthCalledWith(1, {
+      transcript: "chunk-1",
+      projectHash: "abc",
+      sessionId: "s1",
+    });
+    expect(agent.run).toHaveBeenNthCalledWith(3, {
+      transcript: "chunk-3",
+      projectHash: "abc",
+      sessionId: "s1",
+    });
+  });
+
+  it("processes only the most recent chunks when the cap is exceeded", async () => {
+    const repo = makeFakeRepo();
+    const agent: ExtractionAgentRunner = { run: vi.fn().mockResolvedValue(undefined) };
+    const chunks = Array.from({ length: 13 }, (_, i) => `chunk-${i}`);
+    const chunked: TranscriptReader = { read: async () => chunks };
+
+    const result = await runExtraction(
+      { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
+      { repo, transcripts: chunked, agent, config }
+    );
+
+    expect(result).toEqual({ status: "completed" });
+    expect(agent.run).toHaveBeenCalledTimes(10);
+    expect(agent.run).toHaveBeenNthCalledWith(1, {
+      transcript: "chunk-3",
+      projectHash: "abc",
+      sessionId: "s1",
+    });
+    expect(agent.run).toHaveBeenNthCalledWith(10, {
+      transcript: "chunk-12",
+      projectHash: "abc",
+      sessionId: "s1",
+    });
   });
 
   it("skips when an in-flight run already exists", async () => {
