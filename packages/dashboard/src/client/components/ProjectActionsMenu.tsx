@@ -32,7 +32,10 @@ export function ProjectActionsMenu({
               variant="ghost"
               size="icon-sm"
               aria-label={`Actions for ${project.name}`}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
             />
           }
         >
