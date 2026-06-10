@@ -53,6 +53,7 @@ export function rowToProject(row: ProjectRow): Project {
     id: row.id,
     name: row.name,
     scopeHash: row.scope_hash,
+    origin: row.origin,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

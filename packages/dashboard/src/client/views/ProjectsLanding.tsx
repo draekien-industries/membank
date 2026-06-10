@@ -1,5 +1,7 @@
 import { GLOBAL_SCOPE_HASH } from "@membank/core/client";
 import { useLiveQuery } from "@tanstack/react-db";
+import { OrphanBanner } from "@/components/OrphanBanner";
+import { ProjectActionsMenu } from "@/components/ProjectActionsMenu";
 import { ProjectCard } from "@/components/ProjectCard";
 import { ProjectCardHero } from "@/components/ProjectCardHero";
 import { Empty, EmptyDescription, EmptyTitle } from "@/components/ui/empty";
@@ -15,6 +17,8 @@ export function ProjectsLanding() {
 
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <OrphanBanner />
+
       {globalProject && (
         <section className="space-y-2">
           <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-mono">
@@ -52,6 +56,7 @@ export function ProjectsLanding() {
                 projectId={project.id}
                 projectName={project.name}
                 linkOptions={{ to: "/$projectId", params: { projectId: project.id } }}
+                actions={<ProjectActionsMenu project={project} />}
               />
             ))}
           </div>

@@ -64,7 +64,7 @@ export interface CreateMemoryOpts {
   tags: string[];
   sourceHarness: string | null;
   embedding: Float32Array;
-  projectScope?: { hash: string; name: string };
+  projectScope?: { hash: string; name: string; origin?: string | undefined };
 }
 
 export interface CreateReviewEventOpts {

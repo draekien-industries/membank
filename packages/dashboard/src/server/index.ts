@@ -30,10 +30,15 @@ import {
   DatabaseManager,
   deleteManyMemories,
   deleteMemory,
+  deleteProject,
   EmbeddingService,
+  findWorktreeOrphan,
+  GLOBAL_PROJECT_ID,
   isSynthesisEnabled,
   listEvents,
   mergeMemories,
+  mergeProjects,
+  reconcileWorktreeOrphan,
   resolveReviewMany,
   revertMemory,
   revertSynthesis,
@@ -296,7 +301,19 @@ export function createApiApp(
   });
 
   app.get("/api/projects", (c) => {
-    return c.json(projectRepo.list());
+    return c.json(
+      projectRepo.list().map((p) => ({ ...p, memoryCount: projectRepo.countMemories(p.id) }))
+    );
+  });
+
+  app.get("/api/projects/orphan", async (c) => {
+    const orphan = await findWorktreeOrphan(projectRepo);
+    return c.json(orphan);
+  });
+
+  app.post("/api/projects/reconcile", async (c) => {
+    const result = await reconcileWorktreeOrphan(projectRepo);
+    return c.json(result);
   });
 
   app.patch("/api/projects/:id", async (c) => {
@@ -306,6 +323,30 @@ export function createApiApp(
     } catch {
       return c.json({ error: "Not found" }, 404);
     }
+  });
+
+  app.post("/api/projects/:id/merge", async (c) => {
+    const body = await c.req.json<{ targetId?: unknown }>();
+    if (typeof body.targetId !== "string") {
+      return c.json({ error: "targetId is required" }, 400);
+    }
+    try {
+      return c.json(mergeProjects(c.req.param("id"), body.targetId, projectRepo));
+    } catch (err: unknown) {
+      return c.json({ error: err instanceof Error ? err.message : String(err) }, 400);
+    }
+  });
+
+  app.delete("/api/projects/:id", (c) => {
+    const id = c.req.param("id");
+    if (id === GLOBAL_PROJECT_ID) {
+      return c.json({ error: "Cannot delete the global project" }, 400);
+    }
+    if (projectRepo.getById(id) === undefined) {
+      return c.json({ error: "Not found" }, 404);
+    }
+    const { deletedMemories } = deleteProject(id, projectRepo, repo);
+    return c.json({ ok: true, deletedMemories });
   });
 
   app.get("/api/stats", (c) => {

@@ -31,7 +31,9 @@ import {
   MemoryTypeSchema,
   MIGRATIONS,
   mergeMemories,
+  mergeProjects,
   PIN_BUDGET_THRESHOLD,
+  reconcileWorktreeOrphan,
   resolveProject,
   resolveReviewMany,
   runScopeToProjectsMigration,
@@ -57,6 +59,7 @@ import {
   MergeMemoriesArgsSchema,
   PinMemoryArgsSchema,
   QueryMemoryArgsSchema,
+  ReconcileProjectArgsSchema,
   ResolveManyArgsSchema,
   ResolveReviewArgsSchema,
   RunMigrationArgsSchema,
@@ -512,6 +515,33 @@ export function createServer(core: CoreServices): Server {
           required: ["scope"],
         },
       },
+      {
+        name: "list_projects",
+        description:
+          "List all projects with their origin, memory count, and scope hash. Use to find a project id for reconcile_project.",
+        inputSchema: { type: "object", properties: {}, required: [] },
+      },
+      {
+        name: "reconcile_project",
+        description:
+          "Merge one project into another, moving its memories and activity. Omit both ids to auto-detect and reconcile the orphaned project for the current git worktree into its parent. Provide both ids for an explicit merge.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            sourceId: {
+              type: "string",
+              description:
+                "Project id to merge away. Omit to auto-detect the orphan for the current worktree.",
+            },
+            targetId: {
+              type: "string",
+              description:
+                "Project id to merge into. Omit to auto-detect the parent for the current worktree.",
+            },
+          },
+          required: [],
+        },
+      },
     ],
   }));
 
@@ -849,6 +879,58 @@ export function createServer(core: CoreServices): Server {
       const scope = args.scope === GLOBAL_PROJECT_NAME ? GLOBAL_SCOPE_HASH : args.scope;
       const versions = core.synthRepo.listVersions(scope);
       return { content: [{ type: "text", text: JSON.stringify(versions) }] };
+    }
+
+    if (request.params.name === "list_projects") {
+      const projects = core.projects.list().map((project) => ({
+        ...project,
+        memoryCount: core.projects.countMemories(project.id),
+      }));
+      return { content: [{ type: "text", text: JSON.stringify(projects) }] };
+    }
+
+    if (request.params.name === "reconcile_project") {
+      const args = parseArgs(ReconcileProjectArgsSchema, request.params.arguments);
+
+      if ((args.sourceId === undefined) !== (args.targetId === undefined)) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Provide both sourceId and targetId, or neither to auto-detect.",
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      try {
+        const result =
+          args.sourceId !== undefined && args.targetId !== undefined
+            ? mergeProjects(args.sourceId, args.targetId, core.projects)
+            : await reconcileWorktreeOrphan(core.projects);
+
+        if (result === null) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "No orphaned project found for the current worktree.",
+              },
+            ],
+          };
+        }
+
+        if (core.synthEngine !== undefined) {
+          const target = core.projects.getById(result.target.id);
+          if (target !== undefined) core.synthEngine.markDirty(target.scopeHash);
+        }
+
+        return { content: [{ type: "text", text: JSON.stringify(result) }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: message }], isError: true };
+      }
     }
 
     throw new Error(`Unknown tool: ${request.params.name}`);

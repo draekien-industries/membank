@@ -1,1 +1,1 @@
-export { resolveProject, resolveScope } from "./resolver.js";
+export { resolveLegacyCwdScope, resolveProject, resolveScope } from "./resolver.js";

@@ -20,6 +20,8 @@ import { memoryRevertCommand } from "./commands/memory/revert.js";
 import { memoryShowCommand } from "./commands/memory/show.js";
 import { migrateCommand } from "./commands/migrate.js";
 import { pinCommand } from "./commands/pin.js";
+import { projectsListCommand } from "./commands/projects/list.js";
+import { projectsReconcileCommand } from "./commands/projects/reconcile.js";
 import { queryCommand } from "./commands/query.js";
 import { reviewCommand } from "./commands/review.js";
 import { statsCommand } from "./commands/stats.js";
@@ -672,6 +674,42 @@ program
       }
     }
   );
+
+const projectsCmd = program
+  .command("projects")
+  .description("list projects and reconcile orphaned worktree projects");
+
+projectsCmd
+  .command("list")
+  .description("list all projects with origin and memory count")
+  .action(() => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    try {
+      projectsListCommand(formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+projectsCmd
+  .command("reconcile [sourceId] [targetId]")
+  .description(
+    "merge a project into another; omit both ids to auto-detect the orphan for the current worktree"
+  )
+  .action(async (sourceId: string | undefined, targetId: string | undefined) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    const autoConfirm = globalOpts.yes === true || !process.stdout.isTTY;
+    const prompt = new PromptHelper(autoConfirm);
+    try {
+      await projectsReconcileCommand(sourceId, targetId, formatter, prompt);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
 
 program.on("command:*", () => {
   program.outputHelp();

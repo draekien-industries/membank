@@ -100,7 +100,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
       .run(embeddingBlob, id);
 
     const scope = projectScope ?? { hash: GLOBAL_SCOPE_HASH, name: GLOBAL_PROJECT_NAME };
-    const project = this.#projects.upsertByHash(scope.hash, scope.name);
+    const project = this.#projects.upsertByHash(scope.hash, scope.name, projectScope?.origin);
     this.#projects.addAssociation(id, project.id);
 
     const row = MemoryRowSchema.parse(
