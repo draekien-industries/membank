@@ -1,5 +1,20 @@
 # @membank/dashboard
 
+## 0.13.0
+
+### Minor Changes
+
+- 915a03f: Project merge and delete actions are now available from the project details page, and clicking a project card's actions menu no longer navigates into the project.
+- 5b2fc91: Memories created inside a git worktree now resolve to the parent repository's project instead of a separate orphan, and existing orphaned worktree projects can be reconciled into their parent via the CLI, MCP, and dashboard (with the dashboard also able to delete an orphaned project and its exclusive memories).
+
+### Patch Changes
+
+- 95d8763: Fixed interactive controls on project cards (the actions menu and day-range toggle) so clicking them no longer navigates to the project details page.
+- 3fb1d5e: Fixed the merge project dialog so the selected project shows its name instead of its internal ID.
+- 25fe0fb: Shortened the project actions menu labels to "Merge" and "Delete".
+- Updated dependencies [5b2fc91]
+  - @membank/core@0.18.0
+
 ## 0.12.2
 
 ### Patch Changes
