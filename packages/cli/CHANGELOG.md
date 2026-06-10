@@ -1,5 +1,17 @@
 # @membank/cli
 
+## 0.19.0
+
+### Minor Changes
+
+- 5b2fc91: Memories created inside a git worktree now resolve to the parent repository's project instead of a separate orphan, and existing orphaned worktree projects can be reconciled into their parent via the CLI, MCP, and dashboard (with the dashboard also able to delete an orphaned project and its exclusive memories).
+
+### Patch Changes
+
+- Updated dependencies [5b2fc91]
+  - @membank/core@0.18.0
+  - @membank/mcp@0.17.0
+
 ## 0.18.2
 
 ### Patch Changes
