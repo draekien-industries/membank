@@ -25,6 +25,7 @@ interface ProjectCardProps<
   linkOptions: ValidateLinkOptions<TRouter, TOptions>;
   statsOverride?: ProjectStats;
   className?: string;
+  actions?: React.ReactNode;
 }
 
 interface StatCellProps {
@@ -52,6 +53,7 @@ export function ProjectCard({
   linkOptions,
   statsOverride,
   className,
+  actions,
 }: ProjectCardProps): React.ReactNode {
   const { stats, activity, activityLoading, days, setDays, statItems } = useProjectCardData({
     projectId,
@@ -69,7 +71,10 @@ export function ProjectCard({
         <CardHeader className="items-center pt-4 pb-3">
           <CardTitle className="font-mono text-sm font-medium">{projectName}</CardTitle>
           <CardAction>
-            <DayToggle days={days} onDaysChange={setDays} />
+            <div className="flex items-center gap-1">
+              <DayToggle days={days} onDaysChange={setDays} />
+              {actions}
+            </div>
           </CardAction>
         </CardHeader>
 

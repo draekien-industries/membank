@@ -20,8 +20,21 @@ export interface Project {
   id: string;
   name: string;
   scopeHash: string;
+  origin: string | null;
   createdAt: string;
   updatedAt: string;
+  memoryCount?: number;
+}
+
+export interface OrphanSuggestion {
+  orphan: Project;
+  target: { hash: string; name: string; origin: string };
+}
+
+export interface MergeResult {
+  movedMemories: number;
+  source: { id: string; name: string };
+  target: { id: string; name: string };
 }
 
 export interface ReviewEvent {

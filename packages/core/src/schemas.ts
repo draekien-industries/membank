@@ -17,6 +17,7 @@ export const ProjectSchema = z.object({
   id: z.string(),
   name: z.string(),
   scopeHash: z.string(),
+  origin: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -78,7 +79,9 @@ export const SaveOptionsSchema = z.object({
   content: z.string().min(1),
   type: MemoryTypeSchema,
   tags: z.array(z.string()).optional(),
-  projectScope: z.object({ hash: z.string(), name: z.string() }).optional(),
+  projectScope: z
+    .object({ hash: z.string(), name: z.string(), origin: z.string().optional() })
+    .optional(),
   sourceHarness: z.string().optional(),
 });
 export type SaveOptions = z.infer<typeof SaveOptionsSchema>;
@@ -159,6 +162,7 @@ export const ProjectRowSchema = z.object({
   id: z.string(),
   name: z.string(),
   scope_hash: z.string(),
+  origin: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });

@@ -21,7 +21,7 @@ export class SqliteProjectRepository implements ProjectRepository {
     this.#db = db;
   }
 
-  upsertByHash(hash: string, name: string): Project {
+  upsertByHash(hash: string, name: string, origin?: string): Project {
     if (!/^[0-9a-f]{16}$/.test(hash)) {
       throw new Error(`Invalid scope hash "${hash}": expected 16 lowercase hex characters`);
     }
@@ -30,9 +30,11 @@ export class SqliteProjectRepository implements ProjectRepository {
     const resolvedName = hash === GLOBAL_SCOPE_HASH ? GLOBAL_PROJECT_NAME : name;
     this.#db.db
       .prepare(
-        `INSERT OR IGNORE INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+        `INSERT INTO projects (id, name, scope_hash, origin, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(scope_hash) DO UPDATE SET origin = COALESCE(origin, excluded.origin)`
       )
-      .run(id, resolvedName, hash, now, now);
+      .run(id, resolvedName, hash, origin ?? null, now, now);
 
     const row = ProjectRowSchema.parse(
       this.#db.db
@@ -62,6 +64,13 @@ export class SqliteProjectRepository implements ProjectRepository {
       .prepare<[], ProjectRow>(`SELECT * FROM projects ORDER BY name ASC`)
       .all()
       .map(rowToProject);
+  }
+
+  getById(id: string): Project | undefined {
+    const row = this.#db.db
+      .prepare<[string], ProjectRow>(`SELECT * FROM projects WHERE id = ?`)
+      .get(id);
+    return row !== undefined ? rowToProject(row) : undefined;
   }
 
   getByHash(hash: string): Project | undefined {
@@ -117,6 +126,60 @@ export class SqliteProjectRepository implements ProjectRepository {
       result.set(row.memory_id, list);
     }
     return result;
+  }
+
+  merge(sourceId: string, targetId: string): { movedMemories: number } {
+    if (sourceId === targetId) {
+      throw new Error("Cannot merge a project into itself");
+    }
+    if (sourceId === GLOBAL_PROJECT_ID) {
+      throw new Error("Cannot merge away the global project");
+    }
+    const source = this.#db.db
+      .prepare<[string], ProjectRow>(`SELECT * FROM projects WHERE id = ?`)
+      .get(sourceId);
+    const target = this.#db.db
+      .prepare<[string], ProjectRow>(`SELECT * FROM projects WHERE id = ?`)
+      .get(targetId);
+    if (source === undefined) throw new Error(`Project not found: ${sourceId}`);
+    if (target === undefined) throw new Error(`Project not found: ${targetId}`);
+
+    return this.#db.db.transaction(() => {
+      const movedMemories = this.countMemories(sourceId);
+
+      this.#db.db
+        .prepare(
+          `INSERT OR IGNORE INTO memory_projects (memory_id, project_id)
+           SELECT memory_id, ? FROM memory_projects WHERE project_id = ?`
+        )
+        .run(targetId, sourceId);
+
+      this.#db.db
+        .prepare(`UPDATE activity_events SET project_hash = ? WHERE project_hash = ?`)
+        .run(target.scope_hash, source.scope_hash);
+
+      this.deleteById(sourceId);
+
+      return { movedMemories };
+    })();
+  }
+
+  listExclusiveMemoryIds(projectId: string): string[] {
+    return this.#db.db
+      .prepare<[string, string], { memory_id: string }>(
+        `SELECT memory_id FROM memory_projects
+         WHERE project_id = ?
+           AND memory_id NOT IN (SELECT memory_id FROM memory_projects WHERE project_id != ?)`
+      )
+      .all(projectId, projectId)
+      .map((row) => row.memory_id);
+  }
+
+  deleteById(id: string): void {
+    if (id === GLOBAL_PROJECT_ID) {
+      throw new Error("Cannot delete the global project");
+    }
+    this.#db.db.prepare(`DELETE FROM projects WHERE id = ?`).run(id);
   }
 }
 

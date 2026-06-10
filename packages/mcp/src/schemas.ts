@@ -104,3 +104,16 @@ export const ListSynthesisHistoryArgsSchema = z.object({
       'Scope to retrieve synthesis history for. Use "global" for global scope, a project name, or a 16-char hex scope hash.'
     ),
 });
+
+export const ReconcileProjectArgsSchema = z.object({
+  sourceId: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Project id to merge away. Omit to auto-detect the orphan for the current worktree."),
+  targetId: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Project id to merge into. Omit to auto-detect the parent for the current worktree."),
+});

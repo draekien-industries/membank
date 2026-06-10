@@ -8,6 +8,8 @@ import type {
   MemoryCluster,
   MemoryType,
   MemoryVersion,
+  MergeResult,
+  OrphanSuggestion,
   Project,
   ProjectStats,
   Stats,
@@ -84,6 +86,22 @@ export function renameProject(id: string, name: string): Promise<Project> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ name }),
   });
+}
+
+export function getOrphanSuggestion(): Promise<OrphanSuggestion | null> {
+  return request<OrphanSuggestion | null>("/projects/orphan");
+}
+
+export function reconcileOrphan(): Promise<MergeResult | null> {
+  return postJson<MergeResult | null>("/projects/reconcile", {});
+}
+
+export function mergeProjects(sourceId: string, targetId: string): Promise<MergeResult> {
+  return postJson<MergeResult>(`/projects/${sourceId}/merge`, { targetId });
+}
+
+export function deleteProject(id: string): Promise<{ ok: true; deletedMemories: number }> {
+  return request<{ ok: true; deletedMemories: number }>(`/projects/${id}`, { method: "DELETE" });
 }
 
 export function addMemoryProject(memoryId: string, projectId: string): Promise<void> {

@@ -341,6 +341,12 @@ CREATE TABLE synthesis_versions (
 CREATE INDEX idx_synthesis_versions_scope ON synthesis_versions(scope, version DESC);
 `,
   ],
+  [
+    14,
+    `
+ALTER TABLE projects ADD COLUMN origin TEXT;
+`,
+  ],
 ];
 
 export class DatabaseManager {
