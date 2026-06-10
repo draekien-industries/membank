@@ -17,10 +17,12 @@ export function DeleteProjectDialog({
   project,
   open,
   onOpenChange,
+  onSuccess,
 }: {
   project: Pick<Project, "id" | "name">;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }) {
   const { pending, run } = useProjectMutation();
 
@@ -31,7 +33,10 @@ export function DeleteProjectDialog({
         ? `Deleted ${project.name}`
         : `Deleted ${project.name} and ${deletedMemories} ${deletedMemories === 1 ? "memory" : "memories"} unique to it`;
     }, "Could not delete the project");
-    if (ok) onOpenChange(false);
+    if (ok) {
+      onOpenChange(false);
+      onSuccess?.();
+    }
   };
 
   return (
