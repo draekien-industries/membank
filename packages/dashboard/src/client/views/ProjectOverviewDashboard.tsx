@@ -1,7 +1,10 @@
+import { GLOBAL_SCOPE_HASH } from "@membank/core/client";
 import { useLiveQuery } from "@tanstack/react-db";
+import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { ActivityEventRow } from "@/components/ActivityEventRow";
 import { AppLink } from "@/components/AppLink";
+import { ProjectActionsMenu } from "@/components/ProjectActionsMenu";
 import { useActivityEvents } from "@/hooks/useActivityEvents";
 import { countReviewClusters } from "@/hooks/useStats";
 import { memoriesCollection } from "@/lib/collections";
@@ -75,6 +78,7 @@ function useAttentionData(projectId: string): AttentionData {
 
 export function OverviewHeader({ project }: { project: Project }) {
   const lastActiveAt = useOverviewLastActive(project.scopeHash);
+  const navigate = useNavigate();
   return (
     <div className="flex items-start justify-between gap-4 pb-6 border-b border-border">
       <div className="min-w-0 space-y-0.5">
@@ -85,11 +89,16 @@ export function OverviewHeader({ project }: { project: Project }) {
           {project.scopeHash}
         </p>
       </div>
-      {lastActiveAt && (
-        <span className="shrink-0 mt-0.5 font-mono text-[11px] text-muted-foreground/50">
-          active {formatRelativeTime(lastActiveAt)}
-        </span>
-      )}
+      <div className="flex shrink-0 items-center gap-3">
+        {lastActiveAt && (
+          <span className="mt-0.5 font-mono text-[11px] text-muted-foreground/50">
+            active {formatRelativeTime(lastActiveAt)}
+          </span>
+        )}
+        {project.scopeHash !== GLOBAL_SCOPE_HASH && (
+          <ProjectActionsMenu project={project} onProjectRemoved={() => navigate({ to: "/" })} />
+        )}
+      </div>
     </div>
   );
 }

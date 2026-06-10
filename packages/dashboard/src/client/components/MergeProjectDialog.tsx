@@ -29,10 +29,12 @@ export function MergeProjectDialog({
   project,
   open,
   onOpenChange,
+  onSuccess,
 }: {
   project: Pick<Project, "id" | "name">;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }) {
   const { data: projects = [] } = useLiveQuery((q) => q.from({ p: projectsCollection }), []);
   const [targetId, setTargetId] = useState<string | null>(null);
@@ -54,7 +56,10 @@ export function MergeProjectDialog({
       const moved = result.movedMemories;
       return `Moved ${moved} ${moved === 1 ? "memory" : "memories"} into ${result.target.name}`;
     }, "Could not merge the project");
-    if (ok) handleOpenChange(false);
+    if (ok) {
+      handleOpenChange(false);
+      onSuccess?.();
+    }
   };
 
   return (
