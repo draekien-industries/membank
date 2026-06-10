@@ -43,11 +43,9 @@ export function ProjectActionsMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
-            <DropdownMenuItem onClick={() => setDialog("merge")}>
-              Merge into another project
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setDialog("merge")}>Merge</DropdownMenuItem>
             <DropdownMenuItem variant="destructive" onClick={() => setDialog("delete")}>
-              Delete project
+              Delete
             </DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>
