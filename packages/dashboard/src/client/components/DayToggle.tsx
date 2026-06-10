@@ -26,7 +26,7 @@ interface DayToggleProps {
 
 export function DayToggle({ days, onDaysChange, className }: DayToggleProps) {
   return (
-    <StopPropagation>
+    <StopPropagation preventDefault>
       <div className={cn("flex gap-0.5", className)}>
         {DAY_OPTIONS.map((d) => (
           <button

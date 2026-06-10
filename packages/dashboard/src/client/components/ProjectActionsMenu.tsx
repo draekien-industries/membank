@@ -2,6 +2,7 @@ import { DotsThreeVerticalIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { DeleteProjectDialog } from "@/components/DeleteProjectDialog";
 import { MergeProjectDialog } from "@/components/MergeProjectDialog";
+import { StopPropagation } from "@/components/StopPropagation";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -23,8 +24,12 @@ export function ProjectActionsMenu({
 }) {
   const [dialog, setDialog] = useState<OpenDialog>(null);
 
+  // The card is an AppLink (<a>). The menu and dialogs are portaled, so they only
+  // reach the link via React's event tree — StopPropagation guards against that.
+  // The trigger button sits inside the <a> in the DOM, so it also preventDefaults
+  // its own click to stop the browser following the link.
   return (
-    <>
+    <StopPropagation>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -32,10 +37,7 @@ export function ProjectActionsMenu({
               variant="ghost"
               size="icon-sm"
               aria-label={`Actions for ${project.name}`}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
+              onClick={(e) => e.preventDefault()}
             />
           }
         >
@@ -63,6 +65,6 @@ export function ProjectActionsMenu({
         onOpenChange={(open) => setDialog(open ? "delete" : null)}
         onSuccess={() => onProjectRemoved?.()}
       />
-    </>
+    </StopPropagation>
   );
 }

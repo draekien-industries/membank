@@ -68,7 +68,7 @@ export function ProjectCardHero({
           </div>
         </CardContent>
 
-        <StopPropagation>
+        <StopPropagation preventDefault>
           <CardContent className="overflow-hidden pb-3 pt-0">
             {activityLoading ? (
               <Skeleton className="h-12 w-full" />
