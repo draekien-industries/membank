@@ -44,6 +44,11 @@ export function MergeProjectDialog({
     .filter((p) => p.id !== project.id && p.scopeHash !== GLOBAL_SCOPE_HASH)
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const selectItems = candidates.map((candidate) => ({
+    value: candidate.id,
+    label: candidate.name,
+  }));
+
   const handleOpenChange = (next: boolean) => {
     if (!next) setTargetId(null);
     onOpenChange(next);
@@ -77,7 +82,7 @@ export function MergeProjectDialog({
             No other projects are available to merge into.
           </p>
         ) : (
-          <Select value={targetId} onValueChange={setTargetId}>
+          <Select items={selectItems} value={targetId} onValueChange={setTargetId}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Choose a project" />
             </SelectTrigger>
