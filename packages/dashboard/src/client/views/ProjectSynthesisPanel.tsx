@@ -1,5 +1,6 @@
 import { diffLines, GLOBAL_PROJECT_NAME } from "@membank/core/client";
 import { ArrowsClockwise, Lightning, WarningCircle } from "@phosphor-icons/react";
+import { cva } from "class-variance-authority";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useProjectSynthesis } from "@/hooks/useProjectSynthesis";
 import { useSynthesisHistory } from "@/hooks/useSynthesisHistory";
 import { getSessionContext } from "@/lib/api";
@@ -313,6 +315,69 @@ function ScopeLabel({ label, count }: { label: string; count: number }) {
   );
 }
 
+const synthesisTriggerButton = cva(
+  "group inline-flex h-5 shrink-0 items-center gap-1 rounded-sm text-[11px] transition-colors disabled:cursor-default",
+  {
+    variants: {
+      state: {
+        fresh: "px-1 text-muted-foreground/50 hover:bg-muted/60 hover:text-foreground",
+        stale: "px-1.5 font-medium text-stale bg-stale/10 hover:bg-stale/20",
+        inflight: "px-1 text-muted-foreground",
+      },
+    },
+    defaultVariants: { state: "fresh" },
+  }
+);
+
+function SynthesisTriggerButton({
+  memoryType,
+  hasSynthesis,
+  isStale,
+  isInFlight,
+  onRun,
+}: {
+  memoryType: MemoryType;
+  hasSynthesis: boolean;
+  isStale: boolean;
+  isInFlight: boolean;
+  onRun: (memoryType?: MemoryType) => Promise<void>;
+}) {
+  const state = isInFlight ? "inflight" : isStale ? "stale" : "fresh";
+  const label = isInFlight
+    ? `Synthesizing ${memoryType}…`
+    : hasSynthesis
+      ? `Regenerate ${memoryType} synthesis`
+      : `Synthesize ${memoryType}`;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        type="button"
+        disabled={isInFlight}
+        onClick={() => void onRun(memoryType)}
+        aria-label={label}
+        className={synthesisTriggerButton({ state })}
+      >
+        {isInFlight ? (
+          <Spinner className="size-3" />
+        ) : hasSynthesis ? (
+          <ArrowsClockwise className="size-3 motion-safe:transition-transform motion-safe:duration-300 motion-safe:group-hover:rotate-180" />
+        ) : (
+          <Lightning weight="fill" className="size-3" />
+        )}
+        {state === "stale" ? (
+          <span>Regenerate</span>
+        ) : (
+          !hasSynthesis && !isInFlight && <span>Synthesize</span>
+        )}
+      </TooltipTrigger>
+      <TooltipContent>
+        <span className="font-mono text-[11px]">{label}</span>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function SynthesisSectionView({
   section,
   synthesis,
@@ -321,9 +386,10 @@ function SynthesisSectionView({
 }: {
   section: Extract<SessionContextSection, { kind: "synthesis" }>;
   synthesis: Synthesis | undefined;
-  onRun: () => Promise<void>;
+  onRun: (memoryType?: MemoryType) => Promise<void>;
   projectId: string;
 }) {
+  const isInFlight = synthesis?.inFlightSince != null;
   const isStale =
     synthesis !== undefined &&
     synthesis.inFlightSince === null &&
@@ -337,20 +403,17 @@ function SynthesisSectionView({
           <Badge variant={section.memoryType}>{section.memoryType}</Badge>
           {isStale && <span className="text-[10px] text-stale">stale</span>}
         </div>
-        <button
-          type="button"
-          onClick={() => void onRun()}
-          aria-label={`Regenerate ${section.memoryType} synthesis`}
-          className="text-muted-foreground/40 hover:text-muted-foreground transition-colors p-0.5 rounded shrink-0"
-        >
-          <ArrowsClockwise className="size-3" />
-        </button>
+        <SynthesisTriggerButton
+          memoryType={section.memoryType}
+          hasSynthesis
+          isStale={isStale}
+          isInFlight={isInFlight}
+          onRun={onRun}
+        />
       </div>
-      <ScrollArea className="max-h-40">
-        <div className="pl-3 text-foreground/70 whitespace-pre-wrap leading-relaxed">
-          {section.content}
-        </div>
-      </ScrollArea>
+      <div className="max-h-40 overflow-y-auto pl-3 text-foreground/70 whitespace-pre-wrap leading-relaxed">
+        {section.content}
+      </div>
       <XmlClose tag="synthesis" />
       <SynthesisHistorySection projectId={projectId} memoryType={section.memoryType} />
     </div>
@@ -359,14 +422,29 @@ function SynthesisSectionView({
 
 function VerbatimSectionView({
   section,
+  isInFlight,
+  onRun,
 }: {
   section: Extract<SessionContextSection, { kind: "verbatim" }>;
+  isInFlight: boolean;
+  onRun: (memoryType?: MemoryType) => Promise<void>;
 }) {
   return (
     <div className="p-3 space-y-0.5">
-      <div className="flex items-center gap-1.5">
-        <XmlOpen tag="memories" />
-        <Badge variant={section.memoryType}>{section.memoryType}</Badge>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <XmlOpen tag="memories" />
+          <Badge variant={section.memoryType}>{section.memoryType}</Badge>
+        </div>
+        {section.synthesizable && (
+          <SynthesisTriggerButton
+            memoryType={section.memoryType}
+            hasSynthesis={false}
+            isStale={false}
+            isInFlight={isInFlight}
+            onRun={onRun}
+          />
+        )}
       </div>
       {section.memories.map((content) => (
         <MemoryLine key={content} content={content} />
@@ -398,11 +476,9 @@ function InFlightSynthesisView({
       <div className="pl-3 space-y-2 opacity-50">
         <InFlightIndicator isStuck={isStuck} onReset={onReset} />
         {hasPriorContent ? (
-          <ScrollArea className="max-h-40">
-            <div className="text-foreground/70 whitespace-pre-wrap leading-relaxed">
-              {synthesis.content}
-            </div>
-          </ScrollArea>
+          <div className="max-h-40 overflow-y-auto text-foreground/70 whitespace-pre-wrap leading-relaxed">
+            {synthesis.content}
+          </div>
         ) : (
           <div className="space-y-1.5">
             <Skeleton className="h-2.5 w-full" />
@@ -501,9 +577,36 @@ interface SessionContextPanelProps {
   isLoading: boolean;
   isStuck: boolean;
   error: string | null;
-  onRun: () => Promise<void>;
+  onRun: (memoryType?: MemoryType) => Promise<void>;
   onReset: () => Promise<void>;
   label?: string;
+}
+
+function SynthesizeAllButton({
+  anyInFlight,
+  hasSynthesis,
+  onRun,
+}: {
+  anyInFlight: boolean;
+  hasSynthesis: boolean;
+  onRun: () => Promise<void>;
+}) {
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      disabled={anyInFlight}
+      onClick={() => void onRun()}
+      className="gap-1.5 h-6 px-2 text-[11px]"
+    >
+      {anyInFlight ? (
+        <Spinner className="size-3" />
+      ) : (
+        <Lightning weight="fill" className="size-3" />
+      )}
+      {anyInFlight ? "Synthesizing…" : hasSynthesis ? "Regenerate all" : "Synthesize all"}
+    </Button>
+  );
 }
 
 function SessionContextPanel({
@@ -552,19 +655,31 @@ function SessionContextPanel({
     inFlightSyntheses.length === 0 &&
     error === null;
 
+  const anyInFlight = syntheses.some((s) => s.inFlightSince !== null);
+  const showSynthesizeAll = !isInitialLoad && !isEmpty;
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
-        {hasContent && (
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-          >
-            {copied ? "Copied" : "Copy"}
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {showSynthesizeAll && (
+            <SynthesizeAllButton
+              anyInFlight={anyInFlight}
+              hasSynthesis={syntheses.length > 0}
+              onRun={onRun}
+            />
+          )}
+          {hasContent && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            >
+              {copied ? "Copied" : "Copy"}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="rounded-md bg-muted/40 font-mono text-xs divide-y divide-border/30 overflow-hidden">
@@ -602,14 +717,19 @@ function SessionContextPanel({
         {context?.sections.map((section) =>
           section.kind === "synthesis" ? (
             <SynthesisSectionView
-              key={`synthesis:${section.memoryType}`}
+              key={`synthesis:${section.memoryType}:${section.content}`}
               section={section}
               synthesis={synthesisByType.get(section.memoryType)}
               onRun={onRun}
               projectId={project.id}
             />
           ) : (
-            <VerbatimSectionView key={`verbatim:${section.memoryType}`} section={section} />
+            <VerbatimSectionView
+              key={`verbatim:${section.memoryType}:${section.memories.join(" ")}`}
+              section={section}
+              isInFlight={synthesisByType.get(section.memoryType)?.inFlightSince != null}
+              onRun={onRun}
+            />
           )
         )}
 

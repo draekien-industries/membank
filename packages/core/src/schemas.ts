@@ -117,6 +117,7 @@ export const SessionContextSectionSchema = z.discriminatedUnion("kind", [
     kind: z.literal("verbatim"),
     memoryType: MemoryTypeSchema,
     memories: z.array(z.string()),
+    synthesizable: z.boolean(),
   }),
 ]);
 export type SessionContextSection = z.infer<typeof SessionContextSectionSchema>;

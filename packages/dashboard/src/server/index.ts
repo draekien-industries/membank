@@ -362,7 +362,13 @@ export function createApiApp(
     if (!project) return c.json({ error: "Not found" }, 404);
 
     const builder = new SessionContextBuilder(repo);
-    const scopes = [...new Set([GLOBAL_SCOPE_HASH, project.scopeHash])];
+    const scopes =
+      project.scopeHash === GLOBAL_SCOPE_HASH
+        ? [{ scope: GLOBAL_SCOPE_HASH, synthesizable: true }]
+        : [
+            { scope: GLOBAL_SCOPE_HASH, synthesizable: false },
+            { scope: project.scopeHash, synthesizable: true },
+          ];
     const sections = collectSynthesisSections(synthRepo, scopes, resolveThresholdWords());
     const ctx = builder.getSessionContext(project.scopeHash, sections);
 
@@ -375,12 +381,23 @@ export function createApiApp(
     });
   });
 
-  app.post("/api/projects/:id/synthesis", (c) => {
+  app.post("/api/projects/:id/synthesis", async (c) => {
     if (!isSynthesisEnabled()) return c.json({ error: "Synthesis is disabled" }, 503);
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
+    const body = await c.req
+      .json<{ memoryType?: unknown }>()
+      .catch((): { memoryType?: unknown } => ({}));
+    const memoryType = MEMORY_TYPE_VALUES.find((type) => type === body.memoryType);
     const agentRunner = createSynthesisAgentRunner();
-    void runSynthesis(project.scopeHash, { synthRepo, agentRunner });
+    void runSynthesis(
+      project.scopeHash,
+      { synthRepo, agentRunner },
+      {
+        ...(memoryType !== undefined && { type: memoryType }),
+        thresholdWords: resolveThresholdWords(),
+      }
+    );
     return c.json({ ok: true }, 202);
   });
 

@@ -86,7 +86,10 @@ async function buildText(harness: InjectionHarness | undefined): Promise<string>
     const builder = new SessionContextBuilder(repo);
     const synthRepo = createSynthesisRepository(db);
 
-    const scopes = [...new Set([GLOBAL_SCOPE_HASH, resolved.hash])];
+    const scopes = [...new Set([GLOBAL_SCOPE_HASH, resolved.hash])].map((scope) => ({
+      scope,
+      synthesizable: false,
+    }));
     const sections = collectSynthesisSections(synthRepo, scopes, resolveThresholdWords());
     const ctx = builder.getSessionContext(resolved.hash, sections);
     return formatContext(ctx, buildGuidance(harness));

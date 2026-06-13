@@ -2,7 +2,7 @@ import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { resetProjectSynthesis, runProjectSynthesis } from "@/lib/api";
 import { queryClient, synthesisCollection } from "@/lib/collections";
-import type { Project, Synthesis } from "@/lib/types";
+import type { MemoryType, Project, Synthesis } from "@/lib/types";
 
 const IN_FLIGHT_STUCK_MS = 60_000;
 
@@ -17,7 +17,7 @@ export interface ProjectSynthesisState {
   isStale: boolean;
   isStuck: boolean;
   error: string | null;
-  run: () => Promise<void>;
+  run: (memoryType?: MemoryType) => Promise<void>;
   reset: () => Promise<void>;
 }
 
@@ -74,15 +74,18 @@ export function useProjectSynthesis(project: Project): ProjectSynthesisState {
     return () => clearTimeout(timer);
   }, [earliestInFlight]);
 
-  const run = useCallback(async () => {
-    setError(null);
-    try {
-      await runProjectSynthesis(project.id);
-      await queryClient.invalidateQueries({ queryKey: ["syntheses"] });
-    } catch {
-      setError("Failed to start synthesis");
-    }
-  }, [project.id]);
+  const run = useCallback(
+    async (memoryType?: MemoryType) => {
+      setError(null);
+      try {
+        await runProjectSynthesis(project.id, memoryType);
+        await queryClient.invalidateQueries({ queryKey: ["syntheses"] });
+      } catch {
+        setError("Failed to start synthesis");
+      }
+    },
+    [project.id]
+  );
 
   const reset = useCallback(async () => {
     setError(null);

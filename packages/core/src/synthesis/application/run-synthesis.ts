@@ -1,5 +1,7 @@
 import type { MemoryType } from "../../schemas.js";
 import { MEMORY_TYPE_VALUES } from "../../schemas.js";
+import { decideSynthesis } from "../domain/synthesis-threshold.js";
+import { countWords } from "../domain/word-count.js";
 import type { AgentRunner, SynthesisRepository } from "../ports.js";
 
 async function synthesizeType(
@@ -22,14 +24,23 @@ async function synthesizeType(
 
 export async function runSynthesis(
   scope: string,
-  deps: { synthRepo: SynthesisRepository; agentRunner: AgentRunner }
+  deps: { synthRepo: SynthesisRepository; agentRunner: AgentRunner },
+  opts?: { type?: MemoryType; thresholdWords?: number }
 ): Promise<string> {
+  const types = opts?.type === undefined ? MEMORY_TYPE_VALUES : [opts.type];
+  const thresholdWords = opts?.thresholdWords;
   const sections: string[] = [];
-  for (const type of MEMORY_TYPE_VALUES) {
-    const memories = deps.synthRepo.nonPinnedMemoryContents(scope, type);
+  for (const t of types) {
+    const memories = deps.synthRepo.nonPinnedMemoryContents(scope, t);
     if (memories.length === 0) continue;
-    const content = await synthesizeType(scope, type, memories, deps);
-    sections.push(`## ${type}\n${content}`);
+    if (
+      thresholdWords !== undefined &&
+      decideSynthesis(countWords(memories), thresholdWords).kind === "verbatim"
+    ) {
+      continue;
+    }
+    const content = await synthesizeType(scope, t, memories, deps);
+    sections.push(`## ${t}\n${content}`);
   }
   return sections.join("\n\n");
 }

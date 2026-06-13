@@ -146,7 +146,7 @@ export type SynthesisVersion = {
 
 export type SessionContextSection =
   | { kind: "synthesis"; memoryType: MemoryType; content: string }
-  | { kind: "verbatim"; memoryType: MemoryType; memories: string[] };
+  | { kind: "verbatim"; memoryType: MemoryType; memories: string[]; synthesizable: boolean };
 
 export type SessionContext = {
   rendered: string;
