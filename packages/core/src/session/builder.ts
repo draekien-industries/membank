@@ -1,7 +1,10 @@
 import type { MemoryRepository } from "../memory/ports.js";
 import type { MemoryType, SessionContext } from "../schemas.js";
 import { MEMORY_TYPE_VALUES } from "../schemas.js";
-import { getSessionContext } from "./application/get-session-context.js";
+import {
+  getSessionContext,
+  type SessionSectionPayload,
+} from "./application/get-session-context.js";
 
 export function listMemoryTypes(): MemoryType[] {
   return [...MEMORY_TYPE_VALUES];
@@ -14,9 +17,12 @@ export class SessionContextBuilder {
     this.#repo = repo;
   }
 
-  getSessionContext(projectHash: string, synthesis?: string): SessionContext {
+  getSessionContext(
+    projectHash: string,
+    sections?: Partial<Record<MemoryType, SessionSectionPayload>>
+  ): SessionContext {
     return getSessionContext(
-      { projectHash, ...(synthesis !== undefined && { synthesis }) },
+      { projectHash, ...(sections !== undefined && { sections }) },
       { repo: this.#repo }
     );
   }

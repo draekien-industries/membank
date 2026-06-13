@@ -1,4 +1,9 @@
-import { createSynthesisRepository, DatabaseManager, GLOBAL_PROJECT_NAME } from "@membank/core";
+import {
+  createSynthesisRepository,
+  DatabaseManager,
+  GLOBAL_PROJECT_NAME,
+  MEMORY_TYPE_VALUES,
+} from "@membank/core";
 import chalk from "chalk";
 import Table from "cli-table3";
 import type { Formatter } from "../../formatter.js";
@@ -13,7 +18,8 @@ export function synthesizeHistoryCommand(opts: { scope?: string }, formatter: Fo
   try {
     const scope = opts.scope ?? GLOBAL_PROJECT_NAME;
     const resolvedScope = resolveScope(scope, db);
-    const versions = createSynthesisRepository(db).listVersions(resolvedScope);
+    const repo = createSynthesisRepository(db);
+    const versions = MEMORY_TYPE_VALUES.flatMap((type) => repo.listVersions(resolvedScope, type));
 
     if (versions.length === 0) {
       formatter.error(`No version history found for scope: ${scope}`);

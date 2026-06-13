@@ -73,8 +73,6 @@ describe("SessionContextBuilder", () => {
   it("returns pinned global memories", () => {
     insertMemory(db, { pinned: true, content: "global pinned" });
     const ctx = builder.getSessionContext("project-x");
-    expect(ctx.mode).toBe("pinned");
-    if (ctx.mode !== "pinned") return;
     expect(ctx.pinnedGlobal).toHaveLength(1);
     expect(ctx.pinnedGlobal[0]?.content).toBe("global pinned");
   });
@@ -82,8 +80,6 @@ describe("SessionContextBuilder", () => {
   it("does NOT return unpinned global memories in pinnedGlobal", () => {
     insertMemory(db, { pinned: false, content: "unpinned global" });
     const ctx = builder.getSessionContext("project-x");
-    expect(ctx.mode).toBe("pinned");
-    if (ctx.mode !== "pinned") return;
     expect(ctx.pinnedGlobal).toHaveLength(0);
   });
 
@@ -91,8 +87,6 @@ describe("SessionContextBuilder", () => {
     const projId = insertProject(db, "aa00000000000000");
     insertMemory(db, { pinned: true, content: "project-a pinned", projectId: projId });
     const ctx = builder.getSessionContext("aa00000000000000");
-    expect(ctx.mode).toBe("pinned");
-    if (ctx.mode !== "pinned") return;
     expect(ctx.pinnedProject).toHaveLength(1);
     expect(ctx.pinnedProject[0]?.content).toBe("project-a pinned");
   });
@@ -101,8 +95,6 @@ describe("SessionContextBuilder", () => {
     const projId = insertProject(db, "bb00000000000000");
     insertMemory(db, { pinned: true, content: "project-b pinned", projectId: projId });
     const ctx = builder.getSessionContext("aa00000000000000");
-    expect(ctx.mode).toBe("pinned");
-    if (ctx.mode !== "pinned") return;
     expect(ctx.pinnedProject).toHaveLength(0);
   });
 
@@ -110,8 +102,6 @@ describe("SessionContextBuilder", () => {
     const projId = insertProject(db, "cc00000000000000");
     insertMemory(db, { pinned: true, content: "project memory", projectId: projId });
     const ctx = builder.getSessionContext("dd00000000000000");
-    expect(ctx.mode).toBe("pinned");
-    if (ctx.mode !== "pinned") return;
     expect(ctx.pinnedGlobal).toHaveLength(0);
   });
 
@@ -133,6 +123,75 @@ describe("SessionContextBuilder", () => {
     expect(keys).toEqual(["correction", "decision", "fact", "learning", "preference"]);
   });
 
+  it("orders sections by MemoryType precedence (correction > preference > decision > learning > fact)", () => {
+    const ctx = builder.getSessionContext("project-x", {
+      fact: { kind: "synthesis", content: "f" },
+      correction: { kind: "synthesis", content: "c" },
+      learning: { kind: "synthesis", content: "l" },
+      preference: { kind: "synthesis", content: "p" },
+      decision: { kind: "synthesis", content: "d" },
+    });
+    expect(ctx.sections.map((s) => s.memoryType)).toEqual([
+      "correction",
+      "preference",
+      "decision",
+      "learning",
+      "fact",
+    ]);
+  });
+
+  it("emits a synthesis section only for non-empty content, skipping absent and empty types", () => {
+    const ctx = builder.getSessionContext("project-x", {
+      correction: { kind: "synthesis", content: "real" },
+      preference: { kind: "synthesis", content: "" },
+    });
+    expect(ctx.sections).toEqual([
+      { kind: "synthesis", memoryType: "correction", content: "real" },
+    ]);
+  });
+
+  it("emits a verbatim section carrying the supplied memories", () => {
+    const ctx = builder.getSessionContext("project-x", {
+      decision: { kind: "verbatim", memories: ["a", "b"] },
+    });
+    expect(ctx.sections).toEqual([
+      { kind: "verbatim", memoryType: "decision", memories: ["a", "b"] },
+    ]);
+  });
+
+  it("skips a verbatim section with no memories", () => {
+    const ctx = builder.getSessionContext("project-x", {
+      decision: { kind: "verbatim", memories: [] },
+    });
+    expect(ctx.sections).toEqual([]);
+  });
+
+  it("returns no sections when none are supplied", () => {
+    const ctx = builder.getSessionContext("project-x");
+    expect(ctx.sections).toEqual([]);
+  });
+
+  it("assembles a SessionContext carrying pinned sections and ordered sections together", () => {
+    const projId = insertProject(db, "ee00000000000000");
+    insertMemory(db, { pinned: true, content: "global pin" });
+    insertMemory(db, { pinned: true, content: "project pin", projectId: projId });
+
+    const ctx = builder.getSessionContext("ee00000000000000", {
+      decision: { kind: "synthesis", content: "decision summary" },
+      correction: { kind: "verbatim", memories: ["small correction"] },
+    });
+
+    expect(ctx.pinnedGlobal.map((m) => m.content)).toEqual(["global pin"]);
+    expect(ctx.pinnedProject.map((m) => m.content)).toEqual(["project pin"]);
+    expect(ctx.sections).toEqual([
+      { kind: "verbatim", memoryType: "correction", memories: ["small correction"] },
+      { kind: "synthesis", memoryType: "decision", content: "decision summary" },
+    ]);
+    expect(Object.keys(ctx)).toEqual(
+      expect.arrayContaining(["stats", "pinnedGlobal", "pinnedProject", "sections"])
+    );
+  });
+
   it("pinnedGlobal memories have correct shape (tags as array, booleans, camelCase)", () => {
     insertMemory(db, {
       pinned: true,
@@ -142,8 +201,6 @@ describe("SessionContextBuilder", () => {
       source: "claude",
     });
     const ctx = builder.getSessionContext("project-x");
-    expect(ctx.mode).toBe("pinned");
-    if (ctx.mode !== "pinned") return;
     const mem = ctx.pinnedGlobal[0];
     expect(mem).toBeDefined();
     if (!mem) return;

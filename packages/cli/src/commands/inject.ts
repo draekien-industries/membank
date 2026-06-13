@@ -1,14 +1,19 @@
-import type { Memory, SessionContext } from "@membank/core";
+import type { Memory, MemoryType, SessionContext, SessionSectionPayload } from "@membank/core";
 import {
+  countWords,
   createMemoryRepository,
   createProjectRepository,
   createSynthesisRepository,
   DatabaseManager,
+  DEFAULT_SYNTHESIS_THRESHOLD_WORDS,
+  decideSynthesis,
   GLOBAL_SCOPE_HASH,
+  listMemoryTypes,
   resolveProject,
   SessionContextBuilder,
 } from "@membank/core";
 import type { z } from "zod";
+import { ConfigManager } from "../config/manager.js";
 import { InjectionHarnessSchema } from "../schemas.js";
 
 type InjectionHarness = z.infer<typeof InjectionHarnessSchema>;
@@ -42,15 +47,22 @@ function formatContext(ctx: SessionContext, guidance: string): string {
     parts.push(`<memory-stats>\n${statParts.join(", ")}\n</memory-stats>`);
   }
 
-  if (ctx.mode === "synthesis") {
-    parts.push(`<synthesis>\n${ctx.synthesis}\n</synthesis>`);
-  } else {
-    const allPinned: Memory[] = [...ctx.pinnedGlobal, ...ctx.pinnedProject];
-    if (allPinned.length > 0) {
-      const memLines = allPinned.map(
-        (m) => `  <memory type="${m.type}">${xmlEscape(m.content)}</memory>`
+  const allPinned: Memory[] = [...ctx.pinnedGlobal, ...ctx.pinnedProject];
+  if (allPinned.length > 0) {
+    const memLines = allPinned.map(
+      (m) => `  <memory type="${m.type}">${xmlEscape(m.content)}</memory>`
+    );
+    parts.push(`<pinned-memories>\n${memLines.join("\n")}\n</pinned-memories>`);
+  }
+
+  for (const section of ctx.sections) {
+    if (section.kind === "synthesis") {
+      parts.push(`<synthesis type="${section.memoryType}">\n${section.content}\n</synthesis>`);
+    } else {
+      const memLines = section.memories.map(
+        (content) => `  <memory>${xmlEscape(content)}</memory>`
       );
-      parts.push(`<pinned-memories>\n${memLines.join("\n")}\n</pinned-memories>`);
+      parts.push(`<memories type="${section.memoryType}">\n${memLines.join("\n")}\n</memories>`);
     }
   }
 
@@ -79,12 +91,56 @@ function outputAdditionalContext(
   process.stdout.write(`${text}\n`);
 }
 
-function pickBestSynthesis(
-  globalSynthesis: string | undefined,
-  projectSynthesis: string | undefined
+type SynthesisRepo = ReturnType<typeof createSynthesisRepository>;
+
+function settledSynthesis(
+  repo: SynthesisRepo,
+  scope: string,
+  type: MemoryType
 ): string | undefined {
-  // Project synthesis is more specific — prefer it when available
-  return projectSynthesis ?? globalSynthesis;
+  const row = repo.getSynthesis(scope, type);
+  return row?.inFlightSince === null ? row.content : undefined;
+}
+
+function nonPinnedAcrossScopes(
+  repo: SynthesisRepo,
+  projectHash: string,
+  type: MemoryType
+): string[] {
+  return [
+    ...repo.nonPinnedMemoryContents(projectHash, type),
+    ...repo.nonPinnedMemoryContents(GLOBAL_SCOPE_HASH, type),
+  ];
+}
+
+function collectSections(
+  repo: SynthesisRepo,
+  projectHash: string,
+  thresholdWords: number
+): Partial<Record<MemoryType, SessionSectionPayload>> {
+  const byType: Partial<Record<MemoryType, SessionSectionPayload>> = {};
+  for (const type of listMemoryTypes()) {
+    const memories = nonPinnedAcrossScopes(repo, projectHash, type);
+    if (memories.length === 0) continue;
+
+    if (decideSynthesis(countWords(memories), thresholdWords).kind === "verbatim") {
+      byType[type] = { kind: "verbatim", memories };
+      continue;
+    }
+
+    // Project synthesis is more specific — prefer it over global for the same type.
+    const content =
+      settledSynthesis(repo, projectHash, type) ?? settledSynthesis(repo, GLOBAL_SCOPE_HASH, type);
+    if (content !== undefined) {
+      byType[type] = { kind: "synthesis", content };
+    }
+  }
+  return byType;
+}
+
+function resolveThresholdWords(): number {
+  const configured = ConfigManager.get("synthesis.synthesisThresholdWords");
+  return typeof configured === "number" ? configured : DEFAULT_SYNTHESIS_THRESHOLD_WORDS;
 }
 
 async function buildText(harness: InjectionHarness | undefined): Promise<string> {
@@ -96,14 +152,8 @@ async function buildText(harness: InjectionHarness | undefined): Promise<string>
     const builder = new SessionContextBuilder(repo);
     const synthRepo = createSynthesisRepository(db);
 
-    const globalRow = synthRepo.getSynthesis(GLOBAL_SCOPE_HASH);
-    const projectRow = synthRepo.getSynthesis(resolved.hash);
-
-    const globalSynthesis = globalRow?.inFlightSince === null ? globalRow.content : undefined;
-    const projectSynthesis = projectRow?.inFlightSince === null ? projectRow.content : undefined;
-
-    const synthesis = pickBestSynthesis(globalSynthesis, projectSynthesis);
-    const ctx = builder.getSessionContext(resolved.hash, synthesis);
+    const sections = collectSections(synthRepo, resolved.hash, resolveThresholdWords());
+    const ctx = builder.getSessionContext(resolved.hash, sections);
     return formatContext(ctx, buildGuidance(harness));
   } finally {
     db.close();

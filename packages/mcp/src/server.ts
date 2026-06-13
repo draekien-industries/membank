@@ -107,6 +107,9 @@ function loadSynthesisConfig(): SynthesisConfig {
       ...(parsed.synthesis?.inFlightTimeoutMs !== undefined && {
         inFlightTimeoutMs: parsed.synthesis.inFlightTimeoutMs,
       }),
+      ...(parsed.synthesis?.synthesisThresholdWords !== undefined && {
+        synthesisThresholdWords: parsed.synthesis.synthesisThresholdWords,
+      }),
     };
   } catch {
     return { enabled: false };
@@ -877,7 +880,9 @@ export function createServer(core: CoreServices): Server {
     if (request.params.name === "list_synthesis_history") {
       const args = parseArgs(ListSynthesisHistoryArgsSchema, request.params.arguments);
       const scope = args.scope === GLOBAL_PROJECT_NAME ? GLOBAL_SCOPE_HASH : args.scope;
-      const versions = core.synthRepo.listVersions(scope);
+      const versions = MEMORY_TYPE_VALUES.flatMap((type) =>
+        core.synthRepo.listVersions(scope, type)
+      );
       return { content: [{ type: "text", text: JSON.stringify(versions) }] };
     }
 

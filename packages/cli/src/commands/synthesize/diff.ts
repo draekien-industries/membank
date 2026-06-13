@@ -1,8 +1,26 @@
-import { createSynthesisRepository, DatabaseManager, GLOBAL_PROJECT_NAME } from "@membank/core";
+import type { SynthesisVersion } from "@membank/core";
+import {
+  createSynthesisRepository,
+  DatabaseManager,
+  GLOBAL_PROJECT_NAME,
+  MEMORY_TYPE_VALUES,
+} from "@membank/core";
 import { diffLines } from "@membank/core/client";
 import chalk from "chalk";
 import type { Formatter } from "../../formatter.js";
 import { resolveScope } from "./resolve-scope.js";
+
+function findVersion(
+  repo: ReturnType<typeof createSynthesisRepository>,
+  scope: string,
+  version: number
+): SynthesisVersion | undefined {
+  for (const type of MEMORY_TYPE_VALUES) {
+    const found = repo.getVersion(scope, type, version);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
 
 export function synthesizeDiffCommand(
   v1: number,
@@ -16,13 +34,13 @@ export function synthesizeDiffCommand(
     const resolvedScope = resolveScope(scope, db);
     const repo = createSynthesisRepository(db);
 
-    const version1 = repo.getVersion(resolvedScope, v1);
+    const version1 = findVersion(repo, resolvedScope, v1);
     if (version1 === undefined) {
       formatter.error(`Version ${v1} not found for scope: ${scope}`);
       process.exit(1);
     }
 
-    const version2 = repo.getVersion(resolvedScope, v2);
+    const version2 = findVersion(repo, resolvedScope, v2);
     if (version2 === undefined) {
       formatter.error(`Version ${v2} not found for scope: ${scope}`);
       process.exit(1);

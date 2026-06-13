@@ -36,6 +36,7 @@ import {
   GLOBAL_PROJECT_ID,
   isSynthesisEnabled,
   listEvents,
+  MEMORY_TYPE_VALUES,
   mergeMemories,
   mergeProjects,
   reconcileWorktreeOrphan,
@@ -361,7 +362,11 @@ export function createApiApp(
   app.get("/api/projects/:id/synthesis", (c) => {
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
-    return c.json(synthRepo.getSynthesis(project.scopeHash) ?? null);
+    for (const type of MEMORY_TYPE_VALUES) {
+      const synthesis = synthRepo.getSynthesis(project.scopeHash, type);
+      if (synthesis) return c.json(synthesis);
+    }
+    return c.json(null);
   });
 
   app.post("/api/projects/:id/synthesis", (c) => {
@@ -378,14 +383,17 @@ export function createApiApp(
   app.delete("/api/projects/:id/synthesis/in-flight", (c) => {
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
-    synthRepo.clearInFlight(project.scopeHash);
+    for (const type of MEMORY_TYPE_VALUES) synthRepo.clearInFlight(project.scopeHash, type);
     return c.json({ ok: true });
   });
 
   app.get("/api/projects/:id/synthesis/history", (c) => {
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
-    return c.json(synthRepo.listVersions(project.scopeHash));
+    const versions = MEMORY_TYPE_VALUES.flatMap((type) =>
+      synthRepo.listVersions(project.scopeHash, type)
+    );
+    return c.json(versions);
   });
 
   app.post("/api/projects/:id/synthesis/revert", async (c) => {
@@ -394,11 +402,11 @@ export function createApiApp(
     const body = await c.req.json<{ version?: unknown }>();
     const version = typeof body.version === "number" ? body.version : NaN;
     if (Number.isNaN(version)) return c.json({ error: "version must be a number" }, 400);
-    try {
-      revertSynthesis(project.scopeHash, version, synthRepo);
-    } catch {
-      return c.json({ error: "Version not found" }, 404);
-    }
+    const memoryType = MEMORY_TYPE_VALUES.find(
+      (type) => synthRepo.getVersion(project.scopeHash, type, version) !== undefined
+    );
+    if (memoryType === undefined) return c.json({ error: "Version not found" }, 404);
+    revertSynthesis(project.scopeHash, memoryType, version, synthRepo);
     return c.json({ ok: true });
   });
 

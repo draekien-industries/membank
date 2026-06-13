@@ -1,9 +1,11 @@
+import type { Synthesis, SynthesisVersion } from "@membank/core";
 import {
   createProjectRepository,
   createSynthesisRepository,
   DatabaseManager,
   GLOBAL_PROJECT_NAME,
   GLOBAL_SCOPE_HASH,
+  MEMORY_TYPE_VALUES,
 } from "@membank/core";
 import { runSynthesis } from "@membank/mcp";
 import type { Formatter } from "../../formatter.js";
@@ -36,7 +38,12 @@ export function synthesizeShowCommand(
     const repo = createSynthesisRepository(db);
 
     if (opts.version !== undefined) {
-      const version = repo.getVersion(resolvedScope, opts.version);
+      const targetVersion = opts.version;
+      let version: SynthesisVersion | undefined;
+      for (const type of MEMORY_TYPE_VALUES) {
+        version = repo.getVersion(resolvedScope, type, targetVersion);
+        if (version !== undefined) break;
+      }
       if (version === undefined) {
         if (formatter.isJson) {
           process.stdout.write(`${JSON.stringify(null)}\n`);
@@ -56,7 +63,11 @@ export function synthesizeShowCommand(
       return;
     }
 
-    const synthesis = repo.getSynthesis(resolvedScope);
+    let synthesis: Synthesis | undefined;
+    for (const type of MEMORY_TYPE_VALUES) {
+      synthesis = repo.getSynthesis(resolvedScope, type);
+      if (synthesis !== undefined) break;
+    }
 
     if (synthesis === undefined) {
       if (formatter.isJson) {

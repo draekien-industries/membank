@@ -2,6 +2,7 @@ import {
   createSynthesisRepository,
   DatabaseManager,
   GLOBAL_PROJECT_NAME,
+  MEMORY_TYPE_VALUES,
   revertSynthesis,
 } from "@membank/core";
 import chalk from "chalk";
@@ -21,7 +22,10 @@ export async function synthesizeRevertCommand(
     const resolvedScope = resolveScope(scope, db);
     const repo = createSynthesisRepository(db);
 
-    if (repo.getVersion(resolvedScope, version) === undefined) {
+    const memoryType = MEMORY_TYPE_VALUES.find(
+      (type) => repo.getVersion(resolvedScope, type, version) !== undefined
+    );
+    if (memoryType === undefined) {
       formatter.error(`Version ${version} not found for scope: ${scope}`);
       process.exit(1);
     }
@@ -33,7 +37,7 @@ export async function synthesizeRevertCommand(
       return;
     }
 
-    revertSynthesis(resolvedScope, version, repo);
+    revertSynthesis(resolvedScope, memoryType, version, repo);
 
     process.stdout.write(
       `${chalk.green("✓")} Reverted synthesis for scope ${chalk.dim(scope)} to version ${version}\n`

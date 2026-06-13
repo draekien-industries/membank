@@ -76,12 +76,13 @@ describe.skipIf(!runIntegration)("SqliteProjectRepository — integration (file-
         .run(randomUUID(), HASH_A, "memory_saved", "{}", "2026-01-01T00:00:00.000Z");
       db.db
         .prepare(
-          `INSERT INTO syntheses (id, scope, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO syntheses (id, scope, memory_type, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           randomUUID(),
           HASH_A,
+          "preference",
           "summary",
           "h",
           "2026-01-01T00:00:00.000Z",
@@ -91,10 +92,18 @@ describe.skipIf(!runIntegration)("SqliteProjectRepository — integration (file-
         );
       db.db
         .prepare(
-          `INSERT INTO synthesis_versions (scope, version, content, source_memory_hash, synthesized_at, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`
+          `INSERT INTO synthesis_versions (scope, memory_type, version, content, source_memory_hash, synthesized_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
         )
-        .run(HASH_A, 1, "summary v1", "h", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+        .run(
+          HASH_A,
+          "preference",
+          1,
+          "summary v1",
+          "h",
+          "2026-01-01T00:00:00.000Z",
+          "2026-01-01T00:00:00.000Z"
+        );
 
       const result = projects.merge(source.id, target.id);
 

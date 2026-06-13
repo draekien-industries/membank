@@ -63,6 +63,14 @@ function buildCopyText(
     parts.push(`<memory-stats>\n${statParts.join(", ")}\n</memory-stats>`);
   }
 
+  const allPinned = [...pinnedGlobal, ...pinnedProject];
+  if (allPinned.length > 0) {
+    const lines = allPinned.map(
+      (m) => `  <memory type="${m.type}">${xmlEscape(m.content)}</memory>`
+    );
+    parts.push(`<pinned-memories>\n${lines.join("\n")}\n</pinned-memories>`);
+  }
+
   const isSettled =
     synthesis !== null &&
     synthesis.inFlightSince === null &&
@@ -70,14 +78,6 @@ function buildCopyText(
 
   if (isSettled) {
     parts.push(`<synthesis>\n${synthesis.content}\n</synthesis>`);
-  } else {
-    const allPinned = [...pinnedGlobal, ...pinnedProject];
-    if (allPinned.length > 0) {
-      const lines = allPinned.map(
-        (m) => `  <memory type="${m.type}">${xmlEscape(m.content)}</memory>`
-      );
-      parts.push(`<pinned-memories>\n${lines.join("\n")}\n</pinned-memories>`);
-    }
   }
 
   parts.push(`<memory-guidance>\n${MEMORY_GUIDANCE}\n</memory-guidance>`);
@@ -404,7 +404,7 @@ function SynthesisSection({
         <div className="pl-3 space-y-2 py-0.5">
           <p className="text-[11px] text-muted-foreground/50 leading-relaxed">
             Synthesis condenses your memories into a concise brief injected at the start of each
-            session. Without it, only pinned memories are sent (see below).
+            session, alongside the pinned memories shown above.
           </p>
           <Button
             size="sm"
@@ -587,7 +587,6 @@ function SessionContextPanel({
     pinnedGlobal,
     pinnedProject,
     statParts,
-    settledSynthesis,
     hasPinned,
     hasContent,
     copied,
@@ -620,18 +619,7 @@ function SessionContextPanel({
           </div>
         )}
 
-        <SynthesisSection
-          synthesis={synthesis}
-          isLoading={isLoading}
-          isStale={isStale}
-          isStuck={isStuck}
-          error={error}
-          onRun={onRun}
-          onReset={onReset}
-          projectId={project.id}
-        />
-
-        {settledSynthesis === null && hasPinned && (
+        {hasPinned && (
           <div className="p-3 space-y-0.5">
             <XmlOpen tag="pinned-memories" />
             {pinnedGlobal.length > 0 && (
@@ -653,6 +641,17 @@ function SessionContextPanel({
             <XmlClose tag="pinned-memories" />
           </div>
         )}
+
+        <SynthesisSection
+          synthesis={synthesis}
+          isLoading={isLoading}
+          isStale={isStale}
+          isStuck={isStuck}
+          error={error}
+          onRun={onRun}
+          onReset={onReset}
+          projectId={project.id}
+        />
 
         <div className="p-3 space-y-0.5">
           <button

@@ -69,6 +69,7 @@ export function rowToMemoryVersion(row: MemoryVersionRow): MemoryVersion {
 
 export function rowToSynthesisVersion(row: SynthesisVersionRow): SynthesisVersion {
   return {
+    memoryType: row.memory_type,
     version: row.version,
     content: row.content,
     sourceMemoryHash: row.source_memory_hash,

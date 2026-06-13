@@ -103,8 +103,9 @@ describe.skipIf(!runIntegration)("synthesis — integration (real Claude Haiku a
     expect(referencesBun || referencesVault).toBe(true);
 
     // Persisted in our local syntheses table.
-    const stored = synthRepo.getSynthesis(projectHash);
-    expect(stored?.content).toBe(content);
+    const stored = synthRepo.getSynthesis(projectHash, "correction");
+    expect(stored?.content).toBeTruthy();
+    expect(content).toContain(stored?.content ?? "");
     expect(stored?.inFlightSince).toBeNull();
   });
 });

@@ -347,6 +347,57 @@ CREATE INDEX idx_synthesis_versions_scope ON synthesis_versions(scope, version D
 ALTER TABLE projects ADD COLUMN origin TEXT;
 `,
   ],
+  [
+    15,
+    `
+PRAGMA foreign_keys = OFF;
+
+BEGIN;
+
+-- Syntheses become keyed by (scope, memory_type). Existing single-blob rows are an
+-- incompatible regenerable cache, so they are discarded and rebuilt per MemoryType.
+DROP TABLE IF EXISTS syntheses;
+DROP TABLE IF EXISTS synthesis_versions;
+
+CREATE TABLE syntheses (
+  id                  TEXT PRIMARY KEY,
+  scope               TEXT NOT NULL REFERENCES projects(scope_hash) ON DELETE CASCADE,
+  memory_type         TEXT NOT NULL,
+  content             TEXT NOT NULL,
+  source_memory_hash  TEXT NOT NULL,
+  synthesized_at      TEXT NOT NULL,
+  expires_at          TEXT NOT NULL,
+  in_flight_since     TEXT,
+  created_at          TEXT NOT NULL,
+  updated_at          TEXT NOT NULL,
+  UNIQUE(scope, memory_type),
+  CHECK(expires_at > synthesized_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_syntheses_expires_at ON syntheses(expires_at);
+CREATE INDEX IF NOT EXISTS idx_syntheses_scope_inflight
+  ON syntheses(scope, memory_type) WHERE in_flight_since IS NOT NULL;
+
+CREATE TABLE synthesis_versions (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  scope              TEXT    NOT NULL REFERENCES projects(scope_hash) ON DELETE CASCADE,
+  memory_type        TEXT    NOT NULL,
+  version            INTEGER NOT NULL,
+  content            TEXT    NOT NULL,
+  source_memory_hash TEXT    NOT NULL,
+  synthesized_at     TEXT    NOT NULL,
+  created_at         TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (scope, memory_type, version)
+);
+
+CREATE INDEX idx_synthesis_versions_scope
+  ON synthesis_versions(scope, memory_type, version DESC);
+
+COMMIT;
+
+PRAGMA foreign_keys = ON;
+`,
+  ],
 ];
 
 export class DatabaseManager {

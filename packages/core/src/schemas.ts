@@ -96,6 +96,7 @@ export type MemoryPatch = z.infer<typeof MemoryPatchSchema>;
 export const SynthesisSchema = z.object({
   id: z.string(),
   scope: z.string(),
+  memoryType: MemoryTypeSchema,
   content: z.string(),
   sourceMemoryHash: z.string(),
   synthesizedAt: z.string(),
@@ -106,23 +107,26 @@ export const SynthesisSchema = z.object({
 });
 export type Synthesis = z.infer<typeof SynthesisSchema>;
 
-const SessionContextSynthesisSchema = z.object({
-  mode: z.literal("synthesis"),
-  stats: z.record(MemoryTypeSchema, z.number()),
-  synthesis: z.string(),
-});
+export const SessionContextSectionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("synthesis"),
+    memoryType: MemoryTypeSchema,
+    content: z.string(),
+  }),
+  z.object({
+    kind: z.literal("verbatim"),
+    memoryType: MemoryTypeSchema,
+    memories: z.array(z.string()),
+  }),
+]);
+export type SessionContextSection = z.infer<typeof SessionContextSectionSchema>;
 
-const SessionContextPinnedSchema = z.object({
-  mode: z.literal("pinned"),
+export const SessionContextSchema = z.object({
   stats: z.record(MemoryTypeSchema, z.number()),
   pinnedGlobal: z.array(MemorySchema),
   pinnedProject: z.array(MemorySchema),
+  sections: z.array(SessionContextSectionSchema),
 });
-
-export const SessionContextSchema = z.discriminatedUnion("mode", [
-  SessionContextSynthesisSchema,
-  SessionContextPinnedSchema,
-]);
 export type SessionContext = z.infer<typeof SessionContextSchema>;
 
 export const MemoryRowSchema = z.object({
@@ -150,6 +154,7 @@ export type MemoryVersionRow = z.infer<typeof MemoryVersionRowSchema>;
 export const SynthesisVersionRowSchema = z.object({
   id: z.number(),
   scope: z.string(),
+  memory_type: MemoryTypeSchema,
   version: z.number(),
   content: z.string(),
   source_memory_hash: z.string(),

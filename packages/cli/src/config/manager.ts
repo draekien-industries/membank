@@ -9,6 +9,7 @@ export interface MemBankConfig {
     debounceMs?: number;
     stalenessDays?: number;
     inFlightTimeoutMs?: number;
+    synthesisThresholdWords?: number;
   };
 }
 
