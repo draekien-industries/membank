@@ -38,7 +38,7 @@ pnpm --filter @membank/cli dev
 - **Runtime**: Node.js >=24, pnpm >=10 (managed via corepack)
 - **Build**: tsdown (Rolldown-based, replaces tsup)
 - **Lint/format**: Biome 2.x — single tool for both, no ESLint/Prettier
-- **Git hooks**: Lefthook — runs `biome check` on staged files pre-commit
+- **Git hooks**: Lefthook pre-commit — `biome check` on staged files, plus scoped per-package test suites for any staged `packages/<pkg>/**`. `test-core-integration` runs with `MEMBANK_INTEGRATION=true`, exercising the **real Claude Haiku agent** — committing core changes is slow and needs network access.
 - **Monorepo**: Turborepo with `pnpm` workspaces
 
 ## Conventions
