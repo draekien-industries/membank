@@ -1,14 +1,18 @@
-import type { Memory, SessionContext } from "@membank/core";
+import type { SessionContext } from "@membank/core";
 import {
+  collectSynthesisSections,
   createMemoryRepository,
   createProjectRepository,
   createSynthesisRepository,
   DatabaseManager,
+  DEFAULT_SYNTHESIS_THRESHOLD_WORDS,
   GLOBAL_SCOPE_HASH,
+  renderSessionContext,
   resolveProject,
   SessionContextBuilder,
 } from "@membank/core";
 import type { z } from "zod";
+import { ConfigManager } from "../config/manager.js";
 import { InjectionHarnessSchema } from "../schemas.js";
 
 type InjectionHarness = z.infer<typeof InjectionHarnessSchema>;
@@ -27,14 +31,10 @@ function buildGuidance(harness: InjectionHarness | undefined): string {
   return harness === "claude-code" ? QUERY_GUIDANCE : MEMORY_GUIDANCE;
 }
 
-function xmlEscape(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
 function formatContext(ctx: SessionContext, guidance: string): string {
   const parts: string[] = [];
 
-  const statParts = (Object.entries(ctx.stats) as [string, number][])
+  const statParts = Object.entries(ctx.stats)
     .filter(([, count]) => count > 0)
     .map(([type, count]) => `${count} ${type}${count !== 1 ? "s" : ""}`);
 
@@ -42,16 +42,9 @@ function formatContext(ctx: SessionContext, guidance: string): string {
     parts.push(`<memory-stats>\n${statParts.join(", ")}\n</memory-stats>`);
   }
 
-  if (ctx.mode === "synthesis") {
-    parts.push(`<synthesis>\n${ctx.synthesis}\n</synthesis>`);
-  } else {
-    const allPinned: Memory[] = [...ctx.pinnedGlobal, ...ctx.pinnedProject];
-    if (allPinned.length > 0) {
-      const memLines = allPinned.map(
-        (m) => `  <memory type="${m.type}">${xmlEscape(m.content)}</memory>`
-      );
-      parts.push(`<pinned-memories>\n${memLines.join("\n")}\n</pinned-memories>`);
-    }
+  const rendered = renderSessionContext(ctx);
+  if (rendered.length > 0) {
+    parts.push(rendered);
   }
 
   parts.push(`<memory-guidance>\n${guidance}\n</memory-guidance>`);
@@ -79,12 +72,9 @@ function outputAdditionalContext(
   process.stdout.write(`${text}\n`);
 }
 
-function pickBestSynthesis(
-  globalSynthesis: string | undefined,
-  projectSynthesis: string | undefined
-): string | undefined {
-  // Project synthesis is more specific — prefer it when available
-  return projectSynthesis ?? globalSynthesis;
+function resolveThresholdWords(): number {
+  const configured = ConfigManager.get("synthesis.synthesisThresholdWords");
+  return typeof configured === "number" ? configured : DEFAULT_SYNTHESIS_THRESHOLD_WORDS;
 }
 
 async function buildText(harness: InjectionHarness | undefined): Promise<string> {
@@ -96,14 +86,9 @@ async function buildText(harness: InjectionHarness | undefined): Promise<string>
     const builder = new SessionContextBuilder(repo);
     const synthRepo = createSynthesisRepository(db);
 
-    const globalRow = synthRepo.getSynthesis(GLOBAL_SCOPE_HASH);
-    const projectRow = synthRepo.getSynthesis(resolved.hash);
-
-    const globalSynthesis = globalRow?.inFlightSince === null ? globalRow.content : undefined;
-    const projectSynthesis = projectRow?.inFlightSince === null ? projectRow.content : undefined;
-
-    const synthesis = pickBestSynthesis(globalSynthesis, projectSynthesis);
-    const ctx = builder.getSessionContext(resolved.hash, synthesis);
+    const scopes = [...new Set([GLOBAL_SCOPE_HASH, resolved.hash])];
+    const sections = collectSynthesisSections(synthRepo, scopes, resolveThresholdWords());
+    const ctx = builder.getSessionContext(resolved.hash, sections);
     return formatContext(ctx, buildGuidance(harness));
   } finally {
     db.close();

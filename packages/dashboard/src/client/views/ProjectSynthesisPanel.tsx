@@ -1,7 +1,8 @@
 import { diffLines, GLOBAL_PROJECT_NAME } from "@membank/core/client";
 import { ArrowsClockwise, Lightning, WarningCircle } from "@phosphor-icons/react";
-import { useLiveQuery } from "@tanstack/react-db";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -16,15 +17,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { useProjectSynthesis } from "@/hooks/useProjectSynthesis";
 import { useSynthesisHistory } from "@/hooks/useSynthesisHistory";
-import { memoriesCollection } from "@/lib/collections";
+import { getSessionContext } from "@/lib/api";
 import { typeColorVariants } from "@/lib/typeColors";
-import type { Memory, MemoryType, Project, Synthesis, SynthesisVersion } from "@/lib/types";
-import { MEMORY_TYPES, SYNTHESIS_PENDING } from "@/lib/types";
+import type {
+  Memory,
+  MemoryType,
+  Project,
+  SessionContext,
+  SessionContextSection,
+  Synthesis,
+  SynthesisVersion,
+} from "@/lib/types";
+import { SYNTHESIS_PENDING } from "@/lib/types";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import {
   AttentionBlock,
   CompositionBars,
-  countMemoriesByType,
   OverviewHeader,
   RecentActivityList,
 } from "@/views/ProjectOverviewDashboard";
@@ -48,58 +56,12 @@ function xmlEscape(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function buildCopyText(
-  stats: Record<MemoryType, number>,
-  pinnedGlobal: Memory[],
-  pinnedProject: Memory[],
-  synthesis: Synthesis | null
-): string {
-  const parts: string[] = [];
-
-  const statParts = MEMORY_TYPES.filter((t) => stats[t] > 0).map(
-    (t) => `${stats[t]} ${t}${stats[t] !== 1 ? "s" : ""}`
-  );
-  if (statParts.length > 0) {
-    parts.push(`<memory-stats>\n${statParts.join(", ")}\n</memory-stats>`);
-  }
-
-  const isSettled =
-    synthesis !== null &&
-    synthesis.inFlightSince === null &&
-    synthesis.content !== SYNTHESIS_PENDING;
-
-  if (isSettled) {
-    parts.push(`<synthesis>\n${synthesis.content}\n</synthesis>`);
-  } else {
-    const allPinned = [...pinnedGlobal, ...pinnedProject];
-    if (allPinned.length > 0) {
-      const lines = allPinned.map(
-        (m) => `  <memory type="${m.type}">${xmlEscape(m.content)}</memory>`
-      );
-      parts.push(`<pinned-memories>\n${lines.join("\n")}\n</pinned-memories>`);
-    }
-  }
-
-  parts.push(`<memory-guidance>\n${MEMORY_GUIDANCE}\n</memory-guidance>`);
-  return parts.join("\n");
-}
-
 function XmlClose({ tag }: { tag: string }) {
   return <span className="text-muted-foreground/40">&lt;/{tag}&gt;</span>;
 }
 
 function XmlOpen({ tag }: { tag: string }) {
   return <span className="text-muted-foreground/40">&lt;{tag}&gt;</span>;
-}
-
-function XmlAttr({ name, value, className }: { name: string; value: string; className?: string }) {
-  return (
-    <>
-      <span className="text-muted-foreground/30"> {name}=&quot;</span>
-      <span className={className}>{value}</span>
-      <span className="text-muted-foreground/30">&quot;</span>
-    </>
-  );
 }
 
 function InFlightIndicator({
@@ -199,8 +161,18 @@ function SynthesisDiffDialogContent({ a, b, onClose }: SynthesisDiffDialogProps)
   );
 }
 
-function SynthesisHistorySection({ projectId }: { projectId: string }) {
-  const { versions, isLoading, reverting, revert } = useSynthesisHistory(projectId);
+function SynthesisHistorySection({
+  projectId,
+  memoryType,
+}: {
+  projectId: string;
+  memoryType: MemoryType;
+}) {
+  const { versions: allVersions, isLoading, reverting, revert } = useSynthesisHistory(projectId);
+  const versions = useMemo(
+    () => allVersions.filter((v) => v.memoryType === memoryType),
+    [allVersions, memoryType]
+  );
   const [revertTarget, setRevertTarget] = useState<SynthesisVersion | null>(null);
   const [compareMode, setCompareMode] = useState(false);
   const [compareVersions, setCompareVersions] = useState<SynthesisVersion[]>([]);
@@ -232,7 +204,7 @@ function SynthesisHistorySection({ projectId }: { projectId: string }) {
 
   const handleRevertConfirm = async () => {
     if (!revertTarget) return;
-    const ok = await revert(revertTarget.version);
+    const ok = await revert(revertTarget.version, memoryType);
     if (ok) setRevertTarget(null);
   };
 
@@ -314,14 +286,20 @@ function SynthesisHistorySection({ projectId }: { projectId: string }) {
   );
 }
 
-function MemoryLine({ memory }: { memory: Memory }) {
-  const content = memory.content.length > 140 ? `${memory.content.slice(0, 140)}…` : memory.content;
+function MemoryLine({ type, content }: { type?: MemoryType; content: string }) {
+  const text = content.length > 140 ? `${content.slice(0, 140)}…` : content;
   return (
     <div className="pl-3 leading-relaxed">
-      <span className="text-muted-foreground/40">&lt;memory type=&quot;</span>
-      <span className={typeColorVariants({ type: memory.type })}>{memory.type}</span>
-      <span className="text-muted-foreground/40">&quot;&gt;</span>
-      <span className="text-foreground/70">{xmlEscape(content)}</span>
+      <span className="text-muted-foreground/40">&lt;memory</span>
+      {type !== undefined && (
+        <>
+          <span className="text-muted-foreground/30"> type=&quot;</span>
+          <span className={typeColorVariants({ type })}>{type}</span>
+          <span className="text-muted-foreground/30">&quot;</span>
+        </>
+      )}
+      <span className="text-muted-foreground/40">&gt;</span>
+      <span className="text-foreground/70">{xmlEscape(text)}</span>
       <span className="text-muted-foreground/40">&lt;/memory&gt;</span>
     </div>
   );
@@ -335,236 +313,192 @@ function ScopeLabel({ label, count }: { label: string; count: number }) {
   );
 }
 
-interface SynthesisSectionProps {
-  synthesis: Synthesis | null;
-  isLoading: boolean;
-  isStale: boolean;
-  isStuck: boolean;
-  error: string | null;
-  onRun: () => Promise<void>;
-  onReset: () => Promise<void>;
-  projectId: string;
-}
-
-function SynthesisSection({
+function SynthesisSectionView({
+  section,
   synthesis,
-  isLoading,
-  isStale,
-  isStuck,
-  error,
   onRun,
-  onReset,
   projectId,
-}: SynthesisSectionProps) {
-  const isInFlight = synthesis?.inFlightSince != null;
-  const hasPriorContent = isInFlight && synthesis?.content !== SYNTHESIS_PENDING;
-  const synthIsEmpty = !synthesis && !isLoading && !error;
-  const isSettled = synthesis !== null && !isInFlight;
+}: {
+  section: Extract<SessionContextSection, { kind: "synthesis" }>;
+  synthesis: Synthesis | undefined;
+  onRun: () => Promise<void>;
+  projectId: string;
+}) {
+  const isStale =
+    synthesis !== undefined &&
+    synthesis.inFlightSince === null &&
+    new Date(synthesis.expiresAt) < new Date();
 
   return (
-    <div className="p-3 space-y-1.5">
-      {/* Opening tag line with state attributes and optional regenerate button */}
+    <div className="p-3 space-y-0.5">
       <div className="flex items-center justify-between">
-        <span className="text-muted-foreground/40 text-[11px]">
-          &lt;synthesis
-          {synthesis?.synthesizedAt && !isInFlight && (
-            <XmlAttr
-              name="updated"
-              value={formatRelativeTime(synthesis.synthesizedAt)}
-              className="text-muted-foreground/60"
-            />
-          )}
-          {isLoading && !synthesis && (
-            <XmlAttr name="status" value="loading" className="text-muted-foreground/50" />
-          )}
-          {error && <XmlAttr name="status" value="error" className="text-destructive/70" />}
-          {synthIsEmpty && (
-            <XmlAttr name="status" value="empty" className="text-muted-foreground/50" />
-          )}
-          {isInFlight && (
-            <XmlAttr name="status" value="generating" className="text-muted-foreground/50" />
-          )}
-          {isSettled && isStale && <XmlAttr name="status" value="stale" className="text-stale" />}
-          &gt;
-        </span>
-        {(isSettled || isInFlight) && (
-          <button
-            type="button"
-            onClick={() => void onRun()}
-            aria-label="Regenerate synthesis"
-            className="text-muted-foreground/40 hover:text-muted-foreground transition-colors p-0.5 rounded shrink-0"
-          >
-            <ArrowsClockwise className="size-3" />
-          </button>
-        )}
+        <div className="flex items-center gap-1.5">
+          <XmlOpen tag="synthesis" />
+          <Badge variant={section.memoryType}>{section.memoryType}</Badge>
+          {isStale && <span className="text-[10px] text-stale">stale</span>}
+        </div>
+        <button
+          type="button"
+          onClick={() => void onRun()}
+          aria-label={`Regenerate ${section.memoryType} synthesis`}
+          className="text-muted-foreground/40 hover:text-muted-foreground transition-colors p-0.5 rounded shrink-0"
+        >
+          <ArrowsClockwise className="size-3" />
+        </button>
       </div>
-
-      {/* Empty state */}
-      {synthIsEmpty && (
-        <div className="pl-3 space-y-2 py-0.5">
-          <p className="text-[11px] text-muted-foreground/50 leading-relaxed">
-            Synthesis condenses your memories into a concise brief injected at the start of each
-            session. Without it, only pinned memories are sent (see below).
-          </p>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => void onRun()}
-            className="gap-1.5 h-6 text-[11px] px-2"
-          >
-            <Lightning weight="fill" className="size-3" />
-            Generate
-          </Button>
+      <ScrollArea className="max-h-40">
+        <div className="pl-3 text-foreground/70 whitespace-pre-wrap leading-relaxed">
+          {section.content}
         </div>
-      )}
-
-      {/* Initial DB load skeleton */}
-      {isLoading && !synthesis && (
-        <div className="pl-3 space-y-1.5 py-0.5">
-          <Skeleton className="h-2.5 w-full" />
-          <Skeleton className="h-2.5 w-full" />
-          <Skeleton className="h-2.5 w-3/4" />
-        </div>
-      )}
-
-      {/* Error state */}
-      {error && (
-        <div className="pl-3 space-y-1 py-0.5">
-          <div className="flex items-start gap-1.5">
-            <WarningCircle weight="fill" className="size-3 text-destructive mt-0.5 shrink-0" />
-            <p className="text-[11px] text-destructive leading-relaxed">{error}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void onRun()}
-            className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* In-flight, no prior content to show */}
-      {isInFlight && !hasPriorContent && (
-        <div className="pl-3 space-y-2 py-0.5">
-          <InFlightIndicator isStuck={isStuck} onReset={onReset} />
-          <div className="space-y-1.5">
-            <Skeleton className="h-2.5 w-full" />
-            <Skeleton className="h-2.5 w-full" />
-            <Skeleton className="h-2.5 w-5/6" />
-            <Skeleton className="h-2.5 w-full" />
-            <Skeleton className="h-2.5 w-3/4" />
-          </div>
-        </div>
-      )}
-
-      {synthesis !== null && (!isInFlight || hasPriorContent) && (
-        <div className={cn("pl-3", isInFlight && "opacity-50")}>
-          {isInFlight && (
-            <div className="mb-2">
-              <InFlightIndicator isStuck={isStuck} onReset={onReset} />
-            </div>
-          )}
-          <ScrollArea className="h-40">
-            <div className="text-foreground/70 whitespace-pre-wrap leading-relaxed">
-              {synthesis.content}
-            </div>
-          </ScrollArea>
-        </div>
-      )}
-
-      <SynthesisHistorySection projectId={projectId} />
-
+      </ScrollArea>
       <XmlClose tag="synthesis" />
+      <SynthesisHistorySection projectId={projectId} memoryType={section.memoryType} />
     </div>
   );
 }
 
-interface SessionContextState {
-  pinnedGlobal: Memory[];
-  pinnedProject: Memory[];
-  stats: Record<MemoryType, number>;
-  statParts: string[];
-  settledSynthesis: Synthesis | null;
-  hasPinned: boolean;
-  hasContent: boolean;
-  copied: boolean;
-  guidanceOpen: boolean;
-  handleCopy: () => void;
-  setGuidanceOpen: (open: boolean | ((prev: boolean) => boolean)) => void;
+function VerbatimSectionView({
+  section,
+}: {
+  section: Extract<SessionContextSection, { kind: "verbatim" }>;
+}) {
+  return (
+    <div className="p-3 space-y-0.5">
+      <div className="flex items-center gap-1.5">
+        <XmlOpen tag="memories" />
+        <Badge variant={section.memoryType}>{section.memoryType}</Badge>
+      </div>
+      {section.memories.map((content) => (
+        <MemoryLine key={content} content={content} />
+      ))}
+      <XmlClose tag="memories" />
+    </div>
+  );
 }
 
-function useSessionContext(project: Project, synthesis: Synthesis | null): SessionContextState {
+function InFlightSynthesisView({
+  synthesis,
+  isStuck,
+  onReset,
+  projectId,
+}: {
+  synthesis: Synthesis;
+  isStuck: boolean;
+  onReset: () => Promise<void>;
+  projectId: string;
+}) {
+  const hasPriorContent = synthesis.content !== SYNTHESIS_PENDING;
+
+  return (
+    <div className="p-3 space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <XmlOpen tag="synthesis" />
+        <Badge variant={synthesis.memoryType}>{synthesis.memoryType}</Badge>
+      </div>
+      <div className="pl-3 space-y-2 opacity-50">
+        <InFlightIndicator isStuck={isStuck} onReset={onReset} />
+        {hasPriorContent ? (
+          <ScrollArea className="max-h-40">
+            <div className="text-foreground/70 whitespace-pre-wrap leading-relaxed">
+              {synthesis.content}
+            </div>
+          </ScrollArea>
+        ) : (
+          <div className="space-y-1.5">
+            <Skeleton className="h-2.5 w-full" />
+            <Skeleton className="h-2.5 w-5/6" />
+            <Skeleton className="h-2.5 w-3/4" />
+          </div>
+        )}
+      </div>
+      <XmlClose tag="synthesis" />
+      <SynthesisHistorySection projectId={projectId} memoryType={synthesis.memoryType} />
+    </div>
+  );
+}
+
+function SynthesisEmptyState({ onRun }: { onRun: () => Promise<void> }) {
+  return (
+    <div className="p-3 space-y-2">
+      <span className="text-muted-foreground/40 text-[11px]">
+        &lt;synthesis status=&quot;empty&quot;&gt;
+      </span>
+      <p className="text-[11px] text-muted-foreground/50 leading-relaxed pl-3">
+        Synthesis condenses your memories into a concise brief — one per memory type — injected at
+        the start of each session, alongside the pinned memories shown above.
+      </p>
+      <div className="pl-3">
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => void onRun()}
+          className="gap-1.5 h-6 text-[11px] px-2"
+        >
+          <Lightning weight="fill" className="size-3" />
+          Generate
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SynthesisErrorState({ error, onRun }: { error: string; onRun: () => Promise<void> }) {
+  return (
+    <div className="p-3 space-y-1">
+      <div className="flex items-start gap-1.5">
+        <WarningCircle weight="fill" className="size-3 text-destructive mt-0.5 shrink-0" />
+        <p className="text-[11px] text-destructive leading-relaxed">{error}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => void onRun()}
+        className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
+
+function useSessionContext(
+  projectId: string,
+  refetchKey: string
+): { context: SessionContext | null; copied: boolean; handleCopy: () => void } {
+  const [context, setContext] = useState<SessionContext | null>(null);
   const [copied, setCopied] = useState(false);
-  const [guidanceOpen, setGuidanceOpen] = useState(false);
 
-  const { data: allMemories = [] } = useLiveQuery((q) => q.from({ m: memoriesCollection }), []);
-
-  const pinnedGlobal = useMemo(
-    () => allMemories.filter((m) => m.pinned && m.projects.length === 0),
-    [allMemories]
-  );
-
-  const pinnedProject = useMemo(
-    () => allMemories.filter((m) => m.pinned && m.projects.some((p) => p.id === project.id)),
-    [allMemories, project.id]
-  );
-
-  const stats = useMemo(
-    () => countMemoriesByType(allMemories, project.id),
-    [allMemories, project.id]
-  );
-
-  const settledSynthesis =
-    synthesis !== null &&
-    synthesis.inFlightSince === null &&
-    synthesis.content !== SYNTHESIS_PENDING
-      ? synthesis
-      : null;
-
-  const statParts = useMemo(
-    () =>
-      MEMORY_TYPES.filter((t) => stats[t] > 0).map(
-        (t) => `${stats[t]} ${t}${stats[t] !== 1 ? "s" : ""}`
-      ),
-    [stats]
-  );
-
-  const hasPinned = pinnedGlobal.length > 0 || pinnedProject.length > 0;
-  const hasContent = statParts.length > 0 || settledSynthesis !== null || hasPinned;
-
-  const copyText = useMemo(
-    () => buildCopyText(stats, pinnedGlobal, pinnedProject, synthesis),
-    [stats, pinnedGlobal, pinnedProject, synthesis]
-  );
+  useEffect(() => {
+    let cancelled = false;
+    // refetchKey is read so the effect re-runs whenever synthesis state changes.
+    void refetchKey;
+    getSessionContext(projectId)
+      .then((ctx) => {
+        if (!cancelled) setContext(ctx);
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Failed to load session context");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, refetchKey]);
 
   const handleCopy = useCallback(() => {
-    void navigator.clipboard.writeText(copyText).then(() => {
+    if (context === null) return;
+    const text = `${context.rendered}\n<memory-guidance>\n${MEMORY_GUIDANCE}\n</memory-guidance>`;
+    void navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
-  }, [copyText]);
+  }, [context]);
 
-  return {
-    pinnedGlobal,
-    pinnedProject,
-    stats,
-    statParts,
-    settledSynthesis,
-    hasPinned,
-    hasContent,
-    copied,
-    guidanceOpen,
-    handleCopy,
-    setGuidanceOpen,
-  };
+  return { context, copied, handleCopy };
 }
 
 interface SessionContextPanelProps {
   project: Project;
-  synthesis: Synthesis | null;
+  syntheses: Synthesis[];
   isLoading: boolean;
-  isStale: boolean;
   isStuck: boolean;
   error: string | null;
   onRun: () => Promise<void>;
@@ -574,27 +508,49 @@ interface SessionContextPanelProps {
 
 function SessionContextPanel({
   project,
-  synthesis,
+  syntheses,
   isLoading,
-  isStale,
   isStuck,
   error,
   onRun,
   onReset,
   label = "Session context",
 }: SessionContextPanelProps) {
-  const {
-    pinnedGlobal,
-    pinnedProject,
-    statParts,
-    settledSynthesis,
-    hasPinned,
-    hasContent,
-    copied,
-    guidanceOpen,
-    handleCopy,
-    setGuidanceOpen,
-  } = useSessionContext(project, synthesis);
+  const [guidanceOpen, setGuidanceOpen] = useState(false);
+  const refetchKey = useMemo(
+    () => syntheses.map((s) => `${s.id}:${s.synthesizedAt}:${s.inFlightSince}`).join("|"),
+    [syntheses]
+  );
+  const { context, copied, handleCopy } = useSessionContext(project.id, refetchKey);
+
+  const pinnedGlobal: Memory[] = context?.pinnedGlobal ?? [];
+  const pinnedProject: Memory[] = context?.pinnedProject ?? [];
+  const stats = context?.stats;
+  const statParts = stats
+    ? (Object.entries(stats) as [MemoryType, number][])
+        .filter(([, count]) => count > 0)
+        .map(([type, count]) => `${count} ${type}${count !== 1 ? "s" : ""}`)
+    : [];
+  const hasPinned = pinnedGlobal.length > 0 || pinnedProject.length > 0;
+  const hasContent = context !== null && context.rendered.length > 0;
+
+  const synthesisByType = useMemo(() => {
+    const map = new Map<MemoryType, Synthesis>();
+    for (const s of syntheses) map.set(s.memoryType, s);
+    return map;
+  }, [syntheses]);
+
+  const renderedTypes = new Set((context?.sections ?? []).map((s) => s.memoryType));
+  const inFlightSyntheses = syntheses.filter(
+    (s) => s.inFlightSince !== null && !renderedTypes.has(s.memoryType)
+  );
+
+  const isInitialLoad = context === null && isLoading;
+  const isEmpty =
+    context !== null &&
+    context.sections.length === 0 &&
+    inFlightSyntheses.length === 0 &&
+    error === null;
 
   return (
     <div className="space-y-2">
@@ -620,25 +576,14 @@ function SessionContextPanel({
           </div>
         )}
 
-        <SynthesisSection
-          synthesis={synthesis}
-          isLoading={isLoading}
-          isStale={isStale}
-          isStuck={isStuck}
-          error={error}
-          onRun={onRun}
-          onReset={onReset}
-          projectId={project.id}
-        />
-
-        {settledSynthesis === null && hasPinned && (
+        {hasPinned && (
           <div className="p-3 space-y-0.5">
             <XmlOpen tag="pinned-memories" />
             {pinnedGlobal.length > 0 && (
               <div className="space-y-0.5">
                 <ScopeLabel label={GLOBAL_PROJECT_NAME} count={pinnedGlobal.length} />
                 {pinnedGlobal.map((m) => (
-                  <MemoryLine key={m.id} memory={m} />
+                  <MemoryLine key={m.id} type={m.type} content={m.content} />
                 ))}
               </div>
             )}
@@ -646,13 +591,49 @@ function SessionContextPanel({
               <div className="space-y-0.5">
                 <ScopeLabel label="project" count={pinnedProject.length} />
                 {pinnedProject.map((m) => (
-                  <MemoryLine key={m.id} memory={m} />
+                  <MemoryLine key={m.id} type={m.type} content={m.content} />
                 ))}
               </div>
             )}
             <XmlClose tag="pinned-memories" />
           </div>
         )}
+
+        {context?.sections.map((section) =>
+          section.kind === "synthesis" ? (
+            <SynthesisSectionView
+              key={`synthesis:${section.memoryType}`}
+              section={section}
+              synthesis={synthesisByType.get(section.memoryType)}
+              onRun={onRun}
+              projectId={project.id}
+            />
+          ) : (
+            <VerbatimSectionView key={`verbatim:${section.memoryType}`} section={section} />
+          )
+        )}
+
+        {inFlightSyntheses.map((synthesis) => (
+          <InFlightSynthesisView
+            key={`inflight:${synthesis.memoryType}`}
+            synthesis={synthesis}
+            isStuck={isStuck}
+            onReset={onReset}
+            projectId={project.id}
+          />
+        ))}
+
+        {isInitialLoad && (
+          <div className="p-3 space-y-1.5">
+            <Skeleton className="h-2.5 w-full" />
+            <Skeleton className="h-2.5 w-full" />
+            <Skeleton className="h-2.5 w-3/4" />
+          </div>
+        )}
+
+        {error !== null && <SynthesisErrorState error={error} onRun={onRun} />}
+
+        {isEmpty && <SynthesisEmptyState onRun={onRun} />}
 
         <div className="p-3 space-y-0.5">
           <button
@@ -678,7 +659,7 @@ function SessionContextPanel({
 }
 
 export function ProjectOverviewTab({ project }: { project: Project }) {
-  const { synthesis, isLoading, isStale, isStuck, error, run, reset } =
+  const { syntheses, representative, isLoading, isStale, isStuck, error, run, reset } =
     useProjectSynthesis(project);
 
   return (
@@ -691,7 +672,7 @@ export function ProjectOverviewTab({ project }: { project: Project }) {
             <div className="space-y-8">
               <AttentionBlock
                 project={project}
-                synthesis={synthesis}
+                synthesis={representative}
                 isStale={isStale}
                 isStuck={isStuck}
                 isLoading={isLoading}
@@ -701,9 +682,8 @@ export function ProjectOverviewTab({ project }: { project: Project }) {
           </div>
           <SessionContextPanel
             project={project}
-            synthesis={synthesis}
+            syntheses={syntheses}
             isLoading={isLoading}
-            isStale={isStale}
             isStuck={isStuck}
             error={error}
             onRun={run}

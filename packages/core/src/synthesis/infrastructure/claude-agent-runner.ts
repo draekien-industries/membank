@@ -1,63 +1,27 @@
-import { createSdkMcpServer, query, tool } from "@anthropic-ai/claude-agent-sdk";
-import { z } from "zod";
+import { query } from "@anthropic-ai/claude-agent-sdk";
 import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
-import type { AgentRunner, SynthesisConfig, SynthesisTools } from "../ports.js";
+import type { MemoryType } from "../../schemas.js";
+import type { AgentRunner } from "../ports.js";
 
 const SYNTHESIS_SYSTEM_PROMPT =
-  "You are a memory synthesizer. Your job is to read the user's stored memories and produce a concise, well-structured summary of what's most important to remember about this user — their preferences, corrections, decisions, and key facts. Pinned memories are higher fidelity and should be weighted more heavily. Exclude transient or ephemeral details. Output plain text suitable for injection into an LLM context window. Be concise — target 200-400 words.";
+  "You are a memory synthesizer. You are given the user's stored memories of a single kind, and your job is to produce a concise, well-structured summary of what's most important to remember from them. Synthesize only the memories you are given — do not invent, infer, or recall anything else. Exclude transient or ephemeral details. Output plain text suitable for injection into an LLM context window. Be concise — target 100-250 words.";
+
+const MEMORY_TYPE_DESCRIPTIONS: Record<MemoryType, string> = {
+  correction: "corrections the user has made to the assistant's behaviour",
+  preference: "the user's stated preferences",
+  decision: "decisions the user has made",
+  learning: "things the assistant has learned about the user or their work",
+  fact: "stable facts about the user or their work",
+};
 
 class ClaudeAgentRunner implements AgentRunner {
-  readonly #tools: SynthesisTools;
-
-  constructor(tools: SynthesisTools, _config: SynthesisConfig) {
-    this.#tools = tools;
-  }
-
-  async run(scope: string, projectHash?: string): Promise<string> {
-    const queryMemoryTool = tool(
-      "query_memory",
-      "Search memories by semantic similarity",
-      {
-        query: z.string().describe("Search text"),
-        limit: z.number().optional().describe("Maximum results to return"),
-        global: z
-          .boolean()
-          .optional()
-          .describe("Query global memories only when true, otherwise current project scope"),
-      },
-      async ({ query: q, limit, global: isGlobal }) => {
-        const result = await this.#tools.queryMemory({
-          query: q,
-          ...(limit !== undefined && { limit }),
-          ...(isGlobal !== undefined && { global: isGlobal }),
-          ...(projectHash !== undefined && { projectHash }),
-        });
-        return { content: [{ type: "text" as const, text: result }] };
-      },
-      { annotations: { readOnlyHint: true } }
-    );
-
-    const getMemorySummaryTool = tool(
-      "get_memory_summary",
-      "Returns aggregate stats: total memories, counts by type, pinned count, review queue size",
-      {},
-      async () => {
-        const result = await this.#tools.getMemorySummary();
-        return { content: [{ type: "text" as const, text: result }] };
-      },
-      { annotations: { readOnlyHint: true } }
-    );
-
-    const mcpServer = createSdkMcpServer({
-      name: "membank-synthesis-tools",
-      version: "1.0.0",
-      tools: [queryMemoryTool, getMemorySummaryTool],
-    });
-
+  async run(scope: string, type: MemoryType, memories: readonly string[]): Promise<string> {
     const isGlobal = scope === GLOBAL_SCOPE_HASH;
     const scopeDescription = isGlobal ? "global (across all projects)" : `project scope: ${scope}`;
 
-    const prompt = `Synthesize the memories for ${scopeDescription}. Use get_memory_summary first to understand the overall state, then use query_memory to retrieve relevant memories (query with broad terms like "preferences", "corrections", "decisions", "key facts"). After gathering information, produce a concise synthesis of the most important things to remember about this user. Output only the synthesis text — no preamble, no metadata.`;
+    const numbered = memories.map((content, index) => `${index + 1}. ${content}`).join("\n");
+
+    const prompt = `Synthesize the following ${MEMORY_TYPE_DESCRIPTIONS[type]} for ${scopeDescription}. Produce a concise synthesis of the most important things to remember. Output only the synthesis text — no preamble, no metadata.\n\nMemories:\n${numbered}`;
 
     const startTime = Date.now();
 
@@ -70,14 +34,9 @@ class ClaudeAgentRunner implements AgentRunner {
       options: {
         model: "claude-haiku-4-5-20251001",
         systemPrompt: SYNTHESIS_SYSTEM_PROMPT,
-        mcpServers: { "membank-synthesis-tools": mcpServer },
-        allowedTools: [
-          "mcp__membank-synthesis-tools__query_memory",
-          "mcp__membank-synthesis-tools__get_memory_summary",
-        ],
-        // Disallow the host's globally-configured membank MCP server, which would otherwise
-        // shadow our in-process tools and read from the user's real memory.db instead of the
-        // services we wired up here.
+        // The synthesis agent must only see the memories embedded in the prompt — no tools,
+        // so it cannot reach the host's membank MCP server and read pinned or other memories.
+        allowedTools: [],
         disallowedTools: ["mcp__membank__*"],
         // Block inheriting Claude Code's user/project settings (which load the host's MCP
         // servers, slash commands, etc.). The synthesis agent must only see what we pass.
@@ -104,7 +63,9 @@ class ClaudeAgentRunner implements AgentRunner {
     }
 
     const durationMs = Date.now() - startTime;
-    process.stderr.write(`membank synthesis: scope=${scope} duration=${durationMs}ms\n`);
+    process.stderr.write(
+      `membank synthesis: scope=${scope} type=${type} duration=${durationMs}ms\n`
+    );
 
     if (finalResult === "") {
       throw new Error("Synthesis agent returned empty result");
@@ -114,9 +75,6 @@ class ClaudeAgentRunner implements AgentRunner {
   }
 }
 
-export function createSynthesisAgentRunner(
-  tools: SynthesisTools,
-  config: SynthesisConfig
-): AgentRunner {
-  return new ClaudeAgentRunner(tools, config);
+export function createSynthesisAgentRunner(): AgentRunner {
+  return new ClaudeAgentRunner();
 }

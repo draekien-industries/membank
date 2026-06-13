@@ -46,6 +46,19 @@ contexts:
           by a hash of its git remote URL or absolute path. Has a human-readable name
           auto-derived from the repo or directory name. A project has many memories;
           a memory can belong to many projects.
+      MemoryType:
+        definition: 'The classification assigned to every memory; one of five values
+          in fixed precedence: correction > preference > decision > learning > fact.
+          The axis synthesis groups memories by.'
+        aliases:
+        - Category
+        - Type
+        usage: Synthesis groups a scope's memories by MemoryType before summarizing
+          each group.
+      PinnedMemory:
+        definition: A memory flagged pinned. Excluded from synthesis and always injected
+          verbatim in its own section of the SessionContext.
+        usage: A PinnedMemory never feeds a Synthesis; it is shown verbatim instead.
   Architecture:
     terms:
       DomainLayer:
@@ -124,3 +137,35 @@ contexts:
         related:
         - term: PresentationPackage
           relationship: exposed by
+  Synthesis:
+    terms:
+      Synthesis:
+        definition: A generated summary of a scope's memories for session injection,
+          produced per MemoryType within a scope (not one blob per scope) and excluding
+          PinnedMemory.
+        usage: Each above-threshold MemoryType in a scope gets its own Synthesis.
+        related:
+        - term: MemoryType
+          relationship: produced by
+      SynthesisThreshold:
+        definition: The minimum combined word count of the non-pinned memories in
+          one scope-and-MemoryType group required before that group is summarized
+          into a Synthesis; below it, the memories inject verbatim.
+        usage: A MemoryType group under the SynthesisThreshold is shown verbatim rather
+          than synthesized.
+        related:
+        - term: Synthesis
+          relationship: triggers
+  Session:
+    terms:
+      SessionContext:
+        definition: 'The bundle injected at harness session start: a verbatim PinnedMemory
+          section plus per-MemoryType content — a Synthesis for above-threshold types
+          and verbatim memories for below-threshold types.'
+        usage: The SessionContext always shows the PinnedMemory section alongside
+          the per-MemoryType Synthesis.
+        related:
+        - term: Synthesis
+          relationship: contains
+        - term: PinnedMemory
+          relationship: contains

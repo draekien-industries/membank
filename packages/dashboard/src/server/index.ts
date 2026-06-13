@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:net";
+import { homedir } from "node:os";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
@@ -12,37 +13,39 @@ import type {
   MemoryRepository,
   MemoryType,
   ProjectRepository,
-  Querier,
-  QueryEngine,
   SynthesisRepository,
-  SynthesisTools,
 } from "@membank/core";
 import {
   ActivityEventTypeSchema,
   clusterFlagged,
+  collectSynthesisSections,
   createActivityLogger,
   createActivityRepository,
   createMemoryRepository,
   createProjectRepository,
-  createQueryEngine,
   createSynthesisAgentRunner,
   createSynthesisRepository,
   DatabaseManager,
+  DEFAULT_SYNTHESIS_THRESHOLD_WORDS,
   deleteManyMemories,
   deleteMemory,
   deleteProject,
   EmbeddingService,
   findWorktreeOrphan,
   GLOBAL_PROJECT_ID,
+  GLOBAL_SCOPE_HASH,
   isSynthesisEnabled,
   listEvents,
+  MEMORY_TYPE_VALUES,
   mergeMemories,
   mergeProjects,
   reconcileWorktreeOrphan,
+  renderSessionContext,
   resolveReviewMany,
   revertMemory,
   revertSynthesis,
   runSynthesis,
+  SessionContextBuilder,
   suggestMerge,
   updateMemory,
 } from "@membank/core";
@@ -50,21 +53,6 @@ import { Hono } from "hono";
 import open from "open";
 
 const PREFERRED_PORT = 3847;
-
-function buildSynthesisTools(repo: MemoryRepository, querier: Querier): SynthesisTools {
-  return {
-    queryMemory: async (args) => {
-      const results = await querier.query({
-        query: args.query,
-        projectHash: args.global === true ? undefined : args.projectHash,
-        limit: args.limit ?? 20,
-        includePinned: true,
-      });
-      return JSON.stringify(results);
-    },
-    getMemorySummary: async () => JSON.stringify(repo.stats()),
-  };
-}
 
 const MIME: Record<string, string> = {
   ".js": "application/javascript",
@@ -105,6 +93,18 @@ async function findFreePort(preferred: number): Promise<number> {
   }
 }
 
+function resolveThresholdWords(): number {
+  const configPath = join(homedir(), ".membank", "config.json");
+  try {
+    const raw = readFileSync(configPath, "utf8");
+    const parsed = JSON.parse(raw) as { synthesis?: { synthesisThresholdWords?: unknown } };
+    const configured = parsed.synthesis?.synthesisThresholdWords;
+    return typeof configured === "number" ? configured : DEFAULT_SYNTHESIS_THRESHOLD_WORDS;
+  } catch {
+    return DEFAULT_SYNTHESIS_THRESHOLD_WORDS;
+  }
+}
+
 function aggregateActivity(memories: Memory[], days: number): { date: string; count: number }[] {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
@@ -128,7 +128,6 @@ export function createApiApp(
   repo: MemoryRepository,
   projectRepo: ProjectRepository,
   embedder: Embedder,
-  queryEngine: QueryEngine,
   synthRepo: SynthesisRepository,
   activityRepo: ActivityRepository,
   activityLogger: ActivityLogger
@@ -358,19 +357,29 @@ export function createApiApp(
     return c.json(synthRepo.listAll());
   });
 
-  app.get("/api/projects/:id/synthesis", (c) => {
+  app.get("/api/projects/:id/session-context", (c) => {
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
-    return c.json(synthRepo.getSynthesis(project.scopeHash) ?? null);
+
+    const builder = new SessionContextBuilder(repo);
+    const scopes = [...new Set([GLOBAL_SCOPE_HASH, project.scopeHash])];
+    const sections = collectSynthesisSections(synthRepo, scopes, resolveThresholdWords());
+    const ctx = builder.getSessionContext(project.scopeHash, sections);
+
+    return c.json({
+      rendered: renderSessionContext(ctx),
+      sections: ctx.sections,
+      pinnedGlobal: ctx.pinnedGlobal,
+      pinnedProject: ctx.pinnedProject,
+      stats: ctx.stats,
+    });
   });
 
   app.post("/api/projects/:id/synthesis", (c) => {
     if (!isSynthesisEnabled()) return c.json({ error: "Synthesis is disabled" }, 503);
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
-    const agentRunner = createSynthesisAgentRunner(buildSynthesisTools(repo, queryEngine), {
-      enabled: true,
-    });
+    const agentRunner = createSynthesisAgentRunner();
     void runSynthesis(project.scopeHash, { synthRepo, agentRunner });
     return c.json({ ok: true }, 202);
   });
@@ -378,27 +387,31 @@ export function createApiApp(
   app.delete("/api/projects/:id/synthesis/in-flight", (c) => {
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
-    synthRepo.clearInFlight(project.scopeHash);
+    for (const type of MEMORY_TYPE_VALUES) synthRepo.clearInFlight(project.scopeHash, type);
     return c.json({ ok: true });
   });
 
   app.get("/api/projects/:id/synthesis/history", (c) => {
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
-    return c.json(synthRepo.listVersions(project.scopeHash));
+    const versions = MEMORY_TYPE_VALUES.flatMap((type) =>
+      synthRepo.listVersions(project.scopeHash, type)
+    );
+    return c.json(versions);
   });
 
   app.post("/api/projects/:id/synthesis/revert", async (c) => {
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
-    const body = await c.req.json<{ version?: unknown }>();
+    const body = await c.req.json<{ version?: unknown; memoryType?: unknown }>();
     const version = typeof body.version === "number" ? body.version : NaN;
     if (Number.isNaN(version)) return c.json({ error: "version must be a number" }, 400);
-    try {
-      revertSynthesis(project.scopeHash, version, synthRepo);
-    } catch {
+    const memoryType = MEMORY_TYPE_VALUES.find((type) => type === body.memoryType);
+    if (memoryType === undefined) return c.json({ error: "memoryType is required" }, 400);
+    if (synthRepo.getVersion(project.scopeHash, memoryType, version) === undefined) {
       return c.json({ error: "Version not found" }, 404);
     }
+    revertSynthesis(project.scopeHash, memoryType, version, synthRepo);
     return c.json({ ok: true });
   });
 
@@ -503,18 +516,9 @@ export async function startDashboard(opts?: {
   const repo = createMemoryRepository(db, projects);
   const activityLogger = createActivityLogger(db);
   const activityRepo = createActivityRepository(db);
-  const queryEngine = createQueryEngine(db, embedding, activityLogger);
   const synthRepo = createSynthesisRepository(db);
 
-  const app = createApiApp(
-    repo,
-    projects,
-    embedding,
-    queryEngine,
-    synthRepo,
-    activityRepo,
-    activityLogger
-  );
+  const app = createApiApp(repo, projects, embedding, synthRepo, activityRepo, activityLogger);
 
   const __dir = dirname(fileURLToPath(import.meta.url));
   const clientDir = join(__dir, "client");

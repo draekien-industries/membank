@@ -1,4 +1,4 @@
-import type { Synthesis } from "../schemas.js";
+import type { MemoryType, Synthesis } from "../schemas.js";
 import type { DirtyScope } from "./domain/synthesis-job.js";
 import type { SynthesisVersion } from "./domain/synthesis-version.js";
 
@@ -8,32 +8,29 @@ export interface SynthesisConfig {
   debounceMs?: number;
   stalenessDays?: number;
   inFlightTimeoutMs?: number;
-}
-
-export interface SynthesisTools {
-  queryMemory: (args: {
-    query: string;
-    limit?: number;
-    global?: boolean;
-    projectHash?: string;
-  }) => Promise<string>;
-  getMemorySummary: () => Promise<string>;
+  synthesisThresholdWords?: number;
 }
 
 export interface AgentRunner {
-  run(scope: string, projectHash?: string): Promise<string>;
+  run(scope: string, type: MemoryType, memories: readonly string[]): Promise<string>;
 }
 
 export interface SynthesisRepository {
-  saveSynthesis(scope: string, content: string, sourceHash: string): Synthesis;
-  getSynthesis(scope: string): Synthesis | undefined;
+  saveSynthesis(
+    scope: string,
+    memoryType: MemoryType,
+    content: string,
+    sourceHash: string
+  ): Synthesis;
+  getSynthesis(scope: string, memoryType: MemoryType): Synthesis | undefined;
   listAll(): Synthesis[];
-  listVersions(scope: string): SynthesisVersion[];
-  getVersion(scope: string, version: number): SynthesisVersion | undefined;
-  markInFlight(scope: string): void;
-  clearInFlight(scope: string): void;
+  listVersions(scope: string, memoryType: MemoryType): SynthesisVersion[];
+  getVersion(scope: string, memoryType: MemoryType, version: number): SynthesisVersion | undefined;
+  markInFlight(scope: string, memoryType: MemoryType): void;
+  clearInFlight(scope: string, memoryType: MemoryType): void;
   clearStaleInFlight(thresholdMs: number): void;
-  sourceMemoryHash(scope: string): string;
+  nonPinnedMemoryContents(scope: string, memoryType: MemoryType): string[];
+  sourceMemoryHash(scope: string, memoryType: MemoryType): string;
   getExpiredOrDirtyScopes(): DirtyScope[];
   getAllActiveScopes(): string[];
   expireStale(): void;

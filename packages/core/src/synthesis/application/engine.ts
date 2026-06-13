@@ -1,10 +1,17 @@
-import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
+import type { MemoryType } from "../../schemas.js";
+import { MEMORY_TYPE_VALUES } from "../../schemas.js";
 import {
   DEFAULT_DEBOUNCE_MS,
   IN_FLIGHT_TIMEOUT_MS,
   MAX_BACKOFF_MULTIPLIER,
 } from "../domain/debounce-policy.js";
+import { decideSynthesis } from "../domain/synthesis-threshold.js";
+import { countWords, DEFAULT_SYNTHESIS_THRESHOLD_WORDS } from "../domain/word-count.js";
 import type { AgentRunner, SynthesisConfig, SynthesisRepository } from "../ports.js";
+
+function jobKey(scope: string, type: MemoryType): string {
+  return `${scope} ${type}`;
+}
 
 export class SynthesisEngine {
   readonly #synthRepo: SynthesisRepository;
@@ -68,52 +75,64 @@ export class SynthesisEngine {
     const scopesToProcess = [...this.#dirtyScopes];
 
     for (const scope of scopesToProcess) {
-      const inFlightTimeoutMs = this.#config.inFlightTimeoutMs ?? IN_FLIGHT_TIMEOUT_MS;
-      const synthesis = this.#synthRepo.getSynthesis(scope);
-
-      if (synthesis?.inFlightSince !== null && synthesis?.inFlightSince !== undefined) {
-        const inFlightMs = Date.now() - new Date(synthesis.inFlightSince).getTime();
-        if (inFlightMs < inFlightTimeoutMs) {
-          continue;
-        }
-        this.#synthRepo.clearInFlight(scope);
-      }
-
       this.#dirtyScopes.delete(scope);
-      const promise = this.#synthesizeScope(scope).finally(() => {
-        this.#inFlightPromises.delete(scope);
-      });
-      this.#inFlightPromises.set(scope, promise);
+      for (const type of MEMORY_TYPE_VALUES) {
+        this.#processType(scope, type);
+      }
     }
 
     this.#scheduleNextCycle();
   }
 
-  async #synthesizeScope(scope: string): Promise<void> {
-    this.#synthRepo.markInFlight(scope);
+  #processType(scope: string, type: MemoryType): void {
+    const memories = this.#synthRepo.nonPinnedMemoryContents(scope, type);
+    if (memories.length === 0) return;
+
+    const thresholdWords =
+      this.#config.synthesisThresholdWords ?? DEFAULT_SYNTHESIS_THRESHOLD_WORDS;
+    if (decideSynthesis(countWords(memories), thresholdWords).kind === "verbatim") return;
+
+    const inFlightTimeoutMs = this.#config.inFlightTimeoutMs ?? IN_FLIGHT_TIMEOUT_MS;
+    const synthesis = this.#synthRepo.getSynthesis(scope, type);
+
+    if (synthesis?.inFlightSince !== null && synthesis?.inFlightSince !== undefined) {
+      const inFlightMs = Date.now() - new Date(synthesis.inFlightSince).getTime();
+      if (inFlightMs < inFlightTimeoutMs) return;
+      this.#synthRepo.clearInFlight(scope, type);
+    }
+
+    const key = jobKey(scope, type);
+    const promise = this.#synthesizeType(scope, type, memories).finally(() => {
+      this.#inFlightPromises.delete(key);
+    });
+    this.#inFlightPromises.set(key, promise);
+  }
+
+  async #synthesizeType(scope: string, type: MemoryType, memories: string[]): Promise<void> {
+    const key = jobKey(scope, type);
+    this.#synthRepo.markInFlight(scope, type);
 
     try {
-      const projectHash = scope === GLOBAL_SCOPE_HASH ? undefined : scope;
-      const content = await this.#agentRunner.run(scope, projectHash);
-      const sourceHash = this.#synthRepo.sourceMemoryHash(scope);
-      this.#synthRepo.saveSynthesis(scope, content, sourceHash);
-      this.#failureCounts.delete(scope);
+      const content = await this.#agentRunner.run(scope, type, memories);
+      const sourceHash = this.#synthRepo.sourceMemoryHash(scope, type);
+      this.#synthRepo.saveSynthesis(scope, type, content, sourceHash);
+      this.#failureCounts.delete(key);
     } catch (err) {
-      const failures = (this.#failureCounts.get(scope) ?? 0) + 1;
-      this.#failureCounts.set(scope, failures);
+      const failures = (this.#failureCounts.get(key) ?? 0) + 1;
+      this.#failureCounts.set(key, failures);
 
       const backoffMultiplier = Math.min(failures, MAX_BACKOFF_MULTIPLIER);
       const backoffMs = (this.#config.debounceMs ?? DEFAULT_DEBOUNCE_MS) * backoffMultiplier;
 
       process.stderr.write(
-        `membank synthesis: error for scope=${scope} failures=${failures} backoff=${backoffMs}ms: ${err instanceof Error ? err.message : String(err)}\n`
+        `membank synthesis: error for scope=${scope} type=${type} failures=${failures} backoff=${backoffMs}ms: ${err instanceof Error ? err.message : String(err)}\n`
       );
 
       setTimeout(() => {
         this.#dirtyScopes.add(scope);
       }, backoffMs);
 
-      this.#synthRepo.clearInFlight(scope);
+      this.#synthRepo.clearInFlight(scope, type);
     }
   }
 }

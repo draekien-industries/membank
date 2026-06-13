@@ -5,37 +5,15 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DatabaseManager } from "../db/manager.js";
 import { EmbeddingService } from "../embedding/index.js";
-import type { MemoryRepository } from "../memory/index.js";
 import { createMemoryRepository, saveMemory } from "../memory/index.js";
 import { createProjectRepository } from "../project/index.js";
-import { createQueryEngine, type QueryEngine } from "../query/index.js";
 import { runSynthesis } from "./application/run-synthesis.js";
 import { createSynthesisAgentRunner } from "./infrastructure/claude-agent-runner.js";
 import { createSynthesisRepository } from "./infrastructure/sqlite-synthesis-repository.js";
-import type { SynthesisTools } from "./ports.js";
 
 const runIntegration = process.env.MEMBANK_INTEGRATION === "true";
 const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "../../test-fixtures");
 const AGENT_TIMEOUT_MS = 180_000;
-
-function buildLocalSynthesisTools(
-  repo: MemoryRepository,
-  query: QueryEngine,
-  projectHash: string
-): SynthesisTools {
-  return {
-    queryMemory: async (args) => {
-      const results = await query.query({
-        query: args.query,
-        projectHash: args.global === true ? undefined : (args.projectHash ?? projectHash),
-        limit: args.limit ?? 20,
-        includePinned: true,
-      });
-      return JSON.stringify(results);
-    },
-    getMemorySummary: async () => JSON.stringify(repo.stats()),
-  };
-}
 
 describe.skipIf(!runIntegration)("synthesis — integration (real Claude Haiku agent)", () => {
   let dbPath: string;
@@ -64,12 +42,11 @@ describe.skipIf(!runIntegration)("synthesis — integration (real Claude Haiku a
     projects.upsertByHash(projectHash, "membank-int-synth");
     const repo = createMemoryRepository(db, projects);
     const embedding = new EmbeddingService();
-    const queryEngine = createQueryEngine(db, embedding);
     const synthRepo = createSynthesisRepository(db);
 
-    // Seed unique, distinctive memories. If the agent reads from the host's real
-    // ~/.membank/memory.db (via the bleed-through `mcp__membank__*` tools), it
-    // won't find these distinctive tokens and the synthesis will reflect host data.
+    // Seed unique, distinctive memories. runSynthesis reads only this isolated DB and
+    // embeds the memories directly in the agent's prompt; the agent has no tools, so it
+    // cannot reach the host's real ~/.membank/memory.db.
     await saveMemory(
       {
         content: "Project standardises on the Bun runtime for all build scripts.",
@@ -89,22 +66,22 @@ describe.skipIf(!runIntegration)("synthesis — integration (real Claude Haiku a
       { repo, embedder: embedding }
     );
 
-    const tools = buildLocalSynthesisTools(repo, queryEngine, projectHash);
-    const agentRunner = createSynthesisAgentRunner(tools, { enabled: true });
+    const agentRunner = createSynthesisAgentRunner();
 
     const content = await runSynthesis(projectHash, { synthRepo, agentRunner });
 
     // Topical keyword check: the synthesis must reflect at least one of the two
     // seeded memories. "Bun" and ".vault" are distinctive enough that they could
-    // only appear if the agent actually queried OUR isolated DB.
+    // only appear if the agent synthesised OUR isolated DB.
     const lower = content.toLowerCase();
     const referencesBun = lower.includes("bun");
     const referencesVault = lower.includes("vault");
     expect(referencesBun || referencesVault).toBe(true);
 
     // Persisted in our local syntheses table.
-    const stored = synthRepo.getSynthesis(projectHash);
-    expect(stored?.content).toBe(content);
+    const stored = synthRepo.getSynthesis(projectHash, "correction");
+    expect(stored?.content).toBeTruthy();
+    expect(content).toContain(stored?.content ?? "");
     expect(stored?.inFlightSince).toBeNull();
   });
 });

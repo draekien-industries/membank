@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import BetterSqlite3 from "better-sqlite3";
 import * as sqliteVec from "sqlite-vec";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createSynthesisRepository } from "../synthesis/infrastructure/sqlite-synthesis-repository.js";
 import { DatabaseManager } from "./manager.js";
 
 const runIntegration = process.env.MEMBANK_INTEGRATION === "true";
@@ -97,12 +98,12 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
     }
   });
 
-  it("applies all migrations and sets schema_version to 14 on a fresh file DB", () => {
+  it("applies all migrations and sets schema_version to 15 on a fresh file DB", () => {
     manager = DatabaseManager.open(dbPath);
     const row = manager.db
       .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
       .get();
-    expect(row?.value).toBe("14");
+    expect(row?.value).toBe("15");
   });
 
   it("data persists across close and reopen", () => {
@@ -272,28 +273,6 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
     expect(sentinel?.name).toBe("global");
   });
 
-  it("migration v8: syntheses with scope='global' are rewritten to the sentinel hash", () => {
-    const db = setupV4Db(dbPath);
-    const now = new Date().toISOString();
-    const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
-
-    // Insert a pre-migration synthesis using the old "global" string
-    db.prepare(
-      `INSERT INTO syntheses (id, scope, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run("s1", "global", "old content", "hash1", now, future, now, now);
-
-    db.prepare("UPDATE meta SET value = '7' WHERE key = 'schema_version'").run();
-    db.close();
-
-    manager = DatabaseManager.open(dbPath);
-
-    const row = manager.db
-      .prepare<[], { scope: string }>("SELECT scope FROM syntheses LIMIT 1")
-      .get();
-    expect(row?.scope).toBe("0000000000000000");
-  });
-
   it("migration v8: syntheses FK rejects rows with unknown scope_hash", () => {
     manager = DatabaseManager.open(dbPath);
     const db = manager.db;
@@ -308,5 +287,83 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
         )
         .run("bad", "deadbeefdeadbeef", "content", "hash", now, future, now, now)
     ).toThrow();
+  });
+
+  it("migration v15: legacy single-blob synthesis is dropped, never injected, and the scope regenerates per MemoryType", () => {
+    const LEGACY_BLOB = "STALE-COMBINED-SYNTHESIS-DO-NOT-INJECT";
+    const PROJECT_SCOPE = "abcdef0123456789";
+
+    const db = setupV4Db(dbPath);
+    const now = new Date().toISOString();
+    const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
+
+    db.prepare(
+      "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+    ).run("proj-1", "my-project", PROJECT_SCOPE, now, now);
+
+    // Two memories of different types under one scope. Pre-#15 these were all folded
+    // into a single combined synthesis blob keyed only by scope.
+    db.prepare(
+      "INSERT INTO memories (id, content, type, tags, access_count, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run("mem-pref", "always use pnpm", "preference", "[]", 0, 0, now, now);
+    db.prepare(
+      "INSERT INTO memories (id, content, type, tags, access_count, pinned, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run("mem-corr", "never commit secrets", "correction", "[]", 0, 0, now, now);
+    db.prepare("INSERT INTO memory_projects (memory_id, project_id) VALUES (?, ?)").run(
+      "mem-pref",
+      "proj-1"
+    );
+    db.prepare("INSERT INTO memory_projects (memory_id, project_id) VALUES (?, ?)").run(
+      "mem-corr",
+      "proj-1"
+    );
+
+    // Legacy single-blob synthesis: keyed by scope only, no memory_type column exists.
+    db.prepare(
+      `INSERT INTO syntheses (id, scope, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run("legacy-s1", PROJECT_SCOPE, LEGACY_BLOB, "legacy-hash", now, future, now, now);
+
+    db.prepare("UPDATE meta SET value = '14' WHERE key = 'schema_version'").run();
+    db.close();
+
+    manager = DatabaseManager.open(dbPath);
+
+    // The table now carries the per-MemoryType column and the legacy blob is gone entirely.
+    const synthCols = manager.db
+      .prepare<[], { name: string }>("PRAGMA table_info(syntheses)")
+      .all()
+      .map((r) => r.name);
+    expect(synthCols).toContain("memory_type");
+
+    const blobRows = manager.db
+      .prepare<[string], { count: number }>(
+        "SELECT COUNT(*) AS count FROM syntheses WHERE content = ?"
+      )
+      .get(LEGACY_BLOB);
+    expect(blobRows?.count).toBe(0);
+
+    // The legacy blob is unreachable through the session-injection read path
+    // (getSynthesis is keyed by (scope, memoryType)).
+    const repo = createSynthesisRepository(manager);
+    for (const type of ["correction", "preference", "decision", "learning", "fact"] as const) {
+      const synth = repo.getSynthesis(PROJECT_SCOPE, type);
+      expect(synth?.content).not.toBe(LEGACY_BLOB);
+    }
+    expect(repo.getSynthesis(PROJECT_SCOPE, "preference")).toBeUndefined();
+    expect(repo.getSynthesis(PROJECT_SCOPE, "correction")).toBeUndefined();
+
+    // The affected scope is flagged for per-MemoryType regeneration on the next cycle.
+    const dirty = repo.getExpiredOrDirtyScopes();
+    expect(dirty).toContainEqual({
+      scope: PROJECT_SCOPE,
+      memoryType: "preference",
+      reason: "missing",
+    });
+    expect(dirty).toContainEqual({
+      scope: PROJECT_SCOPE,
+      memoryType: "correction",
+      reason: "missing",
+    });
   });
 });

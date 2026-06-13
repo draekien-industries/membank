@@ -4,7 +4,6 @@ import {
   createActivityRepository,
   createMemoryRepository,
   createProjectRepository,
-  createQueryEngine,
   createSynthesisRepository,
   DatabaseManager,
   EmbeddingService,
@@ -19,18 +18,9 @@ const projects = createProjectRepository(db);
 const repo = createMemoryRepository(db, projects);
 const activityLogger = createActivityLogger(db);
 const activityRepo = createActivityRepository(db);
-const queryEngine = createQueryEngine(db, embedding, activityLogger);
 const synthRepo = createSynthesisRepository(db);
 
-const app = createApiApp(
-  repo,
-  projects,
-  embedding,
-  queryEngine,
-  synthRepo,
-  activityRepo,
-  activityLogger
-);
+const app = createApiApp(repo, projects, embedding, synthRepo, activityRepo, activityLogger);
 
 serve({ fetch: app.fetch, port: PORT });
 process.stdout.write(`  API server → http://localhost:${PORT}\n`);

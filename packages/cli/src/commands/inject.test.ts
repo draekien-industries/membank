@@ -11,14 +11,15 @@ vi.mock("@membank/core", async (importOriginal) => {
     },
     SessionContextBuilder: vi.fn().mockImplementation(() => ({
       getSessionContext: vi.fn().mockReturnValue({
-        mode: "pinned",
         stats: {},
         pinnedGlobal: [],
         pinnedProject: [],
+        sections: [],
       }),
     })),
     createSynthesisRepository: vi.fn().mockReturnValue({
       getSynthesis: vi.fn().mockReturnValue(undefined),
+      nonPinnedMemoryContents: vi.fn().mockReturnValue([]),
     }),
   };
 });

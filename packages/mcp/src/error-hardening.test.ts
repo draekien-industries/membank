@@ -310,6 +310,9 @@ describe("error hardening", () => {
           markInFlight: () => {},
           clearInFlight: () => {},
           clearStaleInFlight: () => {},
+          nonPinnedMemoryContents: () => {
+            throw dbError;
+          },
           sourceMemoryHash: () => {
             throw dbError;
           },

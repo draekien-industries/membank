@@ -19,7 +19,7 @@ import {
 } from "@membank/core";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CoreServices } from "./server.js";
-import { buildExtractionTools, buildSynthesisTools, createServer, initCore } from "./server.js";
+import { buildExtractionTools, createServer, initCore } from "./server.js";
 
 export async function startServer(): Promise<void> {
   let core: CoreServices;
@@ -65,14 +65,9 @@ export async function runSynthesis(scope: string): Promise<string> {
   }
 
   const db = DatabaseManager.open();
-  const embedding = new EmbeddingService();
   const projects = createProjectRepository(db);
-  const repo = createMemoryRepository(db, projects);
-  const queryEngine = createQueryEngine(db, embedding);
   const synthRepo = createSynthesisRepository(db);
-  const agentRunner = createSynthesisAgentRunner(buildSynthesisTools(repo, queryEngine), {
-    enabled: true,
-  });
+  const agentRunner = createSynthesisAgentRunner();
 
   let resolvedScope = scope;
   if (scope === "global") {

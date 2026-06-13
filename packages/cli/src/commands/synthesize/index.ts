@@ -1,9 +1,11 @@
+import type { MemoryType, Synthesis } from "@membank/core";
 import {
   createProjectRepository,
   createSynthesisRepository,
   DatabaseManager,
   GLOBAL_PROJECT_NAME,
   GLOBAL_SCOPE_HASH,
+  MEMORY_TYPE_VALUES,
 } from "@membank/core";
 import { runSynthesis } from "@membank/mcp";
 import type { Formatter } from "../../formatter.js";
@@ -26,7 +28,7 @@ export async function synthesizeRunCommand(
 }
 
 export function synthesizeShowCommand(
-  opts: { scope?: string; version?: number },
+  opts: { scope?: string; version?: number; memoryType?: MemoryType },
   formatter: Formatter
 ): void {
   const db = DatabaseManager.open();
@@ -36,19 +38,27 @@ export function synthesizeShowCommand(
     const repo = createSynthesisRepository(db);
 
     if (opts.version !== undefined) {
-      const version = repo.getVersion(resolvedScope, opts.version);
+      if (opts.memoryType === undefined) {
+        formatter.error("--type is required when showing a specific version");
+        process.exit(1);
+      }
+      const version = repo.getVersion(resolvedScope, opts.memoryType, opts.version);
       if (version === undefined) {
         if (formatter.isJson) {
           process.stdout.write(`${JSON.stringify(null)}\n`);
         } else {
-          process.stdout.write(`Version ${opts.version} not found for scope: ${scope}\n`);
+          process.stdout.write(
+            `Version ${opts.version} not found for scope: ${scope} (type: ${opts.memoryType})\n`
+          );
         }
         return;
       }
       if (formatter.isJson) {
         process.stdout.write(`${JSON.stringify(version)}\n`);
       } else {
-        process.stdout.write(`\nScope: ${resolvedScope} (version ${version.version})\n`);
+        process.stdout.write(
+          `\nScope: ${resolvedScope} (type ${version.memoryType}, version ${version.version})\n`
+        );
         process.stdout.write(`Synthesized: ${new Date(version.synthesizedAt).toLocaleString()}\n`);
         process.stdout.write(`Archived: ${new Date(version.createdAt).toLocaleString()}\n`);
         process.stdout.write(`\n${version.content}\n\n`);
@@ -56,11 +66,16 @@ export function synthesizeShowCommand(
       return;
     }
 
-    const synthesis = repo.getSynthesis(resolvedScope);
+    const types = opts.memoryType !== undefined ? [opts.memoryType] : MEMORY_TYPE_VALUES;
+    const syntheses: Synthesis[] = [];
+    for (const type of types) {
+      const synthesis = repo.getSynthesis(resolvedScope, type);
+      if (synthesis !== undefined) syntheses.push(synthesis);
+    }
 
-    if (synthesis === undefined) {
+    if (syntheses.length === 0) {
       if (formatter.isJson) {
-        process.stdout.write(`${JSON.stringify(null)}\n`);
+        process.stdout.write(`${JSON.stringify(opts.memoryType !== undefined ? null : [])}\n`);
       } else {
         process.stdout.write(`No synthesis found for scope: ${scope}\n`);
       }
@@ -68,9 +83,12 @@ export function synthesizeShowCommand(
     }
 
     if (formatter.isJson) {
-      process.stdout.write(`${JSON.stringify(synthesis)}\n`);
-    } else {
-      process.stdout.write(`\nScope: ${synthesis.scope}\n`);
+      process.stdout.write(`${JSON.stringify(syntheses)}\n`);
+      return;
+    }
+
+    for (const synthesis of syntheses) {
+      process.stdout.write(`\nScope: ${synthesis.scope} (type ${synthesis.memoryType})\n`);
       process.stdout.write(`Synthesized: ${new Date(synthesis.synthesizedAt).toLocaleString()}\n`);
       process.stdout.write(`Expires: ${new Date(synthesis.expiresAt).toLocaleString()}\n`);
       if (synthesis.inFlightSince !== null) {

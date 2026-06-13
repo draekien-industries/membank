@@ -10,7 +10,6 @@ import type {
   Querier,
   SynthesisConfig,
   SynthesisRepository,
-  SynthesisTools,
 } from "@membank/core";
 import {
   clusterFlagged,
@@ -107,6 +106,9 @@ function loadSynthesisConfig(): SynthesisConfig {
       ...(parsed.synthesis?.inFlightTimeoutMs !== undefined && {
         inFlightTimeoutMs: parsed.synthesis.inFlightTimeoutMs,
       }),
+      ...(parsed.synthesis?.synthesisThresholdWords !== undefined && {
+        synthesisThresholdWords: parsed.synthesis.synthesisThresholdWords,
+      }),
     };
   } catch {
     return { enabled: false };
@@ -161,26 +163,6 @@ export function buildExtractionTools(
   };
 }
 
-export function buildSynthesisTools(repo: MemoryRepository, query: Querier): SynthesisTools {
-  return {
-    queryMemory: async (args) => {
-      const projectHash =
-        args.global === true ? undefined : (args.projectHash ?? (await resolveProject()).hash);
-      const results = await query.query({
-        query: args.query,
-        projectHash,
-        limit: args.limit ?? 20,
-        includePinned: true,
-      });
-      return JSON.stringify(results);
-    },
-    getMemorySummary: async () => {
-      const project = await resolveProject();
-      return JSON.stringify(repo.stats(project.hash));
-    },
-  };
-}
-
 export function initCore(options: ServerOptions = {}): CoreServices {
   const db = options.useInMemoryDb
     ? DatabaseManager.openInMemory()
@@ -196,7 +178,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
   let synthEngine: SynthesisEngine | undefined;
 
   if (synthConfig.enabled) {
-    const agentRunner = createSynthesisAgentRunner(buildSynthesisTools(repo, query), synthConfig);
+    const agentRunner = createSynthesisAgentRunner();
     synthEngine = new SynthesisEngine(synthRepo, synthConfig, agentRunner);
   }
 
@@ -877,7 +859,9 @@ export function createServer(core: CoreServices): Server {
     if (request.params.name === "list_synthesis_history") {
       const args = parseArgs(ListSynthesisHistoryArgsSchema, request.params.arguments);
       const scope = args.scope === GLOBAL_PROJECT_NAME ? GLOBAL_SCOPE_HASH : args.scope;
-      const versions = core.synthRepo.listVersions(scope);
+      const versions = MEMORY_TYPE_VALUES.flatMap((type) =>
+        core.synthRepo.listVersions(scope, type)
+      );
       return { content: [{ type: "text", text: JSON.stringify(versions) }] };
     }
 
