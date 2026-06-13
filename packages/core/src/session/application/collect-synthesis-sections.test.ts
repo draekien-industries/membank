@@ -59,10 +59,52 @@ describe("collectSynthesisSections", () => {
   it("emits verbatim when a scope is below the synthesis threshold", () => {
     const repo = makeFakeRepo({ memories: { "s::fact": ["one two three"] } });
 
-    const sections = collectSynthesisSections(repo, ["s"], THRESHOLD_WORDS);
+    const sections = collectSynthesisSections(
+      repo,
+      [{ scope: "s", synthesizable: true }],
+      THRESHOLD_WORDS
+    );
 
     expect(sections).toEqual([
-      { kind: "verbatim", memoryType: "fact", memories: ["one two three"] },
+      { kind: "verbatim", memoryType: "fact", memories: ["one two three"], synthesizable: false },
+    ]);
+  });
+
+  it("emits a synthesizable verbatim section when above threshold but not yet synthesized", () => {
+    const repo = makeFakeRepo({ memories: { "s::fact": ["one two three four five six"] } });
+
+    const sections = collectSynthesisSections(
+      repo,
+      [{ scope: "s", synthesizable: true }],
+      THRESHOLD_WORDS
+    );
+
+    expect(sections).toEqual([
+      {
+        kind: "verbatim",
+        memoryType: "fact",
+        memories: ["one two three four five six"],
+        synthesizable: true,
+      },
+    ]);
+  });
+
+  it("marks an above-threshold verbatim section non-synthesizable for a read-only scope", () => {
+    const repo = makeFakeRepo({ memories: { "s::fact": ["one two three four five six"] } });
+
+    const sections = collectSynthesisSections(
+      repo,
+      [{ scope: "s", synthesizable: false }],
+      THRESHOLD_WORDS
+    );
+
+    expect(sections).toEqual([
+      {
+        kind: "verbatim",
+        memoryType: "fact",
+        memories: ["one two three four five six"],
+        synthesizable: false,
+      },
     ]);
   });
 
@@ -72,7 +114,11 @@ describe("collectSynthesisSections", () => {
       syntheses: { "s::fact": synthesis("s", "fact", { content: "summary", inFlightSince: null }) },
     });
 
-    const sections = collectSynthesisSections(repo, ["s"], THRESHOLD_WORDS);
+    const sections = collectSynthesisSections(
+      repo,
+      [{ scope: "s", synthesizable: true }],
+      THRESHOLD_WORDS
+    );
 
     expect(sections).toEqual([{ kind: "synthesis", memoryType: "fact", content: "summary" }]);
   });
@@ -88,17 +134,30 @@ describe("collectSynthesisSections", () => {
       },
     });
 
-    const sections = collectSynthesisSections(repo, ["s"], THRESHOLD_WORDS);
+    const sections = collectSynthesisSections(
+      repo,
+      [{ scope: "s", synthesizable: true }],
+      THRESHOLD_WORDS
+    );
 
     expect(sections).toEqual([
-      { kind: "verbatim", memoryType: "fact", memories: ["one two three four five six"] },
+      {
+        kind: "verbatim",
+        memoryType: "fact",
+        memories: ["one two three four five six"],
+        synthesizable: true,
+      },
     ]);
   });
 
   it("skips scopes with no memories", () => {
     const repo = makeFakeRepo({});
 
-    const sections = collectSynthesisSections(repo, ["s"], THRESHOLD_WORDS);
+    const sections = collectSynthesisSections(
+      repo,
+      [{ scope: "s", synthesizable: true }],
+      THRESHOLD_WORDS
+    );
 
     expect(sections).toEqual([]);
   });
@@ -111,11 +170,18 @@ describe("collectSynthesisSections", () => {
       },
     });
 
-    const sections = collectSynthesisSections(repo, ["project", "global"], THRESHOLD_WORDS);
+    const sections = collectSynthesisSections(
+      repo,
+      [
+        { scope: "project", synthesizable: true },
+        { scope: "global", synthesizable: false },
+      ],
+      THRESHOLD_WORDS
+    );
 
     expect(sections).toEqual([
-      { kind: "verbatim", memoryType: "fact", memories: ["project memory"] },
-      { kind: "verbatim", memoryType: "fact", memories: ["global memory"] },
+      { kind: "verbatim", memoryType: "fact", memories: ["project memory"], synthesizable: false },
+      { kind: "verbatim", memoryType: "fact", memories: ["global memory"], synthesizable: false },
     ]);
   });
 });

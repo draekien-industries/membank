@@ -27,7 +27,12 @@ describe("renderSessionContext", () => {
       pinnedProject: [pinned("project pin", "decision")],
       sections: [
         { kind: "synthesis", memoryType: "correction", content: "correction summary" },
-        { kind: "verbatim", memoryType: "fact", memories: ["fact one", "fact <two>"] },
+        {
+          kind: "verbatim",
+          memoryType: "fact",
+          memories: ["fact one", "fact <two>"],
+          synthesizable: false,
+        },
       ],
     };
 

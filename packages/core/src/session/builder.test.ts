@@ -144,11 +144,21 @@ describe("SessionContextBuilder", () => {
     const ctx = builder.getSessionContext("project-x", [
       { kind: "synthesis", memoryType: "decision", content: "decision summary" },
       { kind: "synthesis", memoryType: "preference", content: "pref summary" },
-      { kind: "verbatim", memoryType: "preference", memories: ["pref verbatim"] },
+      {
+        kind: "verbatim",
+        memoryType: "preference",
+        memories: ["pref verbatim"],
+        synthesizable: true,
+      },
     ]);
     expect(ctx.sections).toEqual([
       { kind: "synthesis", memoryType: "preference", content: "pref summary" },
-      { kind: "verbatim", memoryType: "preference", memories: ["pref verbatim"] },
+      {
+        kind: "verbatim",
+        memoryType: "preference",
+        memories: ["pref verbatim"],
+        synthesizable: true,
+      },
       { kind: "synthesis", memoryType: "decision", content: "decision summary" },
     ]);
   });
@@ -165,16 +175,16 @@ describe("SessionContextBuilder", () => {
 
   it("emits a verbatim section carrying the supplied memories", () => {
     const ctx = builder.getSessionContext("project-x", [
-      { kind: "verbatim", memoryType: "decision", memories: ["a", "b"] },
+      { kind: "verbatim", memoryType: "decision", memories: ["a", "b"], synthesizable: false },
     ]);
     expect(ctx.sections).toEqual([
-      { kind: "verbatim", memoryType: "decision", memories: ["a", "b"] },
+      { kind: "verbatim", memoryType: "decision", memories: ["a", "b"], synthesizable: false },
     ]);
   });
 
   it("skips a verbatim section with no memories", () => {
     const ctx = builder.getSessionContext("project-x", [
-      { kind: "verbatim", memoryType: "decision", memories: [] },
+      { kind: "verbatim", memoryType: "decision", memories: [], synthesizable: false },
     ]);
     expect(ctx.sections).toEqual([]);
   });
@@ -191,13 +201,23 @@ describe("SessionContextBuilder", () => {
 
     const ctx = builder.getSessionContext("ee00000000000000", [
       { kind: "synthesis", memoryType: "decision", content: "decision summary" },
-      { kind: "verbatim", memoryType: "correction", memories: ["small correction"] },
+      {
+        kind: "verbatim",
+        memoryType: "correction",
+        memories: ["small correction"],
+        synthesizable: false,
+      },
     ]);
 
     expect(ctx.pinnedGlobal.map((m) => m.content)).toEqual(["global pin"]);
     expect(ctx.pinnedProject.map((m) => m.content)).toEqual(["project pin"]);
     expect(ctx.sections).toEqual([
-      { kind: "verbatim", memoryType: "correction", memories: ["small correction"] },
+      {
+        kind: "verbatim",
+        memoryType: "correction",
+        memories: ["small correction"],
+        synthesizable: false,
+      },
       { kind: "synthesis", memoryType: "decision", content: "decision summary" },
     ]);
     expect(Object.keys(ctx)).toEqual(

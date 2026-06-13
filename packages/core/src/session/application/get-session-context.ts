@@ -4,7 +4,12 @@ import { MEMORY_TYPE_VALUES } from "../../schemas.js";
 
 export type SessionSectionInput =
   | { kind: "synthesis"; memoryType: MemoryType; content: string }
-  | { kind: "verbatim"; memoryType: MemoryType; memories: readonly string[] };
+  | {
+      kind: "verbatim";
+      memoryType: MemoryType;
+      memories: readonly string[];
+      synthesizable: boolean;
+    };
 
 export function getSessionContext(
   opts: { projectHash: string; sections?: readonly SessionSectionInput[] },
@@ -39,6 +44,7 @@ function orderSections(
         kind: "verbatim",
         memoryType: input.memoryType,
         memories: [...input.memories],
+        synthesizable: input.synthesizable,
       });
     }
   }

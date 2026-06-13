@@ -119,8 +119,8 @@ export function listSyntheses(): Promise<Synthesis[]> {
   return request<Synthesis[]>("/syntheses");
 }
 
-export function runProjectSynthesis(projectId: string): Promise<void> {
-  return request<void>(`/projects/${projectId}/synthesis`, { method: "POST" });
+export function runProjectSynthesis(projectId: string, memoryType?: MemoryType): Promise<void> {
+  return postJson<void>(`/projects/${projectId}/synthesis`, memoryType ? { memoryType } : {});
 }
 
 export function resetProjectSynthesis(projectId: string): Promise<void> {
