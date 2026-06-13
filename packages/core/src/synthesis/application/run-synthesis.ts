@@ -5,9 +5,9 @@ import type { AgentRunner, SynthesisRepository } from "../ports.js";
 async function synthesizeType(
   scope: string,
   type: MemoryType,
+  memories: readonly string[],
   deps: { synthRepo: SynthesisRepository; agentRunner: AgentRunner }
 ): Promise<string> {
-  const memories = deps.synthRepo.nonPinnedMemoryContents(scope, type);
   deps.synthRepo.markInFlight(scope, type);
   try {
     const content = await deps.agentRunner.run(scope, type, memories);
@@ -26,8 +26,9 @@ export async function runSynthesis(
 ): Promise<string> {
   const sections: string[] = [];
   for (const type of MEMORY_TYPE_VALUES) {
-    if (deps.synthRepo.nonPinnedMemoryContents(scope, type).length === 0) continue;
-    const content = await synthesizeType(scope, type, deps);
+    const memories = deps.synthRepo.nonPinnedMemoryContents(scope, type);
+    if (memories.length === 0) continue;
+    const content = await synthesizeType(scope, type, memories, deps);
     sections.push(`## ${type}\n${content}`);
   }
   return sections.join("\n\n");

@@ -11,16 +11,6 @@ export interface SynthesisConfig {
   synthesisThresholdWords?: number;
 }
 
-export interface SynthesisTools {
-  queryMemory: (args: {
-    query: string;
-    limit?: number;
-    global?: boolean;
-    projectHash?: string;
-  }) => Promise<string>;
-  getMemorySummary: () => Promise<string>;
-}
-
 export interface AgentRunner {
   run(scope: string, type: MemoryType, memories: readonly string[]): Promise<string>;
 }

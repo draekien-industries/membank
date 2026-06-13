@@ -1,7 +1,7 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type { MemoryType } from "../../schemas.js";
-import type { AgentRunner, SynthesisConfig, SynthesisTools } from "../ports.js";
+import type { AgentRunner } from "../ports.js";
 
 const SYNTHESIS_SYSTEM_PROMPT =
   "You are a memory synthesizer. You are given the user's stored memories of a single kind, and your job is to produce a concise, well-structured summary of what's most important to remember from them. Synthesize only the memories you are given — do not invent, infer, or recall anything else. Exclude transient or ephemeral details. Output plain text suitable for injection into an LLM context window. Be concise — target 100-250 words.";
@@ -75,9 +75,6 @@ class ClaudeAgentRunner implements AgentRunner {
   }
 }
 
-export function createSynthesisAgentRunner(
-  _tools: SynthesisTools,
-  _config: SynthesisConfig
-): AgentRunner {
+export function createSynthesisAgentRunner(): AgentRunner {
   return new ClaudeAgentRunner();
 }

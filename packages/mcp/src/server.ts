@@ -10,7 +10,6 @@ import type {
   Querier,
   SynthesisConfig,
   SynthesisRepository,
-  SynthesisTools,
 } from "@membank/core";
 import {
   clusterFlagged,
@@ -164,26 +163,6 @@ export function buildExtractionTools(
   };
 }
 
-export function buildSynthesisTools(repo: MemoryRepository, query: Querier): SynthesisTools {
-  return {
-    queryMemory: async (args) => {
-      const projectHash =
-        args.global === true ? undefined : (args.projectHash ?? (await resolveProject()).hash);
-      const results = await query.query({
-        query: args.query,
-        projectHash,
-        limit: args.limit ?? 20,
-        includePinned: true,
-      });
-      return JSON.stringify(results);
-    },
-    getMemorySummary: async () => {
-      const project = await resolveProject();
-      return JSON.stringify(repo.stats(project.hash));
-    },
-  };
-}
-
 export function initCore(options: ServerOptions = {}): CoreServices {
   const db = options.useInMemoryDb
     ? DatabaseManager.openInMemory()
@@ -199,7 +178,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
   let synthEngine: SynthesisEngine | undefined;
 
   if (synthConfig.enabled) {
-    const agentRunner = createSynthesisAgentRunner(buildSynthesisTools(repo, query), synthConfig);
+    const agentRunner = createSynthesisAgentRunner();
     synthEngine = new SynthesisEngine(synthRepo, synthConfig, agentRunner);
   }
 
