@@ -1,5 +1,12 @@
 # @membank/core
 
+## 0.19.0
+
+### Minor Changes
+
+- 672ec7b: Injected memory now shows pinned memories verbatim and a separate synthesis per memory type — with small groups quoted in full below a configurable word-count threshold — and any pre-existing combined synthesis is regenerated automatically on upgrade, so sessions start with sharper, type-aware context. The `synthesize` version commands (`show --version`, `diff`, `revert`) now take a required `--type`, and `history` shows a Type column with an optional `--type` filter.
+- d1482b7: Added on-demand synthesis triggers to the project Overview tab: a "Synthesize all" action and per-type controls in the session-injection preview. Each memory type can be synthesized or regenerated individually, including verbatim sections that have grown past the synthesis word-count threshold but are not yet synthesized. "Synthesize all" and the per-type triggers now respect the threshold and only act on the project's own memories, so borrowed global sections stay read-only. Also fixed long synthesis summaries overflowing onto the sections below them in the preview.
+
 ## 0.18.0
 
 ### Minor Changes
