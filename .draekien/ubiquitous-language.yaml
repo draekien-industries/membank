@@ -160,7 +160,7 @@ contexts:
     terms:
       SessionContext:
         definition: 'The bundle injected at harness session start: a verbatim PinnedMemory
-          section plus per-MemoryType content — a Synthesis for above-threshold types
+          section plus per-MemoryType content â€” a Synthesis for above-threshold types
           and verbatim memories for below-threshold types.'
         usage: The SessionContext always shows the PinnedMemory section alongside
           the per-MemoryType Synthesis.

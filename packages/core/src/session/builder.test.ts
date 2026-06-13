@@ -124,13 +124,13 @@ describe("SessionContextBuilder", () => {
   });
 
   it("orders sections by MemoryType precedence (correction > preference > decision > learning > fact)", () => {
-    const ctx = builder.getSessionContext("project-x", {
-      fact: { kind: "synthesis", content: "f" },
-      correction: { kind: "synthesis", content: "c" },
-      learning: { kind: "synthesis", content: "l" },
-      preference: { kind: "synthesis", content: "p" },
-      decision: { kind: "synthesis", content: "d" },
-    });
+    const ctx = builder.getSessionContext("project-x", [
+      { kind: "synthesis", memoryType: "fact", content: "f" },
+      { kind: "synthesis", memoryType: "correction", content: "c" },
+      { kind: "synthesis", memoryType: "learning", content: "l" },
+      { kind: "synthesis", memoryType: "preference", content: "p" },
+      { kind: "synthesis", memoryType: "decision", content: "d" },
+    ]);
     expect(ctx.sections.map((s) => s.memoryType)).toEqual([
       "correction",
       "preference",
@@ -140,29 +140,42 @@ describe("SessionContextBuilder", () => {
     ]);
   });
 
-  it("emits a synthesis section only for non-empty content, skipping absent and empty types", () => {
-    const ctx = builder.getSessionContext("project-x", {
-      correction: { kind: "synthesis", content: "real" },
-      preference: { kind: "synthesis", content: "" },
-    });
+  it("keeps multiple sections of the same type in supplied order, sorted relative to other types", () => {
+    const ctx = builder.getSessionContext("project-x", [
+      { kind: "synthesis", memoryType: "decision", content: "decision summary" },
+      { kind: "synthesis", memoryType: "preference", content: "pref summary" },
+      { kind: "verbatim", memoryType: "preference", memories: ["pref verbatim"] },
+    ]);
+    expect(ctx.sections).toEqual([
+      { kind: "synthesis", memoryType: "preference", content: "pref summary" },
+      { kind: "verbatim", memoryType: "preference", memories: ["pref verbatim"] },
+      { kind: "synthesis", memoryType: "decision", content: "decision summary" },
+    ]);
+  });
+
+  it("emits a synthesis section only for non-empty content, skipping empty content", () => {
+    const ctx = builder.getSessionContext("project-x", [
+      { kind: "synthesis", memoryType: "correction", content: "real" },
+      { kind: "synthesis", memoryType: "preference", content: "" },
+    ]);
     expect(ctx.sections).toEqual([
       { kind: "synthesis", memoryType: "correction", content: "real" },
     ]);
   });
 
   it("emits a verbatim section carrying the supplied memories", () => {
-    const ctx = builder.getSessionContext("project-x", {
-      decision: { kind: "verbatim", memories: ["a", "b"] },
-    });
+    const ctx = builder.getSessionContext("project-x", [
+      { kind: "verbatim", memoryType: "decision", memories: ["a", "b"] },
+    ]);
     expect(ctx.sections).toEqual([
       { kind: "verbatim", memoryType: "decision", memories: ["a", "b"] },
     ]);
   });
 
   it("skips a verbatim section with no memories", () => {
-    const ctx = builder.getSessionContext("project-x", {
-      decision: { kind: "verbatim", memories: [] },
-    });
+    const ctx = builder.getSessionContext("project-x", [
+      { kind: "verbatim", memoryType: "decision", memories: [] },
+    ]);
     expect(ctx.sections).toEqual([]);
   });
 
@@ -176,10 +189,10 @@ describe("SessionContextBuilder", () => {
     insertMemory(db, { pinned: true, content: "global pin" });
     insertMemory(db, { pinned: true, content: "project pin", projectId: projId });
 
-    const ctx = builder.getSessionContext("ee00000000000000", {
-      decision: { kind: "synthesis", content: "decision summary" },
-      correction: { kind: "verbatim", memories: ["small correction"] },
-    });
+    const ctx = builder.getSessionContext("ee00000000000000", [
+      { kind: "synthesis", memoryType: "decision", content: "decision summary" },
+      { kind: "verbatim", memoryType: "correction", memories: ["small correction"] },
+    ]);
 
     expect(ctx.pinnedGlobal.map((m) => m.content)).toEqual(["global pin"]);
     expect(ctx.pinnedProject.map((m) => m.content)).toEqual(["project pin"]);

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:net";
+import { homedir } from "node:os";
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
@@ -17,6 +18,7 @@ import type {
 import {
   ActivityEventTypeSchema,
   clusterFlagged,
+  collectSynthesisSections,
   createActivityLogger,
   createActivityRepository,
   createMemoryRepository,
@@ -24,22 +26,26 @@ import {
   createSynthesisAgentRunner,
   createSynthesisRepository,
   DatabaseManager,
+  DEFAULT_SYNTHESIS_THRESHOLD_WORDS,
   deleteManyMemories,
   deleteMemory,
   deleteProject,
   EmbeddingService,
   findWorktreeOrphan,
   GLOBAL_PROJECT_ID,
+  GLOBAL_SCOPE_HASH,
   isSynthesisEnabled,
   listEvents,
   MEMORY_TYPE_VALUES,
   mergeMemories,
   mergeProjects,
   reconcileWorktreeOrphan,
+  renderSessionContext,
   resolveReviewMany,
   revertMemory,
   revertSynthesis,
   runSynthesis,
+  SessionContextBuilder,
   suggestMerge,
   updateMemory,
 } from "@membank/core";
@@ -84,6 +90,18 @@ async function findFreePort(preferred: number): Promise<number> {
         server.close(() => resolve(port));
       });
     });
+  }
+}
+
+function resolveThresholdWords(): number {
+  const configPath = join(homedir(), ".membank", "config.json");
+  try {
+    const raw = readFileSync(configPath, "utf8");
+    const parsed = JSON.parse(raw) as { synthesis?: { synthesisThresholdWords?: unknown } };
+    const configured = parsed.synthesis?.synthesisThresholdWords;
+    return typeof configured === "number" ? configured : DEFAULT_SYNTHESIS_THRESHOLD_WORDS;
+  } catch {
+    return DEFAULT_SYNTHESIS_THRESHOLD_WORDS;
   }
 }
 
@@ -339,14 +357,22 @@ export function createApiApp(
     return c.json(synthRepo.listAll());
   });
 
-  app.get("/api/projects/:id/synthesis", (c) => {
+  app.get("/api/projects/:id/session-context", (c) => {
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
-    for (const type of MEMORY_TYPE_VALUES) {
-      const synthesis = synthRepo.getSynthesis(project.scopeHash, type);
-      if (synthesis) return c.json(synthesis);
-    }
-    return c.json(null);
+
+    const builder = new SessionContextBuilder(repo);
+    const scopes = [...new Set([GLOBAL_SCOPE_HASH, project.scopeHash])];
+    const sections = collectSynthesisSections(synthRepo, scopes, resolveThresholdWords());
+    const ctx = builder.getSessionContext(project.scopeHash, sections);
+
+    return c.json({
+      rendered: renderSessionContext(ctx),
+      sections: ctx.sections,
+      pinnedGlobal: ctx.pinnedGlobal,
+      pinnedProject: ctx.pinnedProject,
+      stats: ctx.stats,
+    });
   });
 
   app.post("/api/projects/:id/synthesis", (c) => {
@@ -377,13 +403,14 @@ export function createApiApp(
   app.post("/api/projects/:id/synthesis/revert", async (c) => {
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
-    const body = await c.req.json<{ version?: unknown }>();
+    const body = await c.req.json<{ version?: unknown; memoryType?: unknown }>();
     const version = typeof body.version === "number" ? body.version : NaN;
     if (Number.isNaN(version)) return c.json({ error: "version must be a number" }, 400);
-    const memoryType = MEMORY_TYPE_VALUES.find(
-      (type) => synthRepo.getVersion(project.scopeHash, type, version) !== undefined
-    );
-    if (memoryType === undefined) return c.json({ error: "Version not found" }, 404);
+    const memoryType = MEMORY_TYPE_VALUES.find((type) => type === body.memoryType);
+    if (memoryType === undefined) return c.json({ error: "memoryType is required" }, 400);
+    if (synthRepo.getVersion(project.scopeHash, memoryType, version) === undefined) {
+      return c.json({ error: "Version not found" }, 404);
+    }
     revertSynthesis(project.scopeHash, memoryType, version, synthRepo);
     return c.json({ ok: true });
   });

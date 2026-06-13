@@ -80,6 +80,7 @@ export const SYNTHESIS_PENDING = "pending" as const;
 export interface Synthesis {
   id: string;
   scope: string;
+  memoryType: MemoryType;
   content: string;
   sourceMemoryHash: string;
   synthesizedAt: string;
@@ -135,11 +136,24 @@ export interface MemoryVersion {
 }
 
 export type SynthesisVersion = {
+  memoryType: MemoryType;
   version: number;
   content: string;
   sourceMemoryHash: string;
   synthesizedAt: string;
   createdAt: string;
+};
+
+export type SessionContextSection =
+  | { kind: "synthesis"; memoryType: MemoryType; content: string }
+  | { kind: "verbatim"; memoryType: MemoryType; memories: string[] };
+
+export type SessionContext = {
+  rendered: string;
+  sections: SessionContextSection[];
+  pinnedGlobal: Memory[];
+  pinnedProject: Memory[];
+  stats: Record<MemoryType, number>;
 };
 
 export type MemoryCluster = {

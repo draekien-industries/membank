@@ -1,13 +1,18 @@
 import { eq, useLiveQuery } from "@tanstack/react-db";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { resetProjectSynthesis, runProjectSynthesis } from "@/lib/api";
 import { queryClient, synthesisCollection } from "@/lib/collections";
 import type { Project, Synthesis } from "@/lib/types";
 
 const IN_FLIGHT_STUCK_MS = 60_000;
 
+function isStaleSynthesis(synthesis: Synthesis): boolean {
+  return synthesis.inFlightSince === null && new Date(synthesis.expiresAt) < new Date();
+}
+
 export interface ProjectSynthesisState {
-  synthesis: Synthesis | null;
+  syntheses: Synthesis[];
+  representative: Synthesis | null;
   isLoading: boolean;
   isStale: boolean;
   isStuck: boolean;
@@ -20,27 +25,46 @@ export function useProjectSynthesis(project: Project): ProjectSynthesisState {
   const [error, setError] = useState<string | null>(null);
   const [isStuck, setIsStuck] = useState(false);
 
-  const { data: results = [], isLoading } = useLiveQuery(
+  const { data: syntheses = [], isLoading } = useLiveQuery(
     (q) => q.from({ s: synthesisCollection }).where(({ s }) => eq(s.scope, project.scopeHash)),
     [project.scopeHash]
   );
-  const synthesis = results[0] ?? null;
 
-  // Poll the collection while synthesis is in-flight
+  const representative = useMemo(
+    () =>
+      syntheses.reduce<Synthesis | null>(
+        (latest, s) => (latest === null || s.synthesizedAt > latest.synthesizedAt ? s : latest),
+        null
+      ),
+    [syntheses]
+  );
+
+  const earliestInFlight = useMemo(
+    () =>
+      syntheses.reduce<string | null>(
+        (earliest, s) =>
+          s.inFlightSince !== null && (earliest === null || s.inFlightSince < earliest)
+            ? s.inFlightSince
+            : earliest,
+        null
+      ),
+    [syntheses]
+  );
+
   useEffect(() => {
-    if (!synthesis?.inFlightSince) return;
+    if (earliestInFlight === null) return;
     const timer = setInterval(() => {
       void queryClient.invalidateQueries({ queryKey: ["syntheses"] });
     }, 3000);
     return () => clearInterval(timer);
-  }, [synthesis?.inFlightSince]);
+  }, [earliestInFlight]);
 
   useEffect(() => {
-    if (!synthesis?.inFlightSince) {
+    if (earliestInFlight === null) {
       setIsStuck(false);
       return;
     }
-    const elapsed = Date.now() - new Date(synthesis.inFlightSince).getTime();
+    const elapsed = Date.now() - new Date(earliestInFlight).getTime();
     const remaining = IN_FLIGHT_STUCK_MS - elapsed;
     if (remaining <= 0) {
       setIsStuck(true);
@@ -48,7 +72,7 @@ export function useProjectSynthesis(project: Project): ProjectSynthesisState {
     }
     const timer = setTimeout(() => setIsStuck(true), remaining);
     return () => clearTimeout(timer);
-  }, [synthesis?.inFlightSince]);
+  }, [earliestInFlight]);
 
   const run = useCallback(async () => {
     setError(null);
@@ -71,10 +95,7 @@ export function useProjectSynthesis(project: Project): ProjectSynthesisState {
     }
   }, [project.id]);
 
-  const isStale =
-    synthesis !== null &&
-    synthesis.inFlightSince === null &&
-    new Date(synthesis.expiresAt) < new Date();
+  const isStale = syntheses.some(isStaleSynthesis);
 
-  return { synthesis, isLoading, isStale, isStuck, error, run, reset };
+  return { syntheses, representative, isLoading, isStale, isStuck, error, run, reset };
 }

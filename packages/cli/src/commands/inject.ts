@@ -1,14 +1,13 @@
-import type { Memory, MemoryType, SessionContext, SessionSectionPayload } from "@membank/core";
+import type { SessionContext } from "@membank/core";
 import {
-  countWords,
+  collectSynthesisSections,
   createMemoryRepository,
   createProjectRepository,
   createSynthesisRepository,
   DatabaseManager,
   DEFAULT_SYNTHESIS_THRESHOLD_WORDS,
-  decideSynthesis,
   GLOBAL_SCOPE_HASH,
-  listMemoryTypes,
+  renderSessionContext,
   resolveProject,
   SessionContextBuilder,
 } from "@membank/core";
@@ -32,14 +31,10 @@ function buildGuidance(harness: InjectionHarness | undefined): string {
   return harness === "claude-code" ? QUERY_GUIDANCE : MEMORY_GUIDANCE;
 }
 
-function xmlEscape(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
 function formatContext(ctx: SessionContext, guidance: string): string {
   const parts: string[] = [];
 
-  const statParts = (Object.entries(ctx.stats) as [string, number][])
+  const statParts = Object.entries(ctx.stats)
     .filter(([, count]) => count > 0)
     .map(([type, count]) => `${count} ${type}${count !== 1 ? "s" : ""}`);
 
@@ -47,23 +42,9 @@ function formatContext(ctx: SessionContext, guidance: string): string {
     parts.push(`<memory-stats>\n${statParts.join(", ")}\n</memory-stats>`);
   }
 
-  const allPinned: Memory[] = [...ctx.pinnedGlobal, ...ctx.pinnedProject];
-  if (allPinned.length > 0) {
-    const memLines = allPinned.map(
-      (m) => `  <memory type="${m.type}">${xmlEscape(m.content)}</memory>`
-    );
-    parts.push(`<pinned-memories>\n${memLines.join("\n")}\n</pinned-memories>`);
-  }
-
-  for (const section of ctx.sections) {
-    if (section.kind === "synthesis") {
-      parts.push(`<synthesis type="${section.memoryType}">\n${section.content}\n</synthesis>`);
-    } else {
-      const memLines = section.memories.map(
-        (content) => `  <memory>${xmlEscape(content)}</memory>`
-      );
-      parts.push(`<memories type="${section.memoryType}">\n${memLines.join("\n")}\n</memories>`);
-    }
+  const rendered = renderSessionContext(ctx);
+  if (rendered.length > 0) {
+    parts.push(rendered);
   }
 
   parts.push(`<memory-guidance>\n${guidance}\n</memory-guidance>`);
@@ -91,53 +72,6 @@ function outputAdditionalContext(
   process.stdout.write(`${text}\n`);
 }
 
-type SynthesisRepo = ReturnType<typeof createSynthesisRepository>;
-
-function settledSynthesis(
-  repo: SynthesisRepo,
-  scope: string,
-  type: MemoryType
-): string | undefined {
-  const row = repo.getSynthesis(scope, type);
-  return row?.inFlightSince === null ? row.content : undefined;
-}
-
-function nonPinnedAcrossScopes(
-  repo: SynthesisRepo,
-  projectHash: string,
-  type: MemoryType
-): string[] {
-  return [
-    ...repo.nonPinnedMemoryContents(projectHash, type),
-    ...repo.nonPinnedMemoryContents(GLOBAL_SCOPE_HASH, type),
-  ];
-}
-
-function collectSections(
-  repo: SynthesisRepo,
-  projectHash: string,
-  thresholdWords: number
-): Partial<Record<MemoryType, SessionSectionPayload>> {
-  const byType: Partial<Record<MemoryType, SessionSectionPayload>> = {};
-  for (const type of listMemoryTypes()) {
-    const memories = nonPinnedAcrossScopes(repo, projectHash, type);
-    if (memories.length === 0) continue;
-
-    if (decideSynthesis(countWords(memories), thresholdWords).kind === "verbatim") {
-      byType[type] = { kind: "verbatim", memories };
-      continue;
-    }
-
-    // Project synthesis is more specific — prefer it over global for the same type.
-    const content =
-      settledSynthesis(repo, projectHash, type) ?? settledSynthesis(repo, GLOBAL_SCOPE_HASH, type);
-    if (content !== undefined) {
-      byType[type] = { kind: "synthesis", content };
-    }
-  }
-  return byType;
-}
-
 function resolveThresholdWords(): number {
   const configured = ConfigManager.get("synthesis.synthesisThresholdWords");
   return typeof configured === "number" ? configured : DEFAULT_SYNTHESIS_THRESHOLD_WORDS;
@@ -152,7 +86,8 @@ async function buildText(harness: InjectionHarness | undefined): Promise<string>
     const builder = new SessionContextBuilder(repo);
     const synthRepo = createSynthesisRepository(db);
 
-    const sections = collectSections(synthRepo, resolved.hash, resolveThresholdWords());
+    const scopes = [...new Set([GLOBAL_SCOPE_HASH, resolved.hash])];
+    const sections = collectSynthesisSections(synthRepo, scopes, resolveThresholdWords());
     const ctx = builder.getSessionContext(resolved.hash, sections);
     return formatContext(ctx, buildGuidance(harness));
   } finally {

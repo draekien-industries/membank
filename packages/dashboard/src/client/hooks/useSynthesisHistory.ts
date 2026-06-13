@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getSynthesisHistory, revertSynthesisToVersion } from "@/lib/api";
 import { queryClient } from "@/lib/collections";
-import type { SynthesisVersion } from "@/lib/types";
+import type { MemoryType, SynthesisVersion } from "@/lib/types";
 
 export function useSynthesisHistory(projectId: string) {
   const [versions, setVersions] = useState<SynthesisVersion[]>([]);
@@ -27,10 +27,10 @@ export function useSynthesisHistory(projectId: string) {
     };
   }, [projectId]);
 
-  const revert = async (version: number): Promise<boolean> => {
+  const revert = async (version: number, memoryType: MemoryType): Promise<boolean> => {
     setReverting(true);
     try {
-      await revertSynthesisToVersion(projectId, version);
+      await revertSynthesisToVersion(projectId, version, memoryType);
       await queryClient.invalidateQueries({ queryKey: ["syntheses"] });
       const updated = await getSynthesisHistory(projectId);
       setVersions(updated);

@@ -12,6 +12,7 @@ import type {
   OrphanSuggestion,
   Project,
   ProjectStats,
+  SessionContext,
   Stats,
   Synthesis,
   SynthesisVersion,
@@ -152,8 +153,16 @@ export function getSynthesisHistory(projectId: string): Promise<SynthesisVersion
   return request<SynthesisVersion[]>(`/projects/${projectId}/synthesis/history`);
 }
 
-export function revertSynthesisToVersion(projectId: string, version: number): Promise<void> {
-  return postJson<void>(`/projects/${projectId}/synthesis/revert`, { version });
+export function revertSynthesisToVersion(
+  projectId: string,
+  version: number,
+  memoryType: MemoryType
+): Promise<void> {
+  return postJson<void>(`/projects/${projectId}/synthesis/revert`, { version, memoryType });
+}
+
+export function getSessionContext(projectId: string): Promise<SessionContext> {
+  return request<SessionContext>(`/projects/${projectId}/session-context`);
 }
 
 export function getFlaggedClusters(projectId?: string): Promise<MemoryCluster[]> {

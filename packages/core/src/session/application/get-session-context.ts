@@ -2,12 +2,12 @@ import type { MemoryRepository } from "../../memory/ports.js";
 import type { MemoryType, SessionContext, SessionContextSection } from "../../schemas.js";
 import { MEMORY_TYPE_VALUES } from "../../schemas.js";
 
-export type SessionSectionPayload =
-  | { kind: "synthesis"; content: string }
-  | { kind: "verbatim"; memories: readonly string[] };
+export type SessionSectionInput =
+  | { kind: "synthesis"; memoryType: MemoryType; content: string }
+  | { kind: "verbatim"; memoryType: MemoryType; memories: readonly string[] };
 
 export function getSessionContext(
-  opts: { projectHash: string; sections?: Partial<Record<MemoryType, SessionSectionPayload>> },
+  opts: { projectHash: string; sections?: readonly SessionSectionInput[] },
   deps: { repo: MemoryRepository }
 ): SessionContext {
   const s = deps.repo.stats(opts.projectHash);
@@ -19,21 +19,33 @@ export function getSessionContext(
   };
 }
 
+const PRECEDENCE_RANK = new Map<MemoryType, number>(
+  MEMORY_TYPE_VALUES.map((type, index) => [type, index])
+);
+
 function orderSections(
-  byType: Partial<Record<MemoryType, SessionSectionPayload>> | undefined
+  inputs: readonly SessionSectionInput[] | undefined
 ): SessionContextSection[] {
-  if (byType === undefined) return [];
+  if (inputs === undefined) return [];
+
   const sections: SessionContextSection[] = [];
-  for (const memoryType of MEMORY_TYPE_VALUES) {
-    const payload = byType[memoryType];
-    if (payload === undefined) continue;
-    if (payload.kind === "synthesis") {
-      if (payload.content.length > 0) {
-        sections.push({ kind: "synthesis", memoryType, content: payload.content });
+  for (const input of inputs) {
+    if (input.kind === "synthesis") {
+      if (input.content.length > 0) {
+        sections.push({ kind: "synthesis", memoryType: input.memoryType, content: input.content });
       }
-    } else if (payload.memories.length > 0) {
-      sections.push({ kind: "verbatim", memoryType, memories: [...payload.memories] });
+    } else if (input.memories.length > 0) {
+      sections.push({
+        kind: "verbatim",
+        memoryType: input.memoryType,
+        memories: [...input.memories],
+      });
     }
   }
-  return sections;
+
+  return sections.sort(
+    (a, b) =>
+      (PRECEDENCE_RANK.get(a.memoryType) ?? MEMORY_TYPE_VALUES.length) -
+      (PRECEDENCE_RANK.get(b.memoryType) ?? MEMORY_TYPE_VALUES.length)
+  );
 }
