@@ -1,8 +1,7 @@
 import type { ActivityLogger } from "../activity/ports.js";
 import { noopActivityLogger } from "../activity/ports.js";
 import type { Embedder } from "../memory/ports.js";
-import type { QueryOptions } from "../schemas.js";
-import { queryMemories } from "./application/query-memories.js";
+import { type QueryOptions, queryMemories } from "./application/query-memories.js";
 import type { Querier, QueryAdapter, ScoredMemory } from "./ports.js";
 
 export class QueryEngine implements Querier {

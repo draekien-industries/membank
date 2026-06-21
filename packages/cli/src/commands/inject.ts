@@ -1,12 +1,15 @@
 import type { SessionContext } from "@membank/core";
 import {
+  CapabilityKey,
   collectSynthesisSections,
+  createCapabilityRepository,
   createMemoryRepository,
   createProjectRepository,
   createSynthesisRepository,
   DatabaseManager,
   DEFAULT_SYNTHESIS_THRESHOLD_WORDS,
   GLOBAL_SCOPE_HASH,
+  getCapabilityContext,
   renderSessionContext,
   resolveProject,
   SessionContextBuilder,
@@ -113,6 +116,86 @@ async function handleEvent(
   outputAdditionalContext(text, harness, eventName);
 }
 
+async function readStdin(): Promise<string> {
+  if (process.stdin.isTTY) return "";
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+// Derives the capability whose memories should be injected before a tool runs.
+// Skill invocations carry the skill name in `tool_input.skill`; all other tools
+// key off `tool_name` directly. Returns null when the needed field is absent.
+export function deriveCapabilityKey(toolName: unknown, toolInput: unknown): CapabilityKey | null {
+  if (typeof toolName !== "string" || toolName.length === 0) return null;
+  if (toolName === "Skill") {
+    const skill =
+      typeof toolInput === "object" && toolInput !== null && "skill" in toolInput
+        ? toolInput.skill
+        : undefined;
+    if (typeof skill !== "string" || skill.trim().length === 0) return null;
+    return CapabilityKey.forSkill(skill);
+  }
+  return CapabilityKey.forTool(toolName);
+}
+
+function buildCapabilityContext(key: CapabilityKey): string | null {
+  let db: DatabaseManager | undefined;
+  try {
+    db = DatabaseManager.open();
+    const projects = createProjectRepository(db);
+    const capabilities = createCapabilityRepository(db, projects);
+    const ctx = getCapabilityContext({ key }, { capabilities });
+    return ctx === null ? null : ctx.rendered;
+  } catch {
+    return null;
+  } finally {
+    db?.close();
+  }
+}
+
+// PreToolUse is fail-safe: any malformed input, unknown tool, or error emits
+// nothing and exits 0 so the tool call is never blocked.
+async function handlePreToolUse(harness: InjectionHarness | undefined): Promise<void> {
+  if (harness !== "claude-code") {
+    process.exit(0);
+  }
+
+  const raw = await readStdin().catch(() => "");
+  if (raw.trim().length === 0) {
+    process.exit(0);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    process.exit(0);
+  }
+
+  const toolName =
+    typeof parsed === "object" && parsed !== null && "tool_name" in parsed
+      ? parsed.tool_name
+      : undefined;
+  const toolInput =
+    typeof parsed === "object" && parsed !== null && "tool_input" in parsed
+      ? parsed.tool_input
+      : undefined;
+  const key = deriveCapabilityKey(toolName, toolInput);
+  if (key === null) {
+    process.exit(0);
+  }
+
+  const rendered = buildCapabilityContext(key);
+  if (rendered === null) {
+    process.exit(0);
+  }
+
+  outputAdditionalContext(rendered, harness, "PreToolUse");
+}
+
 export async function injectCommand(opts: { harness?: string; event?: string }): Promise<void> {
   const harnessResult = InjectionHarnessSchema.safeParse(opts.harness);
   const harness: InjectionHarness | undefined = harnessResult.success
@@ -120,6 +203,10 @@ export async function injectCommand(opts: { harness?: string; event?: string }):
     : undefined;
   if (opts.event === "session-start" || opts.event === undefined) {
     await handleEvent(harness, "SessionStart");
+    return;
+  }
+  if (opts.event === "PreToolUse") {
+    await handlePreToolUse(harness);
     return;
   }
   if (opts.event === "user-prompt-submit") {

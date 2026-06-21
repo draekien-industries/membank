@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DatabaseManager } from "../../db/manager.js";
+import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import { ProjectRepository } from "../../project/repository.js";
 import { SqliteMemoryRepository } from "./sqlite-memory-repository.js";
 
@@ -55,9 +56,20 @@ describe.skipIf(!runIntegration)("SqliteMemoryRepository — integration (file-b
     expect(memory.sourceHarness).toBe("test-harness");
     expect(memory.pinned).toBe(false);
     expect(memory.accessCount).toBe(0);
-    expect(memory.projects).toHaveLength(1);
-    expect(memory.projects[0]?.scopeHash).toBe("0000000000000000");
-    expect(memory.projects[0]?.name).toBe("global");
+  });
+
+  it("create() without a projectScope leaves the memory unassociated", () => {
+    const memory = repo.create({
+      id: randomUUID(),
+      content: "unassociated memory",
+      type: "fact",
+      tags: [],
+      sourceHarness: null,
+      embedding: makeEmbedding(0),
+    });
+
+    expect(memory.projects).toHaveLength(0);
+    expect(memory.primaryScopeHash).toBe(GLOBAL_SCOPE_HASH);
   });
 
   it("create() with projectScope associates the memory to the project", () => {
@@ -84,6 +96,7 @@ describe.skipIf(!runIntegration)("SqliteMemoryRepository — integration (file-b
       tags: [],
       sourceHarness: null,
       embedding: makeEmbedding(0),
+      projectScope: { hash: GLOBAL_SCOPE_HASH, name: "global" },
     });
 
     const results = repo.findSimilar(makeEmbedding(0), "fact");

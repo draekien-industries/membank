@@ -8,6 +8,7 @@ import type {
   ActivityEventType,
   ActivityLogger,
   ActivityRepository,
+  CapabilityRepository,
   Embedder,
   Memory,
   MemoryRepository,
@@ -17,10 +18,12 @@ import type {
 } from "@membank/core";
 import {
   ActivityEventTypeSchema,
+  CapabilityKey,
   clusterFlagged,
   collectSynthesisSections,
   createActivityLogger,
   createActivityRepository,
+  createCapabilityRepository,
   createMemoryRepository,
   createProjectRepository,
   createSynthesisAgentRunner,
@@ -130,7 +133,8 @@ export function createApiApp(
   embedder: Embedder,
   synthRepo: SynthesisRepository,
   activityRepo: ActivityRepository,
-  activityLogger: ActivityLogger
+  activityLogger: ActivityLogger,
+  capabilityRepo: CapabilityRepository
 ): Hono {
   const app = new Hono();
 
@@ -493,6 +497,24 @@ export function createApiApp(
     return c.json(aggregateActivity(repo.list(), daysParam));
   });
 
+  app.get("/api/capabilities", (c) => {
+    return c.json({
+      tools: capabilityRepo.listByKind("tool"),
+      skills: capabilityRepo.listByKind("skill"),
+    });
+  });
+
+  app.get("/api/capabilities/memories", (c) => {
+    const keyParam = c.req.query("key");
+    if (!keyParam) return c.json({ error: "key query parameter is required" }, 400);
+    try {
+      const key = CapabilityKey.parse(keyParam);
+      return c.json(capabilityRepo.allMemoriesForCapability(key));
+    } catch (err: unknown) {
+      return c.json({ error: err instanceof Error ? err.message : String(err) }, 400);
+    }
+  });
+
   app.get("/api/activity/events", (c) => {
     const { scope, type, since, limit } = c.req.query();
 
@@ -534,8 +556,17 @@ export async function startDashboard(opts?: {
   const activityLogger = createActivityLogger(db);
   const activityRepo = createActivityRepository(db);
   const synthRepo = createSynthesisRepository(db);
+  const capabilityRepo = createCapabilityRepository(db, projects);
 
-  const app = createApiApp(repo, projects, embedding, synthRepo, activityRepo, activityLogger);
+  const app = createApiApp(
+    repo,
+    projects,
+    embedding,
+    synthRepo,
+    activityRepo,
+    activityLogger,
+    capabilityRepo
+  );
 
   const __dir = dirname(fileURLToPath(import.meta.url));
   const clientDir = join(__dir, "client");

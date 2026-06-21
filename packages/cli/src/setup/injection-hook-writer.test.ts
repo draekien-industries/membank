@@ -159,15 +159,17 @@ describe("claude-code", () => {
     expect(hooks.UserPromptSubmit).toHaveLength(1); // non-membank entry survives
   });
 
-  it("inspect returns two hook entries (SessionStart + SessionEnd) when nothing is configured", () => {
+  it("inspect returns three hook entries (SessionStart + SessionEnd + PreToolUse) when nothing is configured", () => {
     const result = writer.inspect("claude-code");
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
-    expect(result.hooks).toHaveLength(2);
+    expect(result.hooks).toHaveLength(3);
     expect(result.hooks[0]?.event).toBe("SessionStart");
     expect(result.hooks[0]?.existingCommand).toBeNull();
     expect(result.hooks[1]?.event).toBe("SessionEnd");
     expect(result.hooks[1]?.existingCommand).toBeNull();
+    expect(result.hooks[2]?.event).toBe("PreToolUse");
+    expect(result.hooks[2]?.existingCommand).toBeNull();
   });
 
   it("writes the SessionEnd hook with the async extract command and session matchers", () => {
@@ -278,6 +280,78 @@ describe("claude-code", () => {
     expect(result.status).toBe("ready");
     if (result.status !== "ready") return;
     expect(result.hooks[0]?.existingCommand).toBe("npx @membank/cli inject --harness claude-code");
+  });
+
+  it("writes the PreToolUse hook with the Skill|mcp matcher and PreToolUse command", () => {
+    const result = writer.write("claude-code", ["PreToolUse"]);
+    expect(result.status).toBe("written");
+
+    const cfg = readJson(join(dir, ".claude", "settings.json"));
+    const hooks = cfg.hooks as Record<string, unknown>;
+    type GroupHooks = { matcher: string; hooks: { command: string }[] }[];
+    const group = (hooks.PreToolUse as GroupHooks)[0];
+    expect(group?.matcher).toBe("Skill|mcp__.*");
+    expect(group?.hooks[0]?.command).toBe(
+      "npx -y @membank/cli inject --harness claude-code --event PreToolUse"
+    );
+  });
+
+  it("registers exactly one membank PreToolUse group when re-run (idempotent)", () => {
+    writer.write("claude-code", ["PreToolUse"]);
+    writer.write("claude-code", ["PreToolUse"]);
+    const cfg = readJson(join(dir, ".claude", "settings.json"));
+    const hooks = cfg.hooks as Record<string, unknown[]>;
+    expect(hooks.PreToolUse).toHaveLength(1);
+  });
+
+  it("preserves non-membank PreToolUse groups while replacing the membank one", () => {
+    const cfgPath = join(dir, ".claude", "settings.json");
+    writeJson(cfgPath, {
+      hooks: {
+        PreToolUse: [
+          { matcher: "Bash", hooks: [{ type: "command", command: "echo guard" }] },
+          {
+            matcher: "Skill|mcp__.*",
+            hooks: [
+              {
+                type: "command",
+                command: "npx @membank/cli inject --harness claude-code --event PreToolUse",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    writer.write("claude-code", ["PreToolUse"]);
+    const cfg = readJson(cfgPath);
+    const hooks = cfg.hooks as Record<string, unknown[]>;
+    expect(hooks.PreToolUse).toHaveLength(2); // echo guard preserved + one membank
+  });
+
+  it("inspect detects an existing PreToolUse command", () => {
+    const cfgPath = join(dir, ".claude", "settings.json");
+    writeJson(cfgPath, {
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: "Skill|mcp__.*",
+            hooks: [
+              {
+                type: "command",
+                command: "npx @membank/cli inject --harness claude-code --event PreToolUse",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const result = writer.inspect("claude-code");
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+    const preToolUse = result.hooks.find((h) => h.event === "PreToolUse");
+    expect(preToolUse?.existingCommand).toBe(
+      "npx @membank/cli inject --harness claude-code --event PreToolUse"
+    );
   });
 });
 

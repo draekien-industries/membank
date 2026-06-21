@@ -61,7 +61,7 @@ describe("pin_memory tool — pin budget warning", () => {
     cleanup = session.cleanup;
 
     const memory = await saveMemory(
-      { content: "short content", type: "fact" },
+      { content: "short content", type: "fact", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 
@@ -83,7 +83,7 @@ describe("pin_memory tool — pin budget warning", () => {
 
     const longContent = "x".repeat(PIN_BUDGET_THRESHOLD + 1);
     const memory = await saveMemory(
-      { content: longContent, type: "fact" },
+      { content: longContent, type: "fact", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 
@@ -106,7 +106,7 @@ describe("pin_memory tool — pin budget warning", () => {
 
     const longContent = "x".repeat(PIN_BUDGET_THRESHOLD + 1);
     const memory = await saveMemory(
-      { content: longContent, type: "fact" },
+      { content: longContent, type: "fact", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 
@@ -128,7 +128,7 @@ describe("pin_memory tool — pin budget warning", () => {
 
     const longContent = "x".repeat(PIN_BUDGET_THRESHOLD + 1);
     const memory = await saveMemory(
-      { content: longContent, type: "fact" },
+      { content: longContent, type: "fact", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
     session.core.repo.setPin(memory.id, true);

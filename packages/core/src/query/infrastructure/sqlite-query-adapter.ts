@@ -18,10 +18,15 @@ export class SqliteQueryAdapter implements QueryAdapter {
 
   findByEmbedding(
     embedding: Float32Array,
-    opts: { type?: MemoryType; projectHash?: string; includePinned?: boolean }
+    opts: {
+      type?: MemoryType;
+      projectHash?: string;
+      capabilityKey?: string;
+      includePinned?: boolean;
+    }
   ): Array<Memory & { cosineSim: number }> {
     const blob = Buffer.from(embedding.buffer);
-    const { type, projectHash, includePinned } = opts;
+    const { type, projectHash, capabilityKey, includePinned } = opts;
     const whereClauses: string[] = [];
     const params: unknown[] = [blob];
     let joinClause = "";
@@ -33,7 +38,12 @@ export class SqliteQueryAdapter implements QueryAdapter {
       whereClauses.push("m.type = ?");
       params.push(type);
     }
-    if (projectHash !== undefined) {
+    if (capabilityKey !== undefined) {
+      joinClause =
+        "JOIN memory_capabilities mc ON mc.memory_id = m.id JOIN capabilities c ON c.id = mc.capability_id";
+      whereClauses.push("c.key = ?");
+      params.push(capabilityKey);
+    } else if (projectHash !== undefined) {
       joinClause =
         "JOIN memory_projects mp ON mp.memory_id = m.id JOIN projects p ON p.id = mp.project_id";
       whereClauses.push("(p.scope_hash = ? OR p.scope_hash = ?)");

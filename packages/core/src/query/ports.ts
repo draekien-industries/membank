@@ -1,5 +1,5 @@
 import type { Memory, MemoryType } from "../memory/domain/memory.js";
-import type { QueryOptions } from "../schemas.js";
+import type { QueryOptions } from "./application/query-memories.js";
 
 export interface ScoredMemory extends Memory {
   score: number;
@@ -8,7 +8,12 @@ export interface ScoredMemory extends Memory {
 export interface QueryAdapter {
   findByEmbedding(
     embedding: Float32Array,
-    opts: { type?: MemoryType; projectHash?: string; includePinned?: boolean }
+    opts: {
+      type?: MemoryType;
+      projectHash?: string;
+      capabilityKey?: string;
+      includePinned?: boolean;
+    }
   ): Array<Memory & { cosineSim: number }>;
   incrementAccessCount(id: string): void;
 }

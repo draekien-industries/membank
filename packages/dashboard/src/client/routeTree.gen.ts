@@ -10,14 +10,21 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReviewRouteImport } from './routes/review'
+import { Route as CapabilitiesRouteImport } from './routes/capabilities'
 import { Route as ProjectIdRouteImport } from './routes/$projectId'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectIdIndexRouteImport } from './routes/$projectId.index'
+import { Route as CapabilitiesCapabilityKeyRouteImport } from './routes/capabilities.$capabilityKey'
 import { Route as ProjectIdMemoryIdRouteImport } from './routes/$projectId.$memoryId'
 
 const ReviewRoute = ReviewRouteImport.update({
   id: '/review',
   path: '/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CapabilitiesRoute = CapabilitiesRouteImport.update({
+  id: '/capabilities',
+  path: '/capabilities',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectIdRoute = ProjectIdRouteImport.update({
@@ -35,6 +42,12 @@ const ProjectIdIndexRoute = ProjectIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProjectIdRoute,
 } as any)
+const CapabilitiesCapabilityKeyRoute =
+  CapabilitiesCapabilityKeyRouteImport.update({
+    id: '/$capabilityKey',
+    path: '/$capabilityKey',
+    getParentRoute: () => CapabilitiesRoute,
+  } as any)
 const ProjectIdMemoryIdRoute = ProjectIdMemoryIdRouteImport.update({
   id: '/$memoryId',
   path: '/$memoryId',
@@ -44,22 +57,28 @@ const ProjectIdMemoryIdRoute = ProjectIdMemoryIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$projectId': typeof ProjectIdRouteWithChildren
+  '/capabilities': typeof CapabilitiesRouteWithChildren
   '/review': typeof ReviewRoute
   '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
+  '/capabilities/$capabilityKey': typeof CapabilitiesCapabilityKeyRoute
   '/$projectId/': typeof ProjectIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/capabilities': typeof CapabilitiesRouteWithChildren
   '/review': typeof ReviewRoute
   '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
+  '/capabilities/$capabilityKey': typeof CapabilitiesCapabilityKeyRoute
   '/$projectId': typeof ProjectIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$projectId': typeof ProjectIdRouteWithChildren
+  '/capabilities': typeof CapabilitiesRouteWithChildren
   '/review': typeof ReviewRoute
   '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
+  '/capabilities/$capabilityKey': typeof CapabilitiesCapabilityKeyRoute
   '/$projectId/': typeof ProjectIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -67,23 +86,34 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$projectId'
+    | '/capabilities'
     | '/review'
     | '/$projectId/$memoryId'
+    | '/capabilities/$capabilityKey'
     | '/$projectId/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/review' | '/$projectId/$memoryId' | '/$projectId'
+  to:
+    | '/'
+    | '/capabilities'
+    | '/review'
+    | '/$projectId/$memoryId'
+    | '/capabilities/$capabilityKey'
+    | '/$projectId'
   id:
     | '__root__'
     | '/'
     | '/$projectId'
+    | '/capabilities'
     | '/review'
     | '/$projectId/$memoryId'
+    | '/capabilities/$capabilityKey'
     | '/$projectId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProjectIdRoute: typeof ProjectIdRouteWithChildren
+  CapabilitiesRoute: typeof CapabilitiesRouteWithChildren
   ReviewRoute: typeof ReviewRoute
 }
 
@@ -94,6 +124,13 @@ declare module '@tanstack/react-router' {
       path: '/review'
       fullPath: '/review'
       preLoaderRoute: typeof ReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/capabilities': {
+      id: '/capabilities'
+      path: '/capabilities'
+      fullPath: '/capabilities'
+      preLoaderRoute: typeof CapabilitiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/$projectId': {
@@ -116,6 +153,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/$projectId/'
       preLoaderRoute: typeof ProjectIdIndexRouteImport
       parentRoute: typeof ProjectIdRoute
+    }
+    '/capabilities/$capabilityKey': {
+      id: '/capabilities/$capabilityKey'
+      path: '/$capabilityKey'
+      fullPath: '/capabilities/$capabilityKey'
+      preLoaderRoute: typeof CapabilitiesCapabilityKeyRouteImport
+      parentRoute: typeof CapabilitiesRoute
     }
     '/$projectId/$memoryId': {
       id: '/$projectId/$memoryId'
@@ -141,9 +185,22 @@ const ProjectIdRouteWithChildren = ProjectIdRoute._addFileChildren(
   ProjectIdRouteChildren,
 )
 
+interface CapabilitiesRouteChildren {
+  CapabilitiesCapabilityKeyRoute: typeof CapabilitiesCapabilityKeyRoute
+}
+
+const CapabilitiesRouteChildren: CapabilitiesRouteChildren = {
+  CapabilitiesCapabilityKeyRoute: CapabilitiesCapabilityKeyRoute,
+}
+
+const CapabilitiesRouteWithChildren = CapabilitiesRoute._addFileChildren(
+  CapabilitiesRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProjectIdRoute: ProjectIdRouteWithChildren,
+  CapabilitiesRoute: CapabilitiesRouteWithChildren,
   ReviewRoute: ReviewRoute,
 }
 export const routeTree = rootRouteImport

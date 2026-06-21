@@ -1,6 +1,7 @@
 import {
   runExtraction as coreExtraction,
   runSynthesis as coreSynthesis,
+  createCapabilityRepository,
   createClaudeCodeTranscriptReader,
   createExtractionAgentRunner,
   createExtractionRunRepository,
@@ -98,9 +99,10 @@ export async function runExtraction(opts: RunExtractionOptions): Promise<RunExtr
     const embedding = new EmbeddingService();
     const projects = createProjectRepository(db);
     const repo = createMemoryRepository(db, projects);
+    const capabilities = createCapabilityRepository(db, projects);
     const queryEngine = createQueryEngine(db, embedding);
     const runRepo = createExtractionRunRepository(db);
-    const tools = buildExtractionTools(repo, queryEngine, embedding);
+    const tools = buildExtractionTools(repo, queryEngine, embedding, capabilities);
     const agent = createExtractionAgentRunner(tools);
     const transcripts = createClaudeCodeTranscriptReader();
 

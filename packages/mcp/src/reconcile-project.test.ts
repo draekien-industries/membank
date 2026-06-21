@@ -47,7 +47,11 @@ type ProjectListEntry = {
 
 async function seedProject(core: CoreServices, hash: string, name: string): Promise<string> {
   await saveMemory(
-    { content: `memory for ${name}`, type: "fact", projectScope: { hash, name } },
+    {
+      content: `memory for ${name}`,
+      type: "fact",
+      target: { tag: "project", scope: { hash, name } },
+    },
     { repo: core.repo, embedder: core.embedding }
   );
   const project = core.projects.getByHash(hash);

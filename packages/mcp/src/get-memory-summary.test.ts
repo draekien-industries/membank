@@ -82,15 +82,15 @@ describe("get_memory_summary tool", () => {
     cleanup = session.cleanup;
 
     await saveMemory(
-      { content: "prefer tabs", type: "preference" },
+      { content: "prefer tabs", type: "preference", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
     await saveMemory(
-      { content: "use pnpm", type: "decision" },
+      { content: "use pnpm", type: "decision", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
     await saveMemory(
-      { content: "node is fast", type: "fact" },
+      { content: "node is fast", type: "fact", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 
@@ -117,11 +117,11 @@ describe("get_memory_summary tool", () => {
     cleanup = session.cleanup;
 
     const m1 = await saveMemory(
-      { content: "prefer tabs", type: "preference" },
+      { content: "prefer tabs", type: "preference", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
     await saveMemory(
-      { content: "use pnpm", type: "decision" },
+      { content: "use pnpm", type: "decision", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
     session.core.repo.setPin(m1.id, true);
@@ -143,11 +143,11 @@ describe("get_memory_summary tool", () => {
     cleanup = session.cleanup;
 
     const m1 = await saveMemory(
-      { content: "always use dark mode", type: "preference" },
+      { content: "always use dark mode", type: "preference", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
     const m2 = await saveMemory(
-      { content: "always use light mode", type: "preference" },
+      { content: "always use light mode", type: "preference", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 

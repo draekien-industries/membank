@@ -5,7 +5,7 @@ import {
   rowToMemoryVersion,
   rowToReviewEvent,
 } from "../../persistence/infrastructure/row-types.js";
-import { GLOBAL_PROJECT_NAME, GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
+import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type { ProjectRepository } from "../../project/ports.js";
 import type { MemoryRow, MemoryVersionRow, ReviewEventRow } from "../../schemas.js";
 import {
@@ -99,9 +99,14 @@ export class SqliteMemoryRepository implements MemoryRepository {
       )
       .run(embeddingBlob, id);
 
-    const scope = projectScope ?? { hash: GLOBAL_SCOPE_HASH, name: GLOBAL_PROJECT_NAME };
-    const project = this.#projects.upsertByHash(scope.hash, scope.name, projectScope?.origin);
-    this.#projects.addAssociation(id, project.id);
+    if (projectScope !== undefined) {
+      const project = this.#projects.upsertByHash(
+        projectScope.hash,
+        projectScope.name,
+        projectScope.origin
+      );
+      this.#projects.addAssociation(id, project.id);
+    }
 
     const row = MemoryRowSchema.parse(
       this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(id)

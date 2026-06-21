@@ -30,21 +30,26 @@ function buildLocalExtractionTools(
     queryMemory: async (args) => {
       const results = await query.query({
         query: args.query,
-        projectHash: args.global === true ? undefined : (args.projectHash ?? projectHash),
+        scope:
+          args.global === true
+            ? { tag: "global" }
+            : { tag: "current", projectHash: args.projectHash ?? projectHash },
         limit: args.limit ?? 10,
         includePinned: true,
       });
       return JSON.stringify(results);
     },
     saveMemory: async (args) => {
-      const projectScope =
-        args.global === true ? undefined : { hash: projectHash, name: projectName };
+      const target =
+        args.global === true
+          ? ({ tag: "global" } as const)
+          : ({ tag: "project", scope: { hash: projectHash, name: projectName } } as const);
       const memory = await saveMemory(
         {
           content: args.content,
           type: args.type as "correction" | "preference" | "decision" | "learning" | "fact",
-          tags: args.tags,
-          projectScope,
+          ...(args.tags !== undefined && { tags: args.tags }),
+          target,
           sourceHarness: "membank-extraction",
         },
         { repo, embedder }

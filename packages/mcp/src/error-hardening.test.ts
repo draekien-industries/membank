@@ -138,7 +138,7 @@ describe("error hardening", () => {
       cleanup = session.cleanup;
 
       const saved = await saveMemory(
-        { content: "to be deleted", type: "fact" },
+        { content: "to be deleted", type: "fact", target: { tag: "global" } },
         { repo: session.core.repo, embedder: session.core.embedding }
       );
 
@@ -161,7 +161,7 @@ describe("error hardening", () => {
       cleanup = session.cleanup;
 
       const saved = await saveMemory(
-        { content: "to be deleted", type: "fact" },
+        { content: "to be deleted", type: "fact", target: { tag: "global" } },
         { repo: session.core.repo, embedder: session.core.embedding }
       );
 
@@ -275,6 +275,15 @@ describe("error hardening", () => {
         query: {
           query: () => Promise.reject(dbError),
         } as unknown as CoreServices["query"],
+        capabilities: {
+          upsertByKey: () => {
+            throw dbError;
+          },
+          findByKey: () => undefined,
+          listByKind: () => [],
+          associate: () => {},
+          allMemoriesForCapability: () => [],
+        } as unknown as CoreServices["capabilities"],
         projects: {
           upsertByHash: vi.fn().mockReturnValue({
             id: "p1",

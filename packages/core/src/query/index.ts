@@ -5,7 +5,7 @@ import type { Embedder } from "../memory/ports.js";
 import { QueryEngine } from "./engine.js";
 import { SqliteQueryAdapter } from "./infrastructure/sqlite-query-adapter.js";
 
-export { queryMemories } from "./application/query-memories.js";
+export { type QueryOptions, queryMemories } from "./application/query-memories.js";
 export { QueryEngine } from "./engine.js";
 export type { Querier, QueryAdapter, ScoredMemory } from "./ports.js";
 

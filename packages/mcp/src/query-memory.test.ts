@@ -55,11 +55,15 @@ describe("query_memory tool", () => {
     cleanup = session.cleanup;
 
     await saveMemory(
-      { content: "prefer dark mode in all editors", type: "preference" },
+      { content: "prefer dark mode in all editors", type: "preference", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
     await saveMemory(
-      { content: "always use TypeScript strict mode", type: "preference" },
+      {
+        content: "always use TypeScript strict mode",
+        type: "preference",
+        target: { tag: "global" },
+      },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 
@@ -114,11 +118,15 @@ describe("query_memory tool", () => {
     cleanup = session.cleanup;
 
     await saveMemory(
-      { content: "use tabs for indentation", type: "preference" },
+      { content: "use tabs for indentation", type: "preference", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
     await saveMemory(
-      { content: "decided to use tabs for indentation style", type: "decision" },
+      {
+        content: "decided to use tabs for indentation style",
+        type: "decision",
+        target: { tag: "global" },
+      },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 
@@ -147,12 +155,12 @@ describe("query_memory tool", () => {
       {
         content: "project uses ESLint for linting",
         type: "fact",
-        projectScope: { hash: "abcdef0123456789", name: "project-abc" },
+        target: { tag: "project", scope: { hash: "abcdef0123456789", name: "project-abc" } },
       },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
     await saveMemory(
-      { content: "global linting preference is Biome", type: "fact" },
+      { content: "global linting preference is Biome", type: "fact", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 
@@ -179,7 +187,7 @@ describe("query_memory tool", () => {
       {
         content: "project-x uses webpack for bundling",
         type: "fact",
-        projectScope: { hash: "1234567890abcdef", name: "project-x" },
+        target: { tag: "project", scope: { hash: "1234567890abcdef", name: "project-x" } },
       },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
@@ -187,7 +195,7 @@ describe("query_memory tool", () => {
       {
         content: "project-y uses vite for bundling",
         type: "fact",
-        projectScope: { hash: "fedcba0987654321", name: "project-y" },
+        target: { tag: "project", scope: { hash: "fedcba0987654321", name: "project-y" } },
       },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
@@ -246,7 +254,11 @@ describe("query_memory tool", () => {
     // Save 5 memories, then request limit 2
     for (let i = 0; i < 5; i++) {
       await saveMemory(
-        { content: `learning about javascript async pattern number ${i}`, type: "learning" },
+        {
+          content: `learning about javascript async pattern number ${i}`,
+          type: "learning",
+          target: { tag: "global" },
+        },
         { repo: session.core.repo, embedder: session.core.embedding }
       );
     }
@@ -269,7 +281,11 @@ describe("query_memory tool", () => {
 
     for (let i = 0; i < 12; i++) {
       await saveMemory(
-        { content: `fact about node.js runtime behaviour number ${i}`, type: "fact" },
+        {
+          content: `fact about node.js runtime behaviour number ${i}`,
+          type: "fact",
+          target: { tag: "global" },
+        },
         { repo: session.core.repo, embedder: session.core.embedding }
       );
     }
@@ -300,7 +316,7 @@ describe("query_memory tool", () => {
     cleanup = session.cleanup;
 
     const saved = await saveMemory(
-      { content: "always use strict TypeScript", type: "preference" },
+      { content: "always use strict TypeScript", type: "preference", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
     session.core.repo.setPin(saved.id, true);
@@ -326,7 +342,7 @@ describe("query_memory tool", () => {
     cleanup = session.cleanup;
 
     const saved = await saveMemory(
-      { content: "always use strict TypeScript", type: "preference" },
+      { content: "always use strict TypeScript", type: "preference", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
     session.core.repo.setPin(saved.id, true);

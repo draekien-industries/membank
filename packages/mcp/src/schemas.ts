@@ -1,17 +1,32 @@
 import { MemoryTypeSchema } from "@membank/core";
 import { z } from "zod";
 
-const QueryScopeSchema = z
+const CapabilityKeyPattern = /^(tool|skill):.+/;
+
+const CapabilityKeyString = z
+  .string()
+  .regex(CapabilityKeyPattern, 'capability scope must be "tool:<name>" or "skill:<name>"');
+
+const ProjectScopeSchema = z
   .enum(["current", "global", "all"])
   .optional()
   .describe(
     '"current" (default) = this project + global memories; "global" = global memories only; "all" = every project'
   );
 
-const SaveScopeSchema = z
-  .enum(["current", "global"])
+const QueryScopeSchema = z
+  .union([z.enum(["current", "global", "all"]), CapabilityKeyString])
   .optional()
-  .describe('"current" (default) = scoped to this project; "global" = saved as a global memory');
+  .describe(
+    '"current" (default) = this project + global memories; "global" = global memories only; "all" = every project; "tool:<name>"/"skill:<name>" = memories for that capability'
+  );
+
+const SaveScopeSchema = z
+  .union([z.enum(["current", "global"]), CapabilityKeyString])
+  .optional()
+  .describe(
+    '"current" (default) = scoped to this project; "global" = saved as a global memory; "tool:<name>"/"skill:<name>" = saved against that capability'
+  );
 
 export const SaveMemoryArgsSchema = z.object({
   content: z.string().min(1),
@@ -52,7 +67,7 @@ export const ResolveReviewArgsSchema = z.object({
 });
 
 export const ListFlaggedMemoriesArgsSchema = z.object({
-  scope: QueryScopeSchema,
+  scope: ProjectScopeSchema,
   limit: z
     .number()
     .int()
@@ -75,7 +90,7 @@ export const ListFlaggedMemoriesArgsSchema = z.object({
 });
 
 export const GetMemorySummaryArgsSchema = z.object({
-  scope: QueryScopeSchema,
+  scope: ProjectScopeSchema,
 });
 
 export const DeleteManyArgsSchema = z.object({

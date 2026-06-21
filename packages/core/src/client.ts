@@ -1,3 +1,4 @@
+export { CapabilityKey } from "./capability/domain/capability-key.js";
 export type { LineDiff } from "./diff.js";
 export { diffLines } from "./diff.js";
 export {
