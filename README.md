@@ -24,7 +24,7 @@ npx @membank/cli setup
 
 `setup` auto-detects your installed LLM harness and writes the MCP server config and injection hooks. Use `--harness <name>` to target a specific harness, `--yes` to skip prompts, `--json` for machine-readable output.
 
-Supported harnesses: `claude-code`, `codex`, `opencode`.
+Supported harnesses: `claude-code`, `copilot`, `codex`, `opencode`.
 
 After setup, restart your harness. Membank will start injecting memories into every session.
 
@@ -51,13 +51,21 @@ membank config set <key> <value>           # set a config value
 membank config show                        # print the full config
 membank synthesize run                     # trigger a synthesis run for a scope
 membank synthesize show                    # display current synthesis for a scope
+membank synthesize show --version <n>      # show a specific archived synthesis version
 membank synthesize status                  # show all scopes with synthesis status
+membank synthesize history                 # list archived synthesis versions for a scope
+membank synthesize diff <v1> <v2>          # line diff between two archived synthesis versions
+membank synthesize revert <version>        # revert active synthesis to a previous version
+membank memory history <id>               # list version history for a memory
+membank memory show <id>                   # show memory content at current or specific version
+membank memory diff <id> <v1> <v2>         # line diff between two memory versions
+membank memory revert <id> <version>       # revert a memory to a previous version
+membank projects list                      # list all projects with origin and memory count
+membank projects reconcile                 # merge orphaned worktree project into its parent
 membank setup                              # configure MCP server + injection hooks
 membank setup upgrade                      # migrate harness configs to standalone membank-mcp
 membank inject                             # output session context (called by hooks)
 membank inject --harness claude-code       # format output for a specific harness
-membank inject --event user-prompt-submit  # inject on prompt submit event
-membank inject --event session-stop        # inject on session stop event
 ```
 
 ### Injection hooks
@@ -98,17 +106,24 @@ When running as an MCP server, the following tools are exposed to the LLM:
 
 | Tool | Description |
 |------|-------------|
-| `query_memory` | Semantic search across stored memories. Supports `global` flag to query across all projects. |
-| `save_memory` | Store a new memory with type, tags, and scope. Supports `global` flag to save outside project scope. |
+| `query_memory` | Semantic search across stored memories. `scope` controls whether to search this project, global, or all projects. |
+| `save_memory` | Store a new memory with type, tags, and scope. `scope` can target this project, global, or a named tool/skill. |
 | `update_memory` | Update content, type (reclassification), or tags on an existing memory |
 | `delete_memory` | Remove a memory by ID |
-| `list_memory_types` | List available memory types and their priority order |
+| `delete_many` | Delete multiple memories in one call; returns per-id status |
 | `pin_memory` | Pin a memory so it is always injected into session context |
 | `unpin_memory` | Unpin a memory to remove it from guaranteed session injection |
 | `get_memory_summary` | Aggregate stats: total memories, counts by type, pinned count, review queue size |
 | `list_flagged_memories` | List memories with unresolved dedup review events (similarity 0.75–0.92) |
 | `resolve_review` | Dismiss all open review events for a memory after reviewing it |
-| `migrate` | List or run named data migrations (`mode: "list"` or `mode: "run"`) |
+| `resolve_many` | Resolve review events for multiple memories in one call; returns per-id status |
+| `merge_memories` | Merge two or more near-duplicate memories into one, combining their content |
+| `list_memory_history` | List version history for a memory (up to 10 past snapshots) |
+| `list_migrations` | List available named data migrations |
+| `run_migration` | Execute a named data migration |
+| `list_synthesis_history` | List archived synthesis versions for a scope (up to 5 snapshots) |
+| `list_projects` | List all projects with origin, memory count, and scope hash |
+| `reconcile_project` | Merge one project into another; auto-detects the orphan for the current worktree when IDs are omitted |
 
 ## Memory synthesis (optional)
 
@@ -137,6 +152,9 @@ membank synthesize run               # trigger synthesis for a scope
 membank synthesize show              # current synthesis for global scope
 membank synthesize show --scope <s>  # synthesis for a specific project scope
 membank synthesize status            # all scopes and their synthesis state
+membank synthesize history           # list archived synthesis versions
+membank synthesize diff <v1> <v2>    # line diff between two archived versions
+membank synthesize revert <version>  # revert active synthesis to a previous version
 ```
 
 ## Storage
