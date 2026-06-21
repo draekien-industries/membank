@@ -1,5 +1,16 @@
 # @membank/dashboard
 
+## 0.15.0
+
+### Minor Changes
+
+- 4c32001: Added capability memory: memories can now be attached to a tool or skill (e.g. `tool:Bash`, `skill:shadcn`) independent of any project, so transferable learnings are shared across projects instead of polluting global. Save and query them via the `tool:<name>`/`skill:<name>` scope, browse them in the dashboard's Capabilities view, and have a capability's memories injected automatically before that tool or skill is used (claude-code PreToolUse hook — re-run `membank setup` to register it).
+
+### Patch Changes
+
+- Updated dependencies [4c32001]
+  - @membank/core@0.20.0
+
 ## 0.14.0
 
 ### Minor Changes
