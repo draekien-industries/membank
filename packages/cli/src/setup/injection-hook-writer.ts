@@ -92,6 +92,10 @@ const writers: Record<string, HarnessInjectionWriter> = {
         getHooksArray
       );
 
+      const preToolUseInner = (Array.isArray(hooks.PreToolUse) ? hooks.PreToolUse : []).flatMap(
+        getHooksArray
+      );
+
       return {
         status: "ready",
         configPath: cfgPath,
@@ -105,6 +109,11 @@ const writers: Record<string, HarnessInjectionWriter> = {
             event: "SessionEnd",
             command: "npx -y @membank/cli extract --harness claude-code",
             existingCommand: extractInjectCommand(sessionEndInner) || null,
+          },
+          {
+            event: "PreToolUse",
+            command: "npx -y @membank/cli inject --harness claude-code --event PreToolUse",
+            existingCommand: extractInjectCommand(preToolUseInner) || null,
           },
         ],
       };
@@ -152,6 +161,22 @@ const writers: Record<string, HarnessInjectionWriter> = {
                 command: "npx -y @membank/cli extract --harness claude-code",
                 async: true,
                 timeout: 600,
+              },
+            ],
+          },
+        ];
+      }
+
+      if (events.includes("PreToolUse")) {
+        const existing = Array.isArray(hooks.PreToolUse) ? hooks.PreToolUse : [];
+        newHooks.PreToolUse = [
+          ...filterOutMembank(existing),
+          {
+            matcher: "Skill|mcp__.*",
+            hooks: [
+              {
+                type: "command",
+                command: "npx -y @membank/cli inject --harness claude-code --event PreToolUse",
               },
             ],
           },

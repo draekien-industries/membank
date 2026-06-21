@@ -24,9 +24,10 @@ export async function queryCommand(
     const spinner = formatter.isJson ? null : ora("Searching memories…").start();
     const results = await engine.query({
       query: queryText,
-      type: options.type !== undefined ? MemoryTypeSchema.parse(options.type) : undefined,
+      ...(options.type !== undefined && { type: MemoryTypeSchema.parse(options.type) }),
       limit,
-      includePinned: options.includePinned,
+      ...(options.includePinned !== undefined && { includePinned: options.includePinned }),
+      scope: { tag: "all" },
     });
     spinner?.succeed(`${results.length} result${results.length === 1 ? "" : "s"} found`);
 

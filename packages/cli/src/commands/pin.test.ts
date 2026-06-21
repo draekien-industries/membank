@@ -33,7 +33,7 @@ function captureStdout(fn: () => void): string {
 async function insertMemory(db: DatabaseManager, embeddingStub: EmbeddingService): Promise<string> {
   const repo = createMemoryRepository(db, createProjectRepository(db));
   const memory = await saveMemory(
-    { content: "test content", type: "fact" },
+    { content: "test content", type: "fact", target: { tag: "global" } },
     { repo, embedder: embeddingStub }
   );
   return memory.id;

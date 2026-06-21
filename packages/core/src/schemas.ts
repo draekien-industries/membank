@@ -23,6 +23,20 @@ export const ProjectSchema = z.object({
 });
 export type Project = z.infer<typeof ProjectSchema>;
 
+export const CAPABILITY_KIND_VALUES = ["tool", "skill"] as const;
+
+export const CapabilityKindSchema = z.enum(CAPABILITY_KIND_VALUES);
+export type CapabilityKind = z.infer<typeof CapabilityKindSchema>;
+
+export const CapabilitySchema = z.object({
+  id: z.string(),
+  kind: CapabilityKindSchema,
+  key: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Capability = z.infer<typeof CapabilitySchema>;
+
 export const ReviewReasonSchema = z.enum(["similarity_dedup"]);
 export type ReviewReason = z.infer<typeof ReviewReasonSchema>;
 
@@ -66,25 +80,19 @@ export const MemorySchema = z.object({
 });
 export type Memory = z.infer<typeof MemorySchema>;
 
-export const QueryOptionsSchema = z.object({
+export const QueryFieldsSchema = z.object({
   query: z.string().min(1),
   type: MemoryTypeSchema.optional(),
-  projectHash: z.string().optional(),
   limit: z.number().int().positive().optional(),
   includePinned: z.boolean().optional(),
 });
-export type QueryOptions = z.infer<typeof QueryOptionsSchema>;
 
-export const SaveOptionsSchema = z.object({
+export const SaveFieldsSchema = z.object({
   content: z.string().min(1),
   type: MemoryTypeSchema,
   tags: z.array(z.string()).optional(),
-  projectScope: z
-    .object({ hash: z.string(), name: z.string(), origin: z.string().optional() })
-    .optional(),
   sourceHarness: z.string().optional(),
 });
-export type SaveOptions = z.infer<typeof SaveOptionsSchema>;
 
 export const MemoryPatchSchema = z.object({
   content: z.string().min(1).optional(),
@@ -173,3 +181,12 @@ export const ProjectRowSchema = z.object({
   updated_at: z.string(),
 });
 export type ProjectRow = z.infer<typeof ProjectRowSchema>;
+
+export const CapabilityRowSchema = z.object({
+  id: z.string(),
+  kind: CapabilityKindSchema,
+  key: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type CapabilityRow = z.infer<typeof CapabilityRowSchema>;

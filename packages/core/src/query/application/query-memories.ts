@@ -1,11 +1,20 @@
 import type { ActivityLogger } from "../../activity/ports.js";
 import { noopActivityLogger } from "../../activity/ports.js";
+import type { MemoryQueryScope } from "../../capability/domain/memory-target.js";
 import type { Embedder } from "../../memory/ports.js";
 import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
-import type { QueryOptions } from "../../schemas.js";
-import { QueryOptionsSchema } from "../../schemas.js";
+import type { MemoryType } from "../../schemas.js";
+import { QueryFieldsSchema } from "../../schemas.js";
 import { computeScore } from "../domain/scoring.js";
 import type { QueryAdapter, ScoredMemory } from "../ports.js";
+
+export type QueryOptions = {
+  query: string;
+  type?: MemoryType;
+  limit?: number;
+  includePinned?: boolean;
+  scope: MemoryQueryScope;
+};
 
 export async function queryMemories(
   options: QueryOptions,
@@ -15,14 +24,15 @@ export async function queryMemories(
     activityLogger?: ActivityLogger;
   }
 ): Promise<ScoredMemory[]> {
-  const { query, type, projectHash, limit = 10, includePinned } = QueryOptionsSchema.parse(options);
+  const { query, type, limit = 10, includePinned } = QueryFieldsSchema.parse(options);
   const { activityLogger = noopActivityLogger } = deps;
+  const scopeFilter = toScopeFilter(options.scope);
 
   const queryEmbedding = await deps.embedder.embed(query);
 
   const rows = deps.adapter.findByEmbedding(queryEmbedding, {
     ...(type !== undefined && { type }),
-    ...(projectHash !== undefined && { projectHash }),
+    ...scopeFilter,
     ...(includePinned !== undefined && { includePinned }),
   });
 
@@ -42,7 +52,7 @@ export async function queryMemories(
   }
 
   activityLogger.logEvent({
-    projectHash: projectHash ?? GLOBAL_SCOPE_HASH,
+    projectHash: scopeFilter.projectHash ?? GLOBAL_SCOPE_HASH,
     eventType: "memory.queried",
     payload: {
       query,
@@ -52,4 +62,21 @@ export async function queryMemories(
   });
 
   return results;
+}
+
+function toScopeFilter(scope: MemoryQueryScope): { projectHash?: string; capabilityKey?: string } {
+  switch (scope.tag) {
+    case "current":
+      return { projectHash: scope.projectHash };
+    case "global":
+      return { projectHash: GLOBAL_SCOPE_HASH };
+    case "all":
+      return {};
+    case "capability":
+      return { capabilityKey: scope.key.toString() };
+    default: {
+      const _exhaustive: never = scope;
+      throw new Error(`Unhandled query scope: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
 }

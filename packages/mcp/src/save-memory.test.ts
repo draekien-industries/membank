@@ -195,7 +195,11 @@ describe("save_memory tool", () => {
     cleanup = session.cleanup;
 
     await saveMemory(
-      { content: "always use TypeScript strict mode for all projects", type: "preference" },
+      {
+        content: "always use TypeScript strict mode for all projects",
+        type: "preference",
+        target: { tag: "global" },
+      },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 
@@ -213,6 +217,7 @@ describe("save_memory tool", () => {
       query: "TypeScript strict mode",
       type: "preference",
       limit: 10,
+      scope: { tag: "all" },
     });
 
     expect(results.length).toBe(1);

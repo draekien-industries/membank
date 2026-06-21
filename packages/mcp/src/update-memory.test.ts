@@ -68,7 +68,7 @@ describe("update_memory tool", () => {
     cleanup = session.cleanup;
 
     const saved = await saveMemory(
-      { content: "use tabs for indentation", type: "preference" },
+      { content: "use tabs for indentation", type: "preference", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 
@@ -87,7 +87,12 @@ describe("update_memory tool", () => {
     cleanup = session.cleanup;
 
     const saved = await saveMemory(
-      { content: "prefer functional components", type: "preference", tags: ["react"] },
+      {
+        content: "prefer functional components",
+        type: "preference",
+        tags: ["react"],
+        target: { tag: "global" },
+      },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 
@@ -132,7 +137,7 @@ describe("update_memory tool", () => {
     cleanup = session.cleanup;
 
     const saved = await saveMemory(
-      { content: "always use semicolons", type: "preference" },
+      { content: "always use semicolons", type: "preference", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 
@@ -152,7 +157,7 @@ describe("update_memory tool", () => {
     cleanup = session.cleanup;
 
     const saved = await saveMemory(
-      { content: "old content", type: "fact" },
+      { content: "old content", type: "fact", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 

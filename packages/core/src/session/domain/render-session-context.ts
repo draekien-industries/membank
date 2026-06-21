@@ -1,8 +1,5 @@
 import type { Memory, SessionContext } from "../../schemas.js";
-
-function xmlEscape(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
+import { xmlEscape } from "./xml.js";
 
 export function renderSessionContext(ctx: SessionContext): string {
   const parts: string[] = [];

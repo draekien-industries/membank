@@ -398,6 +398,24 @@ COMMIT;
 PRAGMA foreign_keys = ON;
 `,
   ],
+  [
+    16,
+    `
+CREATE TABLE capabilities (
+  id         TEXT PRIMARY KEY,
+  kind       TEXT NOT NULL CHECK(kind IN ('tool', 'skill')),
+  key        TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE memory_capabilities (
+  memory_id     TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+  capability_id TEXT NOT NULL REFERENCES capabilities(id) ON DELETE CASCADE,
+  PRIMARY KEY (memory_id, capability_id)
+);
+`,
+  ],
 ];
 
 export class DatabaseManager {

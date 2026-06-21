@@ -1,4 +1,4 @@
-import type { EmbeddingService } from "@membank/core";
+import type { EmbeddingService, MemoryTarget } from "@membank/core";
 import {
   createActivityLogger,
   createMemoryRepository,
@@ -35,7 +35,9 @@ export async function addCommand(
 
     const tags = options.tags !== undefined ? options.tags.split(",").map((t) => t.trim()) : [];
 
-    const projectScope = options.global ? undefined : await resolveProject();
+    const target: MemoryTarget = options.global
+      ? { tag: "global" }
+      : { tag: "project", scope: await resolveProject() };
 
     const spinner = formatter.isJson ? null : ora("Saving memory…").start();
     const memory = await saveMemory(
@@ -43,7 +45,7 @@ export async function addCommand(
         content,
         type: MemoryTypeSchema.parse(options.type),
         tags,
-        projectScope,
+        target,
       },
       { repo, embedder, activityLogger }
     );

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CapabilityKey } from "../capability/domain/capability-key.js";
 import { DatabaseManager } from "../db/manager.js";
 import type { Embedder } from "../memory/ports.js";
 import type { QueryEngine } from "./engine.js";
@@ -67,6 +68,28 @@ function associateMemoryProject(db: DatabaseManager, memoryId: string, projectId
     .run(memoryId, projectId);
 }
 
+function insertCapability(db: DatabaseManager, key: string): string {
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  const kind = key.split(":")[0];
+  db.db
+    .prepare(
+      `INSERT INTO capabilities (id, kind, key, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+    )
+    .run(id, kind, key, now, now);
+  return id;
+}
+
+function associateMemoryCapability(
+  db: DatabaseManager,
+  memoryId: string,
+  capabilityId: string
+): void {
+  db.db
+    .prepare(`INSERT INTO memory_capabilities (memory_id, capability_id) VALUES (?, ?)`)
+    .run(memoryId, capabilityId);
+}
+
 function getAccessCount(db: DatabaseManager, id: string): number {
   const row = db.db
     .prepare<[string], { access_count: number }>("SELECT access_count FROM memories WHERE id = ?")
@@ -88,7 +111,7 @@ describe("QueryEngine", () => {
   it("returns empty array when no memories exist", async () => {
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "anything" });
+    const results = await engine.query({ query: "anything", scope: { tag: "all" } });
 
     expect(results).toEqual([]);
   });
@@ -110,7 +133,7 @@ describe("QueryEngine", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test" });
+    const results = await engine.query({ query: "test", scope: { tag: "all" } });
 
     expect(results.length).toBe(2);
     expect(results[0]?.id).toBe("correction-1");
@@ -138,7 +161,7 @@ describe("QueryEngine", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test" });
+    const results = await engine.query({ query: "test", scope: { tag: "all" } });
 
     expect(results.length).toBe(2);
     expect(results[0]?.id).toBe("fact-high-sim");
@@ -162,7 +185,11 @@ describe("QueryEngine", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test", type: "correction" });
+    const results = await engine.query({
+      query: "test",
+      type: "correction",
+      scope: { tag: "all" },
+    });
 
     expect(results.length).toBe(1);
     expect(results[0]?.type).toBe("correction");
@@ -188,7 +215,10 @@ describe("QueryEngine", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test", projectHash: "abcdef0000000000" });
+    const results = await engine.query({
+      query: "test",
+      scope: { tag: "current", projectHash: "abcdef0000000000" },
+    });
 
     expect(results.length).toBe(1);
     expect(results[0]?.id).toBe("project-1");
@@ -218,7 +248,10 @@ describe("QueryEngine", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test", projectHash: "abcdef0000000000" });
+    const results = await engine.query({
+      query: "test",
+      scope: { tag: "current", projectHash: "abcdef0000000000" },
+    });
     const ids = results.map((r) => r.id).sort();
 
     expect(ids).toEqual(["global-1", "project-1"]);
@@ -240,7 +273,7 @@ describe("QueryEngine", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test" });
+    const results = await engine.query({ query: "test", scope: { tag: "all" } });
 
     expect(results.length).toBe(2);
     expect(getAccessCount(dbManager, "mem-1")).toBe(1);
@@ -257,7 +290,7 @@ describe("QueryEngine", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test" });
+    const results = await engine.query({ query: "test", scope: { tag: "all" } });
 
     expect(results.length).toBe(1);
     expect(typeof results[0]?.score).toBe("number");
@@ -276,7 +309,7 @@ describe("QueryEngine", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test", limit: 3 });
+    const results = await engine.query({ query: "test", limit: 3, scope: { tag: "all" } });
 
     expect(results.length).toBe(3);
   });
@@ -299,7 +332,7 @@ describe("QueryEngine", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test" });
+    const results = await engine.query({ query: "test", scope: { tag: "all" } });
 
     expect(results.length).toBe(2);
     expect(results[0]?.id).toBe("correction-1");
@@ -325,7 +358,7 @@ describe("QueryEngine", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test" });
+    const results = await engine.query({ query: "test", scope: { tag: "all" } });
 
     expect(results.length).toBe(1);
     expect(results[0]?.id).toBe("unpinned-1");
@@ -349,7 +382,11 @@ describe("QueryEngine", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test", includePinned: true });
+    const results = await engine.query({
+      query: "test",
+      includePinned: true,
+      scope: { tag: "all" },
+    });
 
     expect(results.length).toBe(2);
     expect(results[0]?.id).toBe("pinned-1");
@@ -369,8 +406,35 @@ describe("QueryEngine", () => {
     // Query with embedding at dimension 0 — cosine_sim = 0
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test" });
+    const results = await engine.query({ query: "test", scope: { tag: "all" } });
 
     expect(results).toEqual([]);
+  });
+
+  it("capability scope returns only memories associated with that capability", async () => {
+    insertMemory(dbManager, {
+      id: "cap-mem",
+      content: "Capability memory",
+      type: "fact",
+      embedding: unitVec(0),
+    });
+    insertMemory(dbManager, {
+      id: "other-mem",
+      content: "Unrelated memory",
+      type: "fact",
+      embedding: unitVec(0),
+    });
+
+    const capId = insertCapability(dbManager, "tool:Bash");
+    associateMemoryCapability(dbManager, "cap-mem", capId);
+
+    vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
+
+    const results = await engine.query({
+      query: "test",
+      scope: { tag: "capability", key: CapabilityKey.forTool("Bash") },
+    });
+
+    expect(results.map((r) => r.id)).toEqual(["cap-mem"]);
   });
 });

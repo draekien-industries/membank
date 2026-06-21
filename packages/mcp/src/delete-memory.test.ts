@@ -68,7 +68,7 @@ describe("delete_memory tool", () => {
     cleanup = session.cleanup;
 
     const saved = await saveMemory(
-      { content: "temporary preference", type: "preference" },
+      { content: "temporary preference", type: "preference", target: { tag: "global" } },
       { repo: session.core.repo, embedder: session.core.embedding }
     );
 

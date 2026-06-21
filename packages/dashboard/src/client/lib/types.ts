@@ -168,3 +168,19 @@ export type BulkOpResult = {
   status: "ok" | "error";
   error?: string;
 };
+
+export type CapabilityKind = "tool" | "skill";
+
+export type Capability = {
+  id: string;
+  kind: CapabilityKind;
+  key: string;
+  createdAt: string;
+  updatedAt: string;
+  memoryCount: number;
+};
+
+export type CapabilitiesResponse = {
+  tools: Capability[];
+  skills: Capability[];
+};

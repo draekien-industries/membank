@@ -3,6 +3,7 @@ import type {
   ActivityEvent,
   ActivityEventFilter,
   BulkOpResult,
+  CapabilitiesResponse,
   Filters,
   Memory,
   MemoryCluster,
@@ -197,4 +198,13 @@ export function getActivityEvents(filter: ActivityEventFilter): Promise<Activity
   if (filter.since !== undefined) params.set("since", filter.since);
   if (filter.limit !== undefined) params.set("limit", String(filter.limit));
   return request<ActivityEvent[]>(`/activity/events${buildQs(params)}`);
+}
+
+export function listCapabilities(): Promise<CapabilitiesResponse> {
+  return request<CapabilitiesResponse>("/capabilities");
+}
+
+export function listCapabilityMemories(key: string): Promise<Memory[]> {
+  const params = new URLSearchParams({ key });
+  return request<Memory[]>(`/capabilities/memories?${params.toString()}`);
 }

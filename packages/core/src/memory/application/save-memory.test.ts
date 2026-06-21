@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CapabilityKey } from "../../capability/domain/capability-key.js";
+import type { CapabilityRepository } from "../../capability/ports.js";
 import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type { Memory, MemoryType } from "../domain/memory.js";
 import type {
@@ -94,6 +96,26 @@ function makeEmbedder(vec: Float32Array): Embedder {
   return { embed: vi.fn().mockResolvedValue(vec) };
 }
 
+function makeFakeCapabilities(
+  associateCalls: Array<{ memoryId: string; capabilityId: string }>
+): CapabilityRepository {
+  return {
+    upsertByKey: (key) => ({
+      id: `cap-${key.toString()}`,
+      kind: key.kind,
+      key: key.toString(),
+      createdAt: "",
+      updatedAt: "",
+    }),
+    findByKey: () => null,
+    listByKind: () => [],
+    associate: (memoryId, capabilityId) => {
+      associateCalls.push({ memoryId, capabilityId });
+    },
+    allMemoriesForCapability: () => [],
+  };
+}
+
 describe("saveMemory", () => {
   let embedding: Float32Array;
 
@@ -107,7 +129,7 @@ describe("saveMemory", () => {
     const embedder = makeEmbedder(embedding);
 
     const result = await saveMemory(
-      { content: "Use tabs", type: "preference" },
+      { content: "Use tabs", type: "preference", target: { tag: "global" } },
       { repo, embedder }
     );
 
@@ -124,7 +146,10 @@ describe("saveMemory", () => {
     const repo = makeFakeRepo([{ id: existingId, similarity: 0.95 }]);
     const embedder = makeEmbedder(embedding);
 
-    await saveMemory({ content: "Updated content", type: "preference" }, { repo, embedder });
+    await saveMemory(
+      { content: "Updated content", type: "preference", target: { tag: "global" } },
+      { repo, embedder }
+    );
 
     expect(repo.overwriteCalls).toHaveLength(1);
     expect(repo.overwriteCalls[0]?.id).toBe(existingId);
@@ -139,7 +164,7 @@ describe("saveMemory", () => {
     const embedder = makeEmbedder(embedding);
 
     const result = await saveMemory(
-      { content: "Similar content", type: "learning" },
+      { content: "Similar content", type: "learning", target: { tag: "global" } },
       { repo, embedder }
     );
 
@@ -157,14 +182,17 @@ describe("saveMemory", () => {
     const repo = makeFakeRepo([{ id: existingId, similarity: 0.5 }]);
     const embedder = makeEmbedder(embedding);
 
-    await saveMemory({ content: "Different content", type: "fact" }, { repo, embedder });
+    await saveMemory(
+      { content: "Different content", type: "fact", target: { tag: "global" } },
+      { repo, embedder }
+    );
 
     expect(repo.createCalls).toHaveLength(1);
     expect(repo.overwriteCalls).toHaveLength(0);
     expect(repo.reviewEventCalls).toHaveLength(0);
   });
 
-  it("passes projectScope and tags to create", async () => {
+  it("passes project scope and tags to create", async () => {
     const repo = makeFakeRepo([]);
     const embedder = makeEmbedder(embedding);
 
@@ -173,7 +201,7 @@ describe("saveMemory", () => {
         content: "Tagged memory",
         type: "decision",
         tags: ["a", "b"],
-        projectScope: { hash: "abcdef0123456789", name: "proj" },
+        target: { tag: "project", scope: { hash: "abcdef0123456789", name: "proj" } },
         sourceHarness: "claude",
       },
       { repo, embedder }
@@ -185,12 +213,53 @@ describe("saveMemory", () => {
     expect(created?.sourceHarness).toBe("claude");
   });
 
+  it("creates a capability memory without a project association and associates it", async () => {
+    const repo = makeFakeRepo([{ id: randomUUID(), similarity: 0.99 }]);
+    const embedder = makeEmbedder(embedding);
+    const associateCalls: Array<{ memoryId: string; capabilityId: string }> = [];
+    const capabilities = makeFakeCapabilities(associateCalls);
+
+    const result = await saveMemory(
+      {
+        content: "Bash needs -e",
+        type: "learning",
+        target: { tag: "capability", key: CapabilityKey.forTool("Bash") },
+      },
+      { repo, embedder, capabilities }
+    );
+
+    expect(repo.createCalls).toHaveLength(1);
+    expect(repo.createCalls[0]?.projectScope).toBeUndefined();
+    expect(repo.overwriteCalls).toHaveLength(0);
+    expect(repo.reviewEventCalls).toHaveLength(0);
+    expect(associateCalls).toEqual([{ memoryId: result.id, capabilityId: "cap-tool:Bash" }]);
+  });
+
+  it("throws when a capability target is saved without a CapabilityRepository", async () => {
+    const repo = makeFakeRepo([]);
+    const embedder = makeEmbedder(embedding);
+
+    await expect(
+      saveMemory(
+        {
+          content: "x",
+          type: "fact",
+          target: { tag: "capability", key: CapabilityKey.forSkill("simplify") },
+        },
+        { repo, embedder }
+      )
+    ).rejects.toThrow(/CapabilityRepository/);
+  });
+
   it("uses the 'fact' type boundary: similarity exactly at 0.92 → flag", async () => {
     const existingId = randomUUID();
     const repo = makeFakeRepo([{ id: existingId, similarity: 0.92 }]);
     const embedder = makeEmbedder(embedding);
 
-    await saveMemory({ content: "Boundary", type: "fact" }, { repo, embedder });
+    await saveMemory(
+      { content: "Boundary", type: "fact", target: { tag: "global" } },
+      { repo, embedder }
+    );
 
     expect(repo.reviewEventCalls).toHaveLength(1);
     expect(repo.overwriteCalls).toHaveLength(0);
@@ -200,7 +269,10 @@ describe("saveMemory", () => {
     const repo = makeFakeRepo([]);
     const embedder = makeEmbedder(embedding);
 
-    await saveMemory({ content: "Some content", type: "fact" }, { repo, embedder });
+    await saveMemory(
+      { content: "Some content", type: "fact", target: { tag: "global" } },
+      { repo, embedder }
+    );
 
     expect(embedder.embed).toHaveBeenCalledWith("Some content");
   });
@@ -212,7 +284,10 @@ describe("saveMemory — type validation", () => {
     const embedder = makeEmbedder(new Float32Array(1));
 
     await expect(
-      saveMemory({ content: "x", type: "invalid" as MemoryType }, { repo, embedder })
+      saveMemory(
+        { content: "x", type: "invalid" as MemoryType, target: { tag: "global" } },
+        { repo, embedder }
+      )
     ).rejects.toThrow();
   });
 });

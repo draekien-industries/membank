@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { MEMORY_GUIDANCE } from "./inject.js";
+import { deriveCapabilityKey, MEMORY_GUIDANCE } from "./inject.js";
 
 vi.mock("@membank/core", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@membank/core")>();
@@ -73,6 +73,31 @@ describe("injectCommand — claude-code user-prompt-submit no-op", () => {
     expect(output).toBe("");
     expect(exitSpy).toHaveBeenCalledWith(0);
     exitSpy.mockRestore();
+  });
+});
+
+describe("deriveCapabilityKey", () => {
+  it("maps a Skill invocation to skill:<name> from tool_input.skill", () => {
+    const key = deriveCapabilityKey("Skill", { skill: "shadcn" });
+    expect(key?.toString()).toBe("skill:shadcn");
+  });
+
+  it("maps any other tool to tool:<name> from tool_name", () => {
+    expect(deriveCapabilityKey("Bash", { command: "ls" })?.toString()).toBe("tool:Bash");
+    expect(deriveCapabilityKey("mcp__memory__save", {})?.toString()).toBe("tool:mcp__memory__save");
+  });
+
+  it("returns null when tool_name is missing or empty", () => {
+    expect(deriveCapabilityKey(undefined, {})).toBeNull();
+    expect(deriveCapabilityKey("", {})).toBeNull();
+    expect(deriveCapabilityKey(123, {})).toBeNull();
+  });
+
+  it("returns null when a Skill invocation has no usable skill field", () => {
+    expect(deriveCapabilityKey("Skill", {})).toBeNull();
+    expect(deriveCapabilityKey("Skill", { skill: "" })).toBeNull();
+    expect(deriveCapabilityKey("Skill", { skill: "   " })).toBeNull();
+    expect(deriveCapabilityKey("Skill", null)).toBeNull();
   });
 });
 

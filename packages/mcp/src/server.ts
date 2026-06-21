@@ -3,17 +3,22 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type {
   ActivityLogger,
+  CapabilityRepository,
   Embedder,
   ExtractionTools,
+  MemoryQueryScope,
   MemoryRepository,
+  MemoryTarget,
   ProjectRepository,
   Querier,
   SynthesisConfig,
   SynthesisRepository,
 } from "@membank/core";
 import {
+  CapabilityKey,
   clusterFlagged,
   createActivityLogger,
+  createCapabilityRepository,
   createMemoryRepository,
   createProjectRepository,
   createQueryEngine,
@@ -75,6 +80,7 @@ export interface CoreServices {
   repo: MemoryRepository;
   query: Querier;
   projects: ProjectRepository;
+  capabilities: CapabilityRepository;
   activityLogger: ActivityLogger;
   synthRepo: SynthesisRepository;
   synthEngine?: SynthesisEngine;
@@ -118,33 +124,37 @@ function loadSynthesisConfig(): SynthesisConfig {
 export function buildExtractionTools(
   repo: MemoryRepository,
   query: Querier,
-  embedder: Embedder
+  embedder: Embedder,
+  capabilities: CapabilityRepository
 ): ExtractionTools {
   return {
     queryMemory: async (args) => {
-      const projectHash =
+      const scope: MemoryQueryScope =
         args.global === true
-          ? GLOBAL_SCOPE_HASH
-          : (args.projectHash ?? (await resolveProject()).hash);
+          ? { tag: "global" }
+          : { tag: "current", projectHash: args.projectHash ?? (await resolveProject()).hash };
       const results = await query.query({
         query: args.query,
-        projectHash,
+        scope,
         limit: args.limit ?? 10,
         includePinned: true,
       });
       return JSON.stringify(results);
     },
     saveMemory: async (args) => {
-      const projectScope = args.global === true ? undefined : await resolveProject();
+      const target: MemoryTarget =
+        args.global === true
+          ? { tag: "global" }
+          : { tag: "project", scope: await resolveProject() };
       const memory = await saveMemory(
         {
           content: args.content,
           type: MemoryTypeSchema.parse(args.type),
-          tags: args.tags,
-          projectScope,
+          ...(args.tags !== undefined && { tags: args.tags }),
+          target,
           sourceHarness: "membank-extraction",
         },
-        { repo, embedder }
+        { repo, embedder, capabilities }
       );
       return JSON.stringify(memory);
     },
@@ -170,6 +180,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
   const embedding = new EmbeddingService();
   const projects = createProjectRepository(db);
   const repo = createMemoryRepository(db, projects);
+  const capabilities = createCapabilityRepository(db, projects);
   const activityLogger = createActivityLogger(db);
   const query = createQueryEngine(db, embedding, activityLogger);
 
@@ -188,6 +199,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
     repo,
     query,
     projects,
+    capabilities,
     activityLogger,
     synthRepo,
     ...(synthEngine !== undefined && { synthEngine }),
@@ -200,6 +212,29 @@ async function scopeToProjectHash(
   if (scope === GLOBAL_PROJECT_NAME) return GLOBAL_SCOPE_HASH;
   if (scope === "all") return undefined;
   return (await resolveProject()).hash;
+}
+
+// `(string & {})` keeps the literal hints in autocomplete while still admitting any
+// capability key string (e.g. "tool:Bash") without the union collapsing to plain `string`.
+export async function parseSaveScope(
+  scope: "current" | "global" | (string & {}) | undefined
+): Promise<MemoryTarget> {
+  if (scope === "global") return { tag: "global" };
+  if (scope === undefined || scope === "current") {
+    return { tag: "project", scope: await resolveProject() };
+  }
+  return { tag: "capability", key: CapabilityKey.parse(scope) };
+}
+
+export async function parseQueryScope(
+  scope: "current" | "global" | "all" | (string & {}) | undefined
+): Promise<MemoryQueryScope> {
+  if (scope === "global") return { tag: "global" };
+  if (scope === "all") return { tag: "all" };
+  if (scope === undefined || scope === "current") {
+    return { tag: "current", projectHash: (await resolveProject()).hash };
+  }
+  return { tag: "capability", key: CapabilityKey.parse(scope) };
 }
 
 function parseArgs<T>(schema: { parse: (v: unknown) => T }, raw: unknown): T {
@@ -239,9 +274,8 @@ export function createServer(core: CoreServices): Server {
             },
             scope: {
               type: "string",
-              enum: ["current", "global"],
               description:
-                '"current" (default) = scoped to this project; "global" = saved as a global memory',
+                '"current" (default) = scoped to this project; "global" = saved as a global memory; "tool:<name>"/"skill:<name>" = saved against that capability',
             },
           },
           required: ["content", "type"],
@@ -302,9 +336,8 @@ export function createServer(core: CoreServices): Server {
             },
             scope: {
               type: "string",
-              enum: ["current", "global", "all"],
               description:
-                '"current" (default) = project + global; "global" = global memories only; "all" = all projects',
+                '"current" (default) = project + global; "global" = global memories only; "all" = all projects; "tool:<name>"/"skill:<name>" = memories for that capability',
             },
           },
           required: ["query"],
@@ -530,12 +563,22 @@ export function createServer(core: CoreServices): Server {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (request.params.name === "save_memory") {
       const args = parseArgs(SaveMemoryArgsSchema, request.params.arguments);
-      const projectScope = args.scope === "global" ? undefined : await resolveProject();
 
       try {
+        const target = await parseSaveScope(args.scope);
         const memory = await saveMemory(
-          { content: args.content, type: args.type, tags: args.tags, projectScope },
-          { repo: core.repo, embedder: core.embedding, activityLogger: core.activityLogger }
+          {
+            content: args.content,
+            type: args.type,
+            ...(args.tags !== undefined && { tags: args.tags }),
+            target,
+          },
+          {
+            repo: core.repo,
+            embedder: core.embedding,
+            capabilities: core.capabilities,
+            activityLogger: core.activityLogger,
+          }
         );
 
         if (core.synthEngine !== undefined) {
@@ -605,15 +648,15 @@ export function createServer(core: CoreServices): Server {
 
     if (request.params.name === "query_memory") {
       const args = parseArgs(QueryMemoryArgsSchema, request.params.arguments);
-      const projectHash = await scopeToProjectHash(args.scope);
 
       try {
+        const scope = await parseQueryScope(args.scope);
         const results = await core.query.query({
           query: args.query,
-          type: args.type,
-          projectHash,
+          ...(args.type !== undefined && { type: args.type }),
+          scope,
           limit: args.limit ?? 10,
-          includePinned: args.includePinned,
+          ...(args.includePinned !== undefined && { includePinned: args.includePinned }),
         });
 
         const serialised = results.map((r) => ({

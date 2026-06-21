@@ -1,6 +1,8 @@
 import type { MemoryVersion } from "../../memory/domain/memory-version.js";
 import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type {
+  Capability,
+  CapabilityRow,
   Memory,
   MemoryRow,
   MemoryVersionRow,
@@ -54,6 +56,16 @@ export function rowToProject(row: ProjectRow): Project {
     name: row.name,
     scopeHash: row.scope_hash,
     origin: row.origin,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function rowToCapability(row: CapabilityRow): Capability {
+  return {
+    id: row.id,
+    kind: row.kind,
+    key: row.key,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

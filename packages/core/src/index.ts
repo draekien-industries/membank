@@ -1,4 +1,5 @@
 export * from "./activity/index.js";
+export * from "./capability/index.js";
 export * from "./config/index.js";
 export * from "./db/index.js";
 export * from "./embedding/index.js";

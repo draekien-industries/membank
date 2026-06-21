@@ -84,7 +84,10 @@ describe("query command integration — real in-memory SQLite", () => {
 
     const formatter = new Formatter(false);
     const output = await captureStdoutAsync(async () => {
-      const results = await engine.query({ query: "typescript preferences" });
+      const results = await engine.query({
+        query: "typescript preferences",
+        scope: { tag: "all" },
+      });
       formatter.outputQueryResults(results);
     });
 
@@ -109,7 +112,10 @@ describe("query command integration — real in-memory SQLite", () => {
 
     const formatter = new Formatter(true);
     const output = await captureStdoutAsync(async () => {
-      const results = await engine.query({ query: "typescript preferences" });
+      const results = await engine.query({
+        query: "typescript preferences",
+        scope: { tag: "all" },
+      });
       formatter.outputQueryResults(results);
     });
 
@@ -136,7 +142,11 @@ describe("query command integration — real in-memory SQLite", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results: QueryResult[] = await engine.query({ query: "code style", type: "correction" });
+    const results: QueryResult[] = await engine.query({
+      query: "code style",
+      type: "correction",
+      scope: { tag: "all" },
+    });
 
     expect(results.every((r: QueryResult) => r.type === "correction")).toBe(true);
     expect(results.some((r: QueryResult) => r.id === "correction-1")).toBe(true);
@@ -159,7 +169,7 @@ describe("query command integration — real in-memory SQLite", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test" });
+    const results = await engine.query({ query: "test", scope: { tag: "all" } });
 
     expect(results.length).toBeGreaterThan(1);
     for (let i = 1; i < results.length; i++) {
@@ -176,7 +186,7 @@ describe("query command integration — real in-memory SQLite", () => {
 
     const formatter = new Formatter(true);
     const output = await captureStdoutAsync(async () => {
-      const results = await engine.query({ query: "nothing" });
+      const results = await engine.query({ query: "nothing", scope: { tag: "all" } });
       formatter.outputQueryResults(results);
     });
 
@@ -194,7 +204,7 @@ describe("query command integration — real in-memory SQLite", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "test" });
+    const results = await engine.query({ query: "test", scope: { tag: "all" } });
 
     expect(results.length).toBe(1);
     expect(typeof results[0]?.score).toBe("number");
@@ -218,7 +228,7 @@ describe("query command integration — real in-memory SQLite", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "preference" });
+    const results = await engine.query({ query: "preference", scope: { tag: "all" } });
 
     expect(results.some((r) => r.id === "pinned-1")).toBe(false);
     expect(results.some((r) => r.id === "unpinned-1")).toBe(true);
@@ -235,7 +245,11 @@ describe("query command integration — real in-memory SQLite", () => {
 
     vi.mocked(embeddingStub.embed).mockResolvedValue(unitVec(0));
 
-    const results = await engine.query({ query: "learning", includePinned: true });
+    const results = await engine.query({
+      query: "learning",
+      includePinned: true,
+      scope: { tag: "all" },
+    });
 
     expect(results.some((r) => r.id === "pinned-2")).toBe(true);
   });

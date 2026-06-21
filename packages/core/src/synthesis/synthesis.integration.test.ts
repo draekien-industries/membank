@@ -51,7 +51,7 @@ describe.skipIf(!runIntegration)("synthesis — integration (real Claude Haiku a
       {
         content: "Project standardises on the Bun runtime for all build scripts.",
         type: "decision",
-        projectScope: { hash: projectHash, name: "membank-int-synth" },
+        target: { tag: "project", scope: { hash: projectHash, name: "membank-int-synth" } },
         sourceHarness: "membank-test",
       },
       { repo, embedder: embedding }
@@ -60,7 +60,7 @@ describe.skipIf(!runIntegration)("synthesis — integration (real Claude Haiku a
       {
         content: "Never commit .vault files; they contain decryption keys.",
         type: "correction",
-        projectScope: { hash: projectHash, name: "membank-int-synth" },
+        target: { tag: "project", scope: { hash: projectHash, name: "membank-int-synth" } },
         sourceHarness: "membank-test",
       },
       { repo, embedder: embedding }
