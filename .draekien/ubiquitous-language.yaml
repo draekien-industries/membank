@@ -59,6 +59,31 @@ contexts:
         definition: A memory flagged pinned. Excluded from synthesis and always injected
           verbatim in its own section of the SessionContext.
         usage: A PinnedMemory never feeds a Synthesis; it is shown verbatim instead.
+      Capability:
+        definition: A tool or skill that memories can be grouped under, independent
+          of any Project. Identified by a stable key (tool:<toolName> or skill:<skillName>)
+          and carrying a kind of tool or skill. Distinct from Project (a working directory)
+          a Capability is an instrument the assistant uses, and its memories are transferable
+          across all Projects.
+        usage: A memory taught about the shadcn skill is associated with a Capability
+          (skill:shadcn), so it surfaces in every Project where that skill is used.
+        related:
+        - term: Project
+          relationship: sibling grouping entity
+        - term: Association
+          relationship: analogous to
+      CapabilityAssociation:
+        definition: The relationship between a memory and a Capability. Adding it links
+          a memory to a capability; removing it unlinks. Sibling to Association (which
+          binds specifically to memory and Project), kept separate so Project stays
+          uncoupled from Capability.
+        usage: Saving a memory with scope tool:Bash creates a CapabilityAssociation
+          between that memory and the tool:Bash Capability.
+        related:
+        - term: Capability
+          relationship: links
+        - term: Association
+          relationship: sibling of
   Architecture:
     terms:
       DomainLayer:
@@ -169,3 +194,17 @@ contexts:
           relationship: contains
         - term: PinnedMemory
           relationship: contains
+      CapabilityContext:
+        definition: The bundle injected before a tool or skill is used (PreToolUse)
+          the Capability's memories plus a capture nudge, emitted only when the Capability
+          has memories. Sibling to SessionContext (injected at session start, per Project
+          and Global); CapabilityContext is per-Capability and keyed lookup (no embeddings,
+          no Synthesis), returning up to the 25 most-recent memories unranked.
+        usage: Before the shadcn skill runs, the CapabilityContext for skill:shadcn
+          is injected via additionalContext; if that Capability has no memories, nothing
+          is injected.
+        related:
+        - term: SessionContext
+          relationship: analogous to
+        - term: Capability
+          relationship: describes
