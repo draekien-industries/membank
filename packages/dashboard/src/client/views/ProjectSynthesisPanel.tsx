@@ -17,6 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useProjectRow } from "@/hooks/useProjectRows";
 import { useProjectSynthesis } from "@/hooks/useProjectSynthesis";
 import { useSynthesisHistory } from "@/hooks/useSynthesisHistory";
 import { getSessionContext } from "@/lib/api";
@@ -33,9 +34,10 @@ import type {
 import { SYNTHESIS_PENDING } from "@/lib/types";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import {
-  AttentionBlock,
+  ActivityTrend,
   CompositionBars,
   OverviewHeader,
+  OverviewKpiStrip,
   RecentActivityList,
 } from "@/views/ProjectOverviewDashboard";
 
@@ -781,24 +783,27 @@ function SessionContextPanel({
 export function ProjectOverviewTab({ project }: { project: Project }) {
   const { syntheses, representative, isLoading, isStale, isStuck, error, run, reset } =
     useProjectSynthesis(project);
+  const row = useProjectRow(project, 30);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <div className="flex-1 min-h-0 overflow-y-auto px-8 py-6">
         <div className="max-w-[1100px] space-y-8">
           <OverviewHeader project={project} />
+          <OverviewKpiStrip
+            project={project}
+            row={row}
+            synthesis={representative}
+            isStale={isStale}
+            isStuck={isStuck}
+            isLoading={isLoading}
+          />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-8">
-            <CompositionBars projectId={project.id} />
             <div className="space-y-8">
-              <AttentionBlock
-                project={project}
-                synthesis={representative}
-                isStale={isStale}
-                isStuck={isStuck}
-                isLoading={isLoading}
-              />
-              <RecentActivityList scope={project.scopeHash} projectId={project.id} />
+              <CompositionBars projectId={project.id} counts={row.byType} />
+              <ActivityTrend projectId={project.id} />
             </div>
+            <RecentActivityList scope={project.scopeHash} projectId={project.id} />
           </div>
           <SessionContextPanel
             project={project}

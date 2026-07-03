@@ -17,9 +17,9 @@ export const StatsBar = forwardRef<HTMLDivElement, StatsBarProps>(function Stats
 
   return (
     <div ref={ref} className="flex items-center gap-3 text-muted-foreground">
-      <span className="text-xs">{stats.total} memories</span>
-      <span className="text-border">·</span>
-      <div className="flex items-center gap-1.5">
+      <span className="text-xs whitespace-nowrap">{stats.total} memories</span>
+      <span className="text-border hidden md:inline">·</span>
+      <div className="hidden md:flex items-center gap-1.5">
         {MEMORY_TYPES.map((type) => {
           const count = stats.byType[type];
           if (!count) return null;
