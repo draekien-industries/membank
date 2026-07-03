@@ -1,5 +1,15 @@
 # @membank/dashboard
 
+## 0.16.0
+
+### Minor Changes
+
+- 27c889a: Redesigned the dashboard pages around triage: the projects landing is now a dense sortable table (flagged projects first, with per-project composition bars, activity sparklines, and a single page-level time-range toggle), and the project overview tab gained a KPI strip, a stacked composition bar, and a 30-day activity trend.
+
+### Patch Changes
+
+- 27c889a: Fixed the header stats bar overflowing horizontally at narrow viewport widths by hiding the per-type badges below the md breakpoint while keeping the total and review badge visible.
+
 ## 0.15.0
 
 ### Minor Changes
