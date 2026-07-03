@@ -12,7 +12,6 @@ import type {
   MergeResult,
   OrphanSuggestion,
   Project,
-  ProjectStats,
   SessionContext,
   Stats,
   Synthesis,
@@ -126,10 +125,6 @@ export function runProjectSynthesis(projectId: string, memoryType?: MemoryType):
 
 export function resetProjectSynthesis(projectId: string): Promise<void> {
   return request<void>(`/projects/${projectId}/synthesis/in-flight`, { method: "DELETE" });
-}
-
-export function getProjectStats(projectId: string): Promise<ProjectStats> {
-  return request<ProjectStats>(`/projects/${projectId}/stats`);
 }
 
 export function getProjectActivity(projectId: string, days?: number): Promise<ActivityDay[]> {
