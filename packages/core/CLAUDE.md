@@ -76,7 +76,7 @@ be imported in `domain/` or `application/` layers.
 
 - **Storage**: SQLite at `~/.membank/memory.db` via `better-sqlite3` + `sqlite-vec` for vector search
 - **Embeddings**: `bge-small-en-v1.5` via `@huggingface/transformers`, CPU-only, cached at `~/.membank/models/`
-- **Dedup**: cosine similarity >0.92 same type+scope = auto-overwrite; 0.75–0.92 = flag `needs_review`
+- **Dedup**: cosine similarity compared within the same scope (any type) — >0.92 = auto-overwrite (keeps the existing memory's type); 0.75–0.92 = flag `needs_review`
 - **Session injection**: stats + all pinned global memories + all pinned project memories (deterministic, not algorithmic)
 - **Project scope**: derived from `git remote get-url origin` hash, fallback to cwd hash
 - **Browser-safe exports**: `@membank/core/client` subpath exports pure domain constants with no Node deps — safe to import in the dashboard browser bundle. The main `@membank/core` entry is server-only.

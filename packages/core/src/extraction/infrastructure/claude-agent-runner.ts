@@ -27,7 +27,7 @@ const EXTRACTION_SYSTEM_PROMPT = [
   "Process:",
   "1. Read the supplied transcript end-to-end.",
   "2. Identify only the signals that pass the durability test. List them mentally before calling tools.",
-  "3. Optional: call query_memory with focused search terms to avoid duplicates. If a near-duplicate exists, call update_memory instead of save_memory.",
+  "3. Before calling save_memory for a candidate, call query_memory with focused search terms to check for an existing near-duplicate. If one exists, call update_memory instead of save_memory.",
   '4. Call save_memory for each new durable signal. Phrase the content as a standalone instruction or fact — strip session framing. Good: "Use pnpm, not npm, for all dependency operations." Bad: "User said stop using npm." Bad: "query_memory should use scopeToProjectHash for global scope" (that only describes a fix you just made — the code already encodes it).',
   "5. Use `global: true` only when the fact is about the user themselves or applies across every project. Otherwise default to project scope (omit `global`).",
   "",

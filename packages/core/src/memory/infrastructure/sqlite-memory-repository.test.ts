@@ -99,14 +99,30 @@ describe.skipIf(!runIntegration)("SqliteMemoryRepository — integration (file-b
       projectScope: { hash: GLOBAL_SCOPE_HASH, name: "global" },
     });
 
-    const results = repo.findSimilar(makeEmbedding(0), "fact");
+    const results = repo.findSimilar(makeEmbedding(0));
     expect(results).toHaveLength(1);
     expect(results[0]?.similarity).toBeGreaterThan(0.99);
   });
 
   it("findSimilar() returns empty array when no memories exist", () => {
-    const results = repo.findSimilar(makeEmbedding(0), "fact");
+    const results = repo.findSimilar(makeEmbedding(0));
     expect(results).toEqual([]);
+  });
+
+  it("findSimilar() matches across types within the same scope", () => {
+    repo.create({
+      id: randomUUID(),
+      content: "cross-type memory",
+      type: "preference",
+      tags: [],
+      sourceHarness: null,
+      embedding: makeEmbedding(0),
+      projectScope: { hash: GLOBAL_SCOPE_HASH, name: "global" },
+    });
+
+    const results = repo.findSimilar(makeEmbedding(0));
+    expect(results).toHaveLength(1);
+    expect(results[0]?.similarity).toBeGreaterThan(0.99);
   });
 
   it("overwrite() updates content and returns updated memory", () => {

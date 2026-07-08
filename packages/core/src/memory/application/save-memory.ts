@@ -36,7 +36,7 @@ export async function saveMemory(
 
   const embedding = await embedder.embed(content);
 
-  const [top] = repo.findSimilar(embedding, type, dedupScope);
+  const [top] = repo.findSimilar(embedding, dedupScope);
 
   // capability memories are self-curated and unassociated from any project, so they bypass
   // the project/global-scoped dedup; the per-capability most-recent cap is their safety valve.
