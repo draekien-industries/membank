@@ -141,9 +141,25 @@ describe("saveMemory", () => {
     expect(result.content).toBe("Use tabs");
   });
 
+  it("flags instead of overwriting when similarity > 0.92 but types differ", async () => {
+    const existingId = randomUUID();
+    const repo = makeFakeRepo([{ id: existingId, type: "preference", similarity: 0.95 }]);
+    const embedder = makeEmbedder(embedding);
+
+    await saveMemory(
+      { content: "Decided to use tabs", type: "decision", target: { tag: "global" } },
+      { repo, embedder }
+    );
+
+    expect(repo.overwriteCalls).toHaveLength(0);
+    expect(repo.createCalls).toHaveLength(1);
+    expect(repo.reviewEventCalls).toHaveLength(1);
+    expect(repo.reviewEventCalls[0]?.memoryId).toBe(existingId);
+  });
+
   it("overwrites existing memory when similarity > 0.92", async () => {
     const existingId = randomUUID();
-    const repo = makeFakeRepo([{ id: existingId, similarity: 0.95 }]);
+    const repo = makeFakeRepo([{ id: existingId, type: "preference", similarity: 0.95 }]);
     const embedder = makeEmbedder(embedding);
 
     await saveMemory(
@@ -160,7 +176,7 @@ describe("saveMemory", () => {
 
   it("creates new memory AND flags existing when 0.75 <= similarity <= 0.92", async () => {
     const existingId = randomUUID();
-    const repo = makeFakeRepo([{ id: existingId, similarity: 0.85 }]);
+    const repo = makeFakeRepo([{ id: existingId, type: "learning", similarity: 0.85 }]);
     const embedder = makeEmbedder(embedding);
 
     const result = await saveMemory(
@@ -179,7 +195,7 @@ describe("saveMemory", () => {
 
   it("creates new memory without review event when similarity < 0.75", async () => {
     const existingId = randomUUID();
-    const repo = makeFakeRepo([{ id: existingId, similarity: 0.5 }]);
+    const repo = makeFakeRepo([{ id: existingId, type: "fact", similarity: 0.5 }]);
     const embedder = makeEmbedder(embedding);
 
     await saveMemory(
@@ -214,7 +230,7 @@ describe("saveMemory", () => {
   });
 
   it("creates a capability memory without a project association and associates it", async () => {
-    const repo = makeFakeRepo([{ id: randomUUID(), similarity: 0.99 }]);
+    const repo = makeFakeRepo([{ id: randomUUID(), type: "learning", similarity: 0.99 }]);
     const embedder = makeEmbedder(embedding);
     const associateCalls: Array<{ memoryId: string; capabilityId: string }> = [];
     const capabilities = makeFakeCapabilities(associateCalls);
@@ -253,7 +269,7 @@ describe("saveMemory", () => {
 
   it("uses the 'fact' type boundary: similarity exactly at 0.92 → flag", async () => {
     const existingId = randomUUID();
-    const repo = makeFakeRepo([{ id: existingId, similarity: 0.92 }]);
+    const repo = makeFakeRepo([{ id: existingId, type: "fact", similarity: 0.92 }]);
     const embedder = makeEmbedder(embedding);
 
     await saveMemory(

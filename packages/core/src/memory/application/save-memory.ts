@@ -36,12 +36,16 @@ export async function saveMemory(
 
   const embedding = await embedder.embed(content);
 
-  const [top] = repo.findSimilar(embedding, type, dedupScope);
+  const [top] = repo.findSimilar(embedding, dedupScope);
 
   // capability memories are self-curated and unassociated from any project, so they bypass
   // the project/global-scoped dedup; the per-capability most-recent cap is their safety valve.
   if (top !== undefined && target.tag !== "capability") {
-    const decision = classifyDuplicate(top.similarity);
+    const rawDecision = classifyDuplicate(top.similarity);
+    // Cross-type matches are never silently merged — a decision and a preference about the
+    // same topic are distinct records even when their wording is near-identical, so an
+    // overwrite-strength match across types is downgraded to a flag for human review.
+    const decision = rawDecision === "overwrite" && top.type !== type ? "flag" : rawDecision;
 
     if (decision === "overwrite") {
       const updated = repo.overwrite(top.id, content, embedding);

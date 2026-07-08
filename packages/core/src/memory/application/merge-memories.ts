@@ -50,7 +50,7 @@ export async function mergeMemories(
   });
 
   // Re-run dedup so the merged memory gets flagged if it's near another existing memory
-  const [top] = repo.findSimilar(embedding, keep.type, keep.primaryScopeHash);
+  const [top] = repo.findSimilar(embedding, keep.primaryScopeHash);
   if (top !== undefined && top.id !== keepId && classifyDuplicate(top.similarity) === "flag") {
     repo.createReviewEvent({
       memoryId: keepId,

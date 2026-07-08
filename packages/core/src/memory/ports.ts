@@ -4,6 +4,7 @@ import type { ReviewEvent } from "./domain/review-event.js";
 
 export interface SimilarMemoryResult {
   id: string;
+  type: MemoryType;
   similarity: number;
 }
 
@@ -77,11 +78,7 @@ export interface CreateReviewEventOpts {
 export interface MemoryRepository {
   findById(id: string): Memory | undefined;
   findManyById(ids: string[]): Memory[];
-  findSimilar(
-    embedding: Float32Array,
-    type: MemoryType,
-    projectHash?: string
-  ): SimilarMemoryResult[];
+  findSimilar(embedding: Float32Array, projectHash?: string): SimilarMemoryResult[];
   list(opts?: {
     type?: MemoryType;
     pinned?: boolean;

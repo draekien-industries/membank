@@ -46,39 +46,24 @@ export class SqliteMemoryRepository implements MemoryRepository {
     this.#projects = projects;
   }
 
-  findSimilar(
-    embedding: Float32Array,
-    type: MemoryType,
-    projectHash?: string
-  ): SimilarMemoryResult[] {
+  findSimilar(embedding: Float32Array, projectHash?: string): SimilarMemoryResult[] {
     const embeddingBlob = Buffer.from(embedding.buffer);
+    const scopeHash = projectHash ?? GLOBAL_SCOPE_HASH;
 
-    let row: SimilarityRow | undefined;
-    if (projectHash !== undefined) {
-      row = this.#db.db
-        .prepare<[Buffer, string, string], SimilarityRow>(
-          `SELECT m.rowid, m.*, (1 - vec_distance_cosine(e.embedding, ?)) AS similarity
-           FROM memories m JOIN embeddings e ON e.rowid = m.rowid
-           JOIN memory_projects mp ON mp.memory_id = m.id
-           JOIN projects p ON p.id = mp.project_id
-           WHERE m.type = ? AND p.scope_hash = ?
-           ORDER BY similarity DESC LIMIT 1`
-        )
-        .get(embeddingBlob, type, projectHash);
-    } else {
-      row = this.#db.db
-        .prepare<[Buffer, string, string], SimilarityRow>(
-          `SELECT m.rowid, m.*, (1 - vec_distance_cosine(e.embedding, ?)) AS similarity
-           FROM memories m JOIN embeddings e ON e.rowid = m.rowid
-           JOIN memory_projects mp ON mp.memory_id = m.id
-           JOIN projects p ON p.id = mp.project_id
-           WHERE m.type = ? AND p.scope_hash = ?
-           ORDER BY similarity DESC LIMIT 1`
-        )
-        .get(embeddingBlob, type, GLOBAL_SCOPE_HASH);
-    }
+    const row = this.#db.db
+      .prepare<[Buffer, string], SimilarityRow>(
+        `SELECT m.rowid, m.*, (1 - vec_distance_cosine(e.embedding, ?)) AS similarity
+         FROM memories m JOIN embeddings e ON e.rowid = m.rowid
+         JOIN memory_projects mp ON mp.memory_id = m.id
+         JOIN projects p ON p.id = mp.project_id
+         WHERE p.scope_hash = ?
+         ORDER BY similarity DESC LIMIT 1`
+      )
+      .get(embeddingBlob, scopeHash);
 
-    return row !== undefined ? [{ id: row.id, similarity: row.similarity }] : [];
+    return row !== undefined
+      ? [{ id: row.id, type: MemoryTypeSchema.parse(row.type), similarity: row.similarity }]
+      : [];
   }
 
   create(opts: CreateMemoryOpts): Memory {
