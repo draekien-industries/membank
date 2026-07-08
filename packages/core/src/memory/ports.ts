@@ -4,6 +4,7 @@ import type { ReviewEvent } from "./domain/review-event.js";
 
 export interface SimilarMemoryResult {
   id: string;
+  type: MemoryType;
   similarity: number;
 }
 

@@ -61,7 +61,9 @@ export class SqliteMemoryRepository implements MemoryRepository {
       )
       .get(embeddingBlob, scopeHash);
 
-    return row !== undefined ? [{ id: row.id, similarity: row.similarity }] : [];
+    return row !== undefined
+      ? [{ id: row.id, type: MemoryTypeSchema.parse(row.type), similarity: row.similarity }]
+      : [];
   }
 
   create(opts: CreateMemoryOpts): Memory {
