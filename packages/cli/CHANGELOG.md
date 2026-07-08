@@ -1,5 +1,13 @@
 # @membank/cli
 
+## 0.21.1
+
+### Patch Changes
+
+- Updated dependencies [8fd2e13]
+  - @membank/core@0.20.1
+  - @membank/mcp@0.19.1
+
 ## 0.21.0
 
 ### Minor Changes
