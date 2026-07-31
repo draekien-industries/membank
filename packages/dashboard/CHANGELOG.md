@@ -1,5 +1,20 @@
 # @membank/dashboard
 
+## 0.17.0
+
+### Minor Changes
+
+- 960b031: Added retention scoring so a memory that no session ever retrieves eventually surfaces for review. Score combines type weight, retrieval count, and a new corroboration count — incremented when a save re-affirms an existing memory instead of that signal being discarded — against an idle penalty that never touches a permanent memory and ramps for a stable one. Low-scoring memories appear in a new dashboard Retention lane for bulk deletion; nothing is ever deleted automatically.
+
+### Patch Changes
+
+- 960b031: Raised the dedup review threshold from 0.75 to 0.85 so topically adjacent memories are no longer flagged as near-duplicates. Half of every review queue was pairs in the 0.75–0.85 band that were never duplicates, which is what made the queue not worth opening. Auto-overwrite stays at 0.92.
+- Updated dependencies [960b031]
+- Updated dependencies [960b031]
+- Updated dependencies [960b031]
+- Updated dependencies [960b031]
+  - @membank/core@0.21.0
+
 ## 0.16.1
 
 ### Patch Changes

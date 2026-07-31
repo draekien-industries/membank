@@ -1,5 +1,14 @@
 # @membank/core
 
+## 0.21.0
+
+### Minor Changes
+
+- 960b031: Session-end extraction now classifies every candidate memory on durability, derivability and actionability, quotes the transcript span that supports it, and passes it through a testable admission gate before anything is stored. The gate rejects candidates that are tied to the current task, learnable from one file read, purely descriptive, or unquoted — the last two being what filled the corpus with memories no session ever retrieved. Rejections are logged for 30 days so the gate can be tuned against real data, and `membank doctor` reports the counts by clause.
+- 960b031: Extraction now skips sessions whose transcript is missing instead of recording a failure, retrying once in case the harness has not flushed the file yet, and reaps in-flight runs whose process died so they no longer block re-extraction. A new `membank doctor` command reports stuck runs, project scopes split between a local path and a git remote, the 30-day extraction failure rate, and Claude Code's native auto-memory — which competes with membank for captures — with `--fix` to apply repairs after confirmation. `membank setup` now detects the same auto-memory conflict and offers to turn it off, never writing the setting under `--yes` or `--json`.
+- 960b031: Raised the dedup review threshold from 0.75 to 0.85 so topically adjacent memories are no longer flagged as near-duplicates. Half of every review queue was pairs in the 0.75–0.85 band that were never duplicates, which is what made the queue not worth opening. Auto-overwrite stays at 0.92.
+- 960b031: Added retention scoring so a memory that no session ever retrieves eventually surfaces for review. Score combines type weight, retrieval count, and a new corroboration count — incremented when a save re-affirms an existing memory instead of that signal being discarded — against an idle penalty that never touches a permanent memory and ramps for a stable one. Low-scoring memories appear in a new dashboard Retention lane for bulk deletion; nothing is ever deleted automatically.
+
 ## 0.20.1
 
 ### Patch Changes
