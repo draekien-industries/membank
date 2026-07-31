@@ -64,6 +64,8 @@ membank projects list                      # list all projects with origin and m
 membank projects reconcile                 # merge orphaned worktree project into its parent
 membank setup                              # configure MCP server + injection hooks
 membank setup upgrade                      # migrate harness configs to standalone membank-mcp
+membank doctor                             # check pipeline health and harness conflicts
+membank doctor --fix                       # apply fixes, prompting before irreversible ones
 membank inject                             # output session context (called by hooks)
 membank inject --harness claude-code       # format output for a specific harness
 ```

@@ -4,7 +4,13 @@ CLI + npx entrypoint for Membank.
 
 ## Commands
 
-`query`, `add`, `list`, `pin`, `unpin`, `delete`, `stats`, `export`, `import`, `setup`, `review`, `migrate`, `config`, `synthesize`, `inject`
+`query`, `add`, `list`, `pin`, `unpin`, `delete`, `stats`, `export`, `import`, `setup`, `doctor`, `review`, `migrate`, `config`, `synthesize`, `inject`
+
+## doctor
+
+Read-only health check: native Claude Code auto-memory conflict, stuck `in_flight` extraction runs,
+split project scopes, and the 30-day extraction failure rate. `--fix` applies fixes, prompting
+before anything irreversible. `--json` for scripting.
 
 ## setup
 

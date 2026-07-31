@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { AutoMemoryGate, AutoMemoryOutcome } from "./auto-memory-gate.js";
 import type { HarnessConfigWriter } from "./harness-config-writer.js";
 import type { DetectedHarness } from "./harness-detector.js";
 import type { InjectionHookWriter, InspectResult } from "./injection-hook-writer.js";
@@ -36,6 +37,7 @@ function makeOrchestrator(opts: {
     cachePath: string;
     download: () => Promise<{ skipped: boolean }>;
   };
+  autoMemoryGate?: AutoMemoryGate;
 }): { orchestrator: SetupOrchestrator; lines: string[] } {
   const lines: string[] = [];
   const detected = opts.detected;
@@ -44,9 +46,16 @@ function makeOrchestrator(opts: {
     writer: opts.writer ?? makeWriter(),
     ...(opts.prompter !== undefined && { prompter: opts.prompter }),
     ...(opts.modelDownloader !== undefined && { modelDownloader: opts.modelDownloader }),
+    ...(opts.autoMemoryGate !== undefined && { autoMemoryGate: opts.autoMemoryGate }),
     out: (msg) => lines.push(msg),
   });
   return { orchestrator, lines };
+}
+
+function makeAutoMemoryGate(outcome: AutoMemoryOutcome = "reported"): AutoMemoryGate & {
+  run: ReturnType<typeof vi.fn>;
+} {
+  return { run: vi.fn().mockResolvedValue(outcome) };
 }
 
 // --- AC: no harnesses detected ---
@@ -690,5 +699,69 @@ describe("partial failure reporting", () => {
     const results = await orchestrator.run({ yes: true });
 
     expect(results.some((r) => r.status === "error")).toBe(true);
+  });
+});
+
+// --- AC: native auto-memory gate ---
+
+describe("native auto-memory gate", () => {
+  it("runs non-interactively under --yes so nothing is written unprompted", async () => {
+    const gate = makeAutoMemoryGate();
+    const { orchestrator } = makeOrchestrator({
+      detected: [makeHarness("claude-code")],
+      autoMemoryGate: gate,
+    });
+
+    await orchestrator.run({ yes: true });
+
+    expect(gate.run).toHaveBeenCalledOnce();
+    expect(gate.run.mock.calls[0]?.[0]).toMatchObject({ interactive: false });
+  });
+
+  it("runs interactively when neither --yes nor --json is set", async () => {
+    const gate = makeAutoMemoryGate();
+    const { orchestrator } = makeOrchestrator({
+      detected: [makeHarness("claude-code")],
+      autoMemoryGate: gate,
+      prompter: async () => true,
+    });
+
+    await orchestrator.run({});
+
+    expect(gate.run.mock.calls[0]?.[0]).toMatchObject({ interactive: true });
+  });
+
+  it("skips the gate when claude-code is not among the detected harnesses", async () => {
+    const gate = makeAutoMemoryGate();
+    const { orchestrator } = makeOrchestrator({
+      detected: [makeHarness("copilot")],
+      autoMemoryGate: gate,
+    });
+
+    await orchestrator.run({ yes: true });
+
+    expect(gate.run).not.toHaveBeenCalled();
+  });
+
+  it("reports the outcome in the JSON output", async () => {
+    const written: string[] = [];
+    const original = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (chunk: string | Uint8Array) => {
+      written.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString());
+      return true;
+    };
+    try {
+      const orchestrator = new SetupOrchestrator({
+        detector: () => [makeHarness("claude-code")],
+        writer: makeWriter(),
+        autoMemoryGate: makeAutoMemoryGate("reported"),
+      });
+      await orchestrator.run({ yes: true, json: true });
+    } finally {
+      process.stdout.write = original;
+    }
+
+    const parsed = JSON.parse(written.join("")) as { autoMemoryConflict: string };
+    expect(parsed.autoMemoryConflict).toBe("reported");
   });
 });

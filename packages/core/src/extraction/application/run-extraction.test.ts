@@ -9,14 +9,22 @@ import type {
 import { runExtraction } from "./run-extraction.js";
 
 function makeFakeRepo(initial?: ExtractionRunRecord): ExtractionRunRepository & {
-  state: { record: ExtractionRunRecord | undefined; claims: number };
+  state: { record: ExtractionRunRecord | undefined; claims: number; reaps: number };
 } {
-  const state: { record: ExtractionRunRecord | undefined; claims: number } = {
+  const state: { record: ExtractionRunRecord | undefined; claims: number; reaps: number } = {
     record: initial,
     claims: 0,
+    reaps: 0,
   };
   return {
     state,
+    reapStale() {
+      state.reaps += 1;
+      return 0;
+    },
+    stats() {
+      return { total: 0, failed: 0, staleInFlight: 0 };
+    },
     tryClaim(sessionId, now) {
       state.claims += 1;
       const existing = state.record;
@@ -56,10 +64,12 @@ function makeFakeRepo(initial?: ExtractionRunRecord): ExtractionRunRepository & 
 }
 
 const transcripts: TranscriptReader = {
-  read: async () => ["user: hi\nassistant: hello"],
+  read: async () => ({ status: "read", chunks: ["user: hi\nassistant: hello"] }),
 };
 
 const config: ExtractionConfig = {};
+
+const noSleep = async (): Promise<void> => {};
 
 describe("runExtraction", () => {
   it("runs the agent, marks completed on success", async () => {
@@ -83,7 +93,9 @@ describe("runExtraction", () => {
   it("runs the agent once per chunk", async () => {
     const repo = makeFakeRepo();
     const agent: ExtractionAgentRunner = { run: vi.fn().mockResolvedValue(undefined) };
-    const chunked: TranscriptReader = { read: async () => ["chunk-1", "chunk-2", "chunk-3"] };
+    const chunked: TranscriptReader = {
+      read: async () => ({ status: "read", chunks: ["chunk-1", "chunk-2", "chunk-3"] }),
+    };
 
     const result = await runExtraction(
       { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
@@ -108,7 +120,7 @@ describe("runExtraction", () => {
     const repo = makeFakeRepo();
     const agent: ExtractionAgentRunner = { run: vi.fn().mockResolvedValue(undefined) };
     const chunks = Array.from({ length: 13 }, (_, i) => `chunk-${i}`);
-    const chunked: TranscriptReader = { read: async () => chunks };
+    const chunked: TranscriptReader = { read: async () => ({ status: "read", chunks }) };
 
     const result = await runExtraction(
       { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
@@ -146,6 +158,52 @@ describe("runExtraction", () => {
 
     expect(result).toEqual({ status: "skipped", reason: "in_flight" });
     expect(agent.run).not.toHaveBeenCalled();
+  });
+
+  it("skips without recording a run when the transcript never appears", async () => {
+    const repo = makeFakeRepo();
+    const agent: ExtractionAgentRunner = { run: vi.fn() };
+    const absent: TranscriptReader = { read: async () => ({ status: "unavailable" }) };
+
+    const result = await runExtraction(
+      { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
+      { repo, transcripts: absent, agent, config, sleep: noSleep }
+    );
+
+    expect(result).toEqual({ status: "skipped", reason: "transcript_unavailable" });
+    expect(repo.state.claims).toBe(0);
+    expect(repo.state.record).toBeUndefined();
+    expect(agent.run).not.toHaveBeenCalled();
+  });
+
+  it("completes when the transcript appears on the retry", async () => {
+    const repo = makeFakeRepo();
+    const agent: ExtractionAgentRunner = { run: vi.fn().mockResolvedValue(undefined) };
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ status: "unavailable" })
+      .mockResolvedValueOnce({ status: "read", chunks: ["chunk-1"] });
+
+    const result = await runExtraction(
+      { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
+      { repo, transcripts: { read }, agent, config, sleep: noSleep }
+    );
+
+    expect(result).toEqual({ status: "completed" });
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(agent.run).toHaveBeenCalledTimes(1);
+  });
+
+  it("reaps stale in-flight runs before claiming", async () => {
+    const repo = makeFakeRepo();
+    const agent: ExtractionAgentRunner = { run: vi.fn().mockResolvedValue(undefined) };
+
+    await runExtraction(
+      { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
+      { repo, transcripts, agent, config }
+    );
+
+    expect(repo.state.reaps).toBe(1);
   });
 
   it("marks failed and returns error message when the agent throws", async () => {

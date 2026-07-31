@@ -9,6 +9,7 @@ import { activityCommand } from "./commands/activity.js";
 import { addCommand } from "./commands/add.js";
 import { configGetCommand, configSetCommand, configShowCommand } from "./commands/config.js";
 import { deleteCommand } from "./commands/delete.js";
+import { doctorCommand } from "./commands/doctor.js";
 import { exportCommand } from "./commands/export.js";
 import { extractCommand } from "./commands/extract.js";
 import { importCommand } from "./commands/import.js";
@@ -37,6 +38,7 @@ import { unpinCommand } from "./commands/unpin.js";
 import { Formatter } from "./formatter.js";
 import { PromptHelper } from "./prompt-helper.js";
 import { MemoryTypeSchema, MigrateModeSchema, SetupHarnessSchema } from "./schemas.js";
+import { ClaudeAutoMemoryGate } from "./setup/auto-memory-gate.js";
 import { HarnessConfigWriter, SUPPORTED_HARNESSES } from "./setup/harness-config-writer.js";
 import type { DetectedHarness } from "./setup/harness-detector.js";
 import { InjectionHookWriter } from "./setup/injection-hook-writer.js";
@@ -341,6 +343,8 @@ setupCmd.action(async (cmdOptions: { yes?: boolean; dryRun?: boolean; harness?: 
   const writer = new HarnessConfigWriter();
   const hookWriter = new InjectionHookWriter();
   const promptHelper = new PromptHelper(autoYes);
+  // Never auto-confirmed: disabling a harness feature must be an explicit answer.
+  const alwaysAskPrompt = new PromptHelper(false);
 
   let harnessSelector: ((detected: DetectedHarness[]) => Promise<DetectedHarness[]>) | undefined;
   if (interactive) {
@@ -377,6 +381,9 @@ setupCmd.action(async (cmdOptions: { yes?: boolean; dryRun?: boolean; harness?: 
     modelDownloader: new ModelDownloader(),
     ...(!formatter.isJson && { out: decoratedOut }),
     synthesisOptIn: true,
+    autoMemoryGate: new ClaudeAutoMemoryGate({
+      prompter: (question) => alwaysAskPrompt.confirm(question),
+    }),
   });
   try {
     const results = await orchestrator.run({
@@ -400,6 +407,23 @@ setupCmd.action(async (cmdOptions: { yes?: boolean; dryRun?: boolean; harness?: 
     process.exit(2);
   }
 });
+
+program
+  .command("doctor")
+  .description("check membank's pipeline health and harness conflicts")
+  .option("--fix", "apply the available fixes (prompts before anything irreversible)")
+  .action(async (cmdOptions: { fix?: boolean }) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    const autoConfirm = globalOpts.yes === true || !process.stdout.isTTY;
+    const prompt = new PromptHelper(autoConfirm);
+    try {
+      await doctorCommand(cmdOptions, formatter, prompt);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
 
 program
   .command("review")

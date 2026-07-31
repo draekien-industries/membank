@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline";
 import { ConfigManager } from "../config/index.js";
 import { SetupHarnessSchema } from "../schemas.js";
+import type { AutoMemoryGate, AutoMemoryOutcome } from "./auto-memory-gate.js";
 import type { HarnessConfigWriter } from "./harness-config-writer.js";
 import { CommandError, SUPPORTED_HARNESSES } from "./harness-config-writer.js";
 import type { DetectedHarness } from "./harness-detector.js";
@@ -36,6 +37,7 @@ export interface SetupJsonOutput {
   configuredHarnesses: string[];
   injectionHooksConfigured: string[];
   modelDownloaded: boolean;
+  autoMemoryConflict: AutoMemoryOutcome;
 }
 
 export interface OrchestratorDeps {
@@ -49,6 +51,8 @@ export interface OrchestratorDeps {
   progressWrite?: (text: string) => void;
   /** When true, prompt user to opt in to memory synthesis after model download. */
   synthesisOptIn?: boolean;
+  /** Detects Claude Code's native auto-memory, which competes with membank for captures. */
+  autoMemoryGate?: AutoMemoryGate;
 }
 
 function renderProgressBar(percentage: number, width: number): string {
@@ -77,8 +81,10 @@ export class SetupOrchestrator {
   readonly #out: (msg: string) => void;
   readonly #progressWrite: (text: string) => void;
   readonly #synthesisOptIn: boolean;
+  readonly #autoMemoryGate: AutoMemoryGate | undefined;
 
   constructor(deps: OrchestratorDeps) {
+    this.#autoMemoryGate = deps.autoMemoryGate;
     this.#detector = deps.detector ?? (() => detectHarnesses());
     this.#writer = deps.writer;
     this.#hookWriter = deps.hookWriter;
@@ -115,6 +121,7 @@ export class SetupOrchestrator {
             configuredHarnesses: [],
             injectionHooksConfigured: [],
             modelDownloaded: false,
+            autoMemoryConflict: "none",
           } satisfies SetupJsonOutput)
         );
       }
@@ -247,6 +254,17 @@ export class SetupOrchestrator {
       out("Model download step: see DRA-52");
     }
 
+    let autoMemoryConflict: AutoMemoryOutcome = "none";
+    if (this.#autoMemoryGate !== undefined && detected.some((h) => h.name === "claude-code")) {
+      out("");
+      out("Claude Code native auto-memory");
+      autoMemoryConflict = await this.#autoMemoryGate.run({
+        interactive: !yes && !json,
+        out,
+      });
+      if (autoMemoryConflict === "none") out("  ✓ No conflict.");
+    }
+
     if (this.#synthesisOptIn && !yes && !json) {
       const enableSynthesis = await this.#prompter(
         "Enable memory synthesis? (experimental — summarizes memories using Claude Haiku via your local claude CLI. Requires one of: claude auth login, ANTHROPIC_API_KEY, or CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`)"
@@ -271,6 +289,7 @@ export class SetupOrchestrator {
         configuredHarnesses,
         injectionHooksConfigured,
         modelDownloaded,
+        autoMemoryConflict,
       };
       this.#out(JSON.stringify(output));
     } else {
