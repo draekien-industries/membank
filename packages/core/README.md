@@ -86,8 +86,8 @@ Types are ranked by priority, which affects query scoring:
 On every save, the new content is embedded and compared against existing memories of the same type and scope:
 
 - **Similarity >0.92** — auto-overwrites the existing memory (merge semantics)
-- **Similarity 0.75–0.92** — flags the existing memory with `needs_review=true` and creates a new entry
-- **Similarity <0.75** — creates a new memory with no conflict
+- **Similarity 0.85–0.92** — flags the existing memory with `needs_review=true` and creates a new entry
+- **Similarity <0.85** — creates a new memory with no conflict
 
 ## Query scoring
 

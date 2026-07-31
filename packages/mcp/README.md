@@ -117,7 +117,7 @@ Returns aggregate stats: total memories, counts by type, pinned count, and revie
 
 ### `list_flagged_memories`
 
-List memories with unresolved dedup review events (similarity 0.75–0.92). No input required.
+List memories with unresolved dedup review events (similarity 0.85–0.92). No input required.
 
 ### `resolve_review`
 

@@ -403,7 +403,7 @@ export function createServer(core: CoreServices): Server {
       {
         name: "list_flagged_memories",
         description:
-          "List memories that have unresolved dedup review events. These were flagged automatically when a near-duplicate was saved (cosine similarity 0.75–0.92).",
+          "List memories that have unresolved dedup review events. These were flagged automatically when a near-duplicate was saved (cosine similarity 0.85–0.92).",
         inputSchema: {
           type: "object",
           properties: {

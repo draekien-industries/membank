@@ -6,7 +6,7 @@ LLM memory management system. Stores your corrections, preferences, decisions, a
 
 - Memories are typed (`correction` > `preference` > `decision` > `learning` > `fact`) and scoped (global or per-project)
 - Embeddings run locally via `bge-small-en-v1.5` — no data leaves your machine
-- Dedup via cosine similarity: >0.92 = auto-overwrite, 0.75–0.92 = flagged for review
+- Dedup via cosine similarity: >0.92 = auto-overwrite, 0.85–0.92 = flagged for review
 - Project scope derived from `git remote get-url origin` hash, fallback to cwd hash
 - Session injection: stats + all pinned global memories + all pinned project memories prepended to every context window
 - Optional background synthesis engine compresses memories into a rolling summary, replacing pinned memory injection when enabled
@@ -116,7 +116,7 @@ When running as an MCP server, the following tools are exposed to the LLM:
 | `pin_memory` | Pin a memory so it is always injected into session context |
 | `unpin_memory` | Unpin a memory to remove it from guaranteed session injection |
 | `get_memory_summary` | Aggregate stats: total memories, counts by type, pinned count, review queue size |
-| `list_flagged_memories` | List memories with unresolved dedup review events (similarity 0.75–0.92) |
+| `list_flagged_memories` | List memories with unresolved dedup review events (similarity 0.85–0.92) |
 | `resolve_review` | Dismiss all open review events for a memory after reviewing it |
 | `resolve_many` | Resolve review events for multiple memories in one call; returns per-id status |
 | `merge_memories` | Merge two or more near-duplicate memories into one, combining their content |

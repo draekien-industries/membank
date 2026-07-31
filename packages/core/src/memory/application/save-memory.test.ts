@@ -174,7 +174,7 @@ describe("saveMemory", () => {
     expect(repo.reviewEventCalls).toHaveLength(0);
   });
 
-  it("creates new memory AND flags existing when 0.75 <= similarity <= 0.92", async () => {
+  it("creates new memory AND flags existing when 0.85 <= similarity <= 0.92", async () => {
     const existingId = randomUUID();
     const repo = makeFakeRepo([{ id: existingId, type: "learning", similarity: 0.85 }]);
     const embedder = makeEmbedder(embedding);
@@ -193,7 +193,7 @@ describe("saveMemory", () => {
     expect(repo.reviewEventCalls[0]?.conflictContentSnapshot).toBe("Similar content");
   });
 
-  it("creates new memory without review event when similarity < 0.75", async () => {
+  it("creates new memory without review event when similarity < 0.85", async () => {
     const existingId = randomUUID();
     const repo = makeFakeRepo([{ id: existingId, type: "fact", similarity: 0.5 }]);
     const embedder = makeEmbedder(embedding);

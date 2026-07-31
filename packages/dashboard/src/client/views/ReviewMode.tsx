@@ -1,3 +1,4 @@
+import { FLAG_THRESHOLD } from "@membank/core/client";
 import {
   ArrowLeft,
   CheckCircle,
@@ -29,7 +30,7 @@ import { Route } from "../routes/review";
 
 function similarityLabel(sim: number): string {
   if (sim >= 0.9) return "high";
-  if (sim >= 0.75) return "mid";
+  if (sim >= FLAG_THRESHOLD) return "mid";
   return "low";
 }
 

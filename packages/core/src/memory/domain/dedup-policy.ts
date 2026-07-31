@@ -1,5 +1,5 @@
 export const AUTO_OVERWRITE_THRESHOLD = 0.92;
-export const FLAG_THRESHOLD = 0.75;
+export const FLAG_THRESHOLD = 0.85;
 
 export type DedupDecision = "overwrite" | "flag" | null;
 
