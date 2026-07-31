@@ -13,14 +13,21 @@ describe("classifyDuplicate", () => {
   });
 
   it("returns 'flag' when similarity is between FLAG_THRESHOLD and AUTO_OVERWRITE_THRESHOLD (inclusive)", () => {
-    expect(classifyDuplicate(0.85)).toBe("flag");
+    expect(classifyDuplicate(0.88)).toBe("flag");
     expect(classifyDuplicate(FLAG_THRESHOLD)).toBe("flag");
     expect(classifyDuplicate(AUTO_OVERWRITE_THRESHOLD)).toBe("flag");
   });
 
   it("returns null when similarity is below FLAG_THRESHOLD", () => {
-    expect(classifyDuplicate(0.74)).toBe(null);
+    expect(classifyDuplicate(0.84)).toBe(null);
     expect(classifyDuplicate(0.0)).toBe(null);
     expect(classifyDuplicate(FLAG_THRESHOLD - 0.001)).toBe(null);
+  });
+
+  // The 0.75–0.85 band was the abandoned half of the review queue: topically
+  // adjacent memories that were never duplicates.
+  it("no longer flags the topically-adjacent band below 0.85", () => {
+    expect(classifyDuplicate(0.75)).toBe(null);
+    expect(classifyDuplicate(0.8)).toBe(null);
   });
 });

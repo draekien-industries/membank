@@ -416,6 +416,34 @@ CREATE TABLE memory_capabilities (
 );
 `,
   ],
+  [
+    17,
+    `
+CREATE TABLE rejected_candidates (
+  id              TEXT PRIMARY KEY,
+  content         TEXT NOT NULL,
+  type            TEXT NOT NULL,
+  durability      TEXT NOT NULL,
+  derivability    TEXT NOT NULL,
+  actionability   TEXT NOT NULL,
+  evidence_quote  TEXT NOT NULL,
+  rejected_clause TEXT NOT NULL,
+  smells          TEXT NOT NULL,
+  session_id      TEXT NOT NULL,
+  project_hash    TEXT,
+  created_at      TEXT NOT NULL
+);
+
+CREATE INDEX idx_rejected_created ON rejected_candidates(created_at);
+`,
+  ],
+  [
+    18,
+    `
+ALTER TABLE memories ADD COLUMN durability TEXT;
+ALTER TABLE memories ADD COLUMN corroboration_count INTEGER NOT NULL DEFAULT 0;
+`,
+  ],
 ];
 
 export class DatabaseManager {

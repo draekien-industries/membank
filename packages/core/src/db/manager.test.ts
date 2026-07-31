@@ -121,7 +121,7 @@ describe("DatabaseManager", () => {
   });
 
   describe("migrations", () => {
-    it("schema_version in meta is 16 after full init", () => {
+    it("schema_version in meta is 18 after full init", () => {
       const mgr = DatabaseManager.openInMemory();
 
       const row = mgr.db
@@ -129,7 +129,7 @@ describe("DatabaseManager", () => {
         .get();
 
       expect(row).not.toBeUndefined();
-      expect(row?.value).toBe("16");
+      expect(row?.value).toBe("18");
 
       mgr.close();
     });
@@ -147,8 +147,8 @@ describe("DatabaseManager", () => {
         .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
         .get();
 
-      expect(v1?.value).toBe("16");
-      expect(v2?.value).toBe("16");
+      expect(v1?.value).toBe("18");
+      expect(v2?.value).toBe("18");
 
       mgr1.close();
       mgr2.close();

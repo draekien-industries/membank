@@ -13,6 +13,12 @@ export { updateMemory } from "./application/update-memory.js";
 export type { MemoryVersion } from "./domain/memory-version.js";
 export { isOverBudget, PIN_BUDGET_THRESHOLD } from "./domain/pin-budget.js";
 export {
+  computeRetention,
+  idlePenalty,
+  isLowRetention,
+  RETENTION_FLOOR,
+} from "./domain/retention.js";
+export {
   createMemoryRepository,
   SqliteMemoryRepository,
 } from "./infrastructure/sqlite-memory-repository.js";

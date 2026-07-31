@@ -21,6 +21,7 @@ import {
   CapabilityKey,
   clusterFlagged,
   collectSynthesisSections,
+  computeRetention,
   createActivityLogger,
   createActivityRepository,
   createCapabilityRepository,
@@ -37,6 +38,7 @@ import {
   findWorktreeOrphan,
   GLOBAL_PROJECT_ID,
   GLOBAL_SCOPE_HASH,
+  isLowRetention,
   isSynthesisEnabled,
   listEvents,
   MEMORY_TYPE_VALUES,
@@ -151,6 +153,18 @@ export function createApiApp(
       memories = memories.filter((m) => m.content.toLowerCase().includes(q));
     }
     return c.json(memories);
+  });
+
+  app.get("/api/memories/low-retention", (c) => {
+    const projectIdParam = c.req.query("projectId");
+    const now = Date.now();
+    return c.json(
+      repo
+        .list({ ...(projectIdParam !== undefined && { projectId: projectIdParam }) })
+        .filter((m) => isLowRetention(m, now))
+        .map((memory) => ({ memory, retention: computeRetention(memory, now) }))
+        .sort((a, b) => a.retention - b.retention)
+    );
   });
 
   app.get("/api/memories/flagged-clusters", (c) => {

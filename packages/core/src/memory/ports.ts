@@ -1,3 +1,4 @@
+import type { Durability } from "../schemas.js";
 import type { Memory, MemoryPatch, MemoryType } from "./domain/memory.js";
 import type { MemoryVersion } from "./domain/memory-version.js";
 import type { ReviewEvent } from "./domain/review-event.js";
@@ -65,6 +66,7 @@ export interface CreateMemoryOpts {
   tags: string[];
   sourceHarness: string | null;
   embedding: Float32Array;
+  durability?: Durability;
   projectScope?: { hash: string; name: string; origin?: string | undefined };
 }
 

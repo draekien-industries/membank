@@ -1,5 +1,8 @@
 export const DEFAULT_IN_FLIGHT_TIMEOUT_MS = 10 * 60_000;
 export const DEFAULT_RECENT_COMPLETION_MS = 60_000;
+// The harness can name the transcript before its final flush lands, so absence is retried once.
+export const TRANSCRIPT_RETRY_DELAY_MS = 2_000;
+export const REJECTION_RETENTION_MS = 30 * 24 * 60 * 60_000;
 
 export type ClaimDecision =
   | { kind: "claim" }

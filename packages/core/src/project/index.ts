@@ -9,5 +9,7 @@ export {
   GLOBAL_PROJECT_NAME,
   GLOBAL_SCOPE_HASH,
 } from "./domain/global-scope.js";
+export type { SplitScopePair } from "./domain/split-scope.js";
+export { findSplitScopePairs } from "./domain/split-scope.js";
 export { createProjectRepository } from "./infrastructure/sqlite-project-repository.js";
 export type { ProjectRepository } from "./ports.js";

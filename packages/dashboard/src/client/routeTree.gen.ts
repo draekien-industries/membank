@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ReviewRouteImport } from './routes/review'
+import { Route as RetentionRouteImport } from './routes/retention'
 import { Route as CapabilitiesRouteImport } from './routes/capabilities'
 import { Route as ProjectIdRouteImport } from './routes/$projectId'
 import { Route as IndexRouteImport } from './routes/index'
@@ -20,6 +21,11 @@ import { Route as ProjectIdMemoryIdRouteImport } from './routes/$projectId.$memo
 const ReviewRoute = ReviewRouteImport.update({
   id: '/review',
   path: '/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RetentionRoute = RetentionRouteImport.update({
+  id: '/retention',
+  path: '/retention',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CapabilitiesRoute = CapabilitiesRouteImport.update({
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$projectId': typeof ProjectIdRouteWithChildren
   '/capabilities': typeof CapabilitiesRouteWithChildren
+  '/retention': typeof RetentionRoute
   '/review': typeof ReviewRoute
   '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
   '/capabilities/$capabilityKey': typeof CapabilitiesCapabilityKeyRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/capabilities': typeof CapabilitiesRouteWithChildren
+  '/retention': typeof RetentionRoute
   '/review': typeof ReviewRoute
   '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
   '/capabilities/$capabilityKey': typeof CapabilitiesCapabilityKeyRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$projectId': typeof ProjectIdRouteWithChildren
   '/capabilities': typeof CapabilitiesRouteWithChildren
+  '/retention': typeof RetentionRoute
   '/review': typeof ReviewRoute
   '/$projectId/$memoryId': typeof ProjectIdMemoryIdRoute
   '/capabilities/$capabilityKey': typeof CapabilitiesCapabilityKeyRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$projectId'
     | '/capabilities'
+    | '/retention'
     | '/review'
     | '/$projectId/$memoryId'
     | '/capabilities/$capabilityKey'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/capabilities'
+    | '/retention'
     | '/review'
     | '/$projectId/$memoryId'
     | '/capabilities/$capabilityKey'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$projectId'
     | '/capabilities'
+    | '/retention'
     | '/review'
     | '/$projectId/$memoryId'
     | '/capabilities/$capabilityKey'
@@ -114,6 +126,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProjectIdRoute: typeof ProjectIdRouteWithChildren
   CapabilitiesRoute: typeof CapabilitiesRouteWithChildren
+  RetentionRoute: typeof RetentionRoute
   ReviewRoute: typeof ReviewRoute
 }
 
@@ -124,6 +137,13 @@ declare module '@tanstack/react-router' {
       path: '/review'
       fullPath: '/review'
       preLoaderRoute: typeof ReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/retention': {
+      id: '/retention'
+      path: '/retention'
+      fullPath: '/retention'
+      preLoaderRoute: typeof RetentionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/capabilities': {
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProjectIdRoute: ProjectIdRouteWithChildren,
   CapabilitiesRoute: CapabilitiesRouteWithChildren,
+  RetentionRoute: RetentionRoute,
   ReviewRoute: ReviewRoute,
 }
 export const routeTree = rootRouteImport

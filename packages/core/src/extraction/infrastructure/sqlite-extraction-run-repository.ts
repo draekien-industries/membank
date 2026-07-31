@@ -4,7 +4,12 @@ import {
   DEFAULT_RECENT_COMPLETION_MS,
   decideClaim,
 } from "../domain/extraction-policy.js";
-import type { ExtractionConfig, ExtractionRunRecord, ExtractionRunRepository } from "../ports.js";
+import type {
+  ExtractionConfig,
+  ExtractionRunRecord,
+  ExtractionRunRepository,
+  ExtractionRunStats,
+} from "../ports.js";
 
 interface ExtractionRunRow {
   session_id: string;
@@ -80,6 +85,36 @@ class SqliteExtractionRunRepository implements ExtractionRunRepository {
          WHERE session_id = ?`
       )
       .run(now.toISOString(), error, sessionId);
+  }
+
+  reapStale(now: Date, timeoutMs: number): number {
+    const cutoff = new Date(now.getTime() - timeoutMs).toISOString();
+    const result = this.#db.db
+      .prepare(
+        `UPDATE extraction_runs
+         SET status = 'failed', completed_at = ?, error = 'reaped: exceeded in-flight timeout'
+         WHERE status = 'in_flight' AND started_at < ?`
+      )
+      .run(now.toISOString(), cutoff);
+    return result.changes;
+  }
+
+  stats(now: Date, since: Date, inFlightTimeoutMs: number): ExtractionRunStats {
+    const cutoff = new Date(now.getTime() - inFlightTimeoutMs).toISOString();
+    const row = this.#db.db
+      .prepare<{ since: string; cutoff: string }, { total: number; failed: number; stale: number }>(
+        `SELECT
+           COUNT(*) FILTER (WHERE started_at >= @since) AS total,
+           COUNT(*) FILTER (WHERE started_at >= @since AND status = 'failed') AS failed,
+           COUNT(*) FILTER (WHERE status = 'in_flight' AND started_at < @cutoff) AS stale
+         FROM extraction_runs`
+      )
+      .get({ since: since.toISOString(), cutoff });
+    return {
+      total: row?.total ?? 0,
+      failed: row?.failed ?? 0,
+      staleInFlight: row?.stale ?? 0,
+    };
   }
 
   get(sessionId: string): ExtractionRunRecord | undefined {

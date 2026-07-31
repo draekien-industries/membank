@@ -3,6 +3,9 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 export interface MemBankConfig {
+  setup?: {
+    autoMemoryPromptDismissed?: boolean;
+  };
   synthesis?: {
     enabled: boolean;
     maxTokensPerRun?: number;

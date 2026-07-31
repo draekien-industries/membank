@@ -38,6 +38,12 @@ function RootLayout() {
           >
             Review
           </Link>
+          <Link
+            to="/retention"
+            className="text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors [&.active]:text-foreground"
+          >
+            Retention
+          </Link>
         </nav>
         <div className="flex-1 min-w-0">
           <StatsBar stats={stats} />
