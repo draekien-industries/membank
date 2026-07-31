@@ -1,6 +1,18 @@
 import { createSdkMcpServer, query, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
-import type { ExtractionAgentRunner, ExtractionTools } from "../ports.js";
+import {
+  ACTIONABILITY_VALUES,
+  DERIVABILITY_VALUES,
+  DURABILITY_VALUES,
+  decideAdmission,
+  explainRejection,
+} from "../domain/admission-policy.js";
+import { detectContentSmells } from "../domain/content-smells.js";
+import type {
+  ExtractionAgentRunner,
+  ExtractionTools,
+  RejectedCandidateRepository,
+} from "../ports.js";
 
 const EXTRACTION_SYSTEM_PROMPT = [
   "You are a memory extractor that runs after a coding session ends. You read the session transcript and call save_memory for the stable, long-term facts, preferences, corrections, decisions, and learnings the user expressed — the ones future sessions should inherit. You deliberately skip anything tied to the current task.",
@@ -9,36 +21,51 @@ const EXTRACTION_SYSTEM_PROMPT = [
   "- correction: the user told the assistant to stop doing something or to do it differently.",
   "- preference: the user stated how they want work done (tools, style, conventions).",
   "- decision: the user committed to a choice future work should respect (tech pick, architectural direction, scope cut).",
-  "- learning: a non-obvious, durable fact about the codebase or tooling — a gotcha, external constraint, or counterintuitive behavior a future session could NOT discover just by reading the current code. A bug you fixed or a change you made this session is NOT a learning.",
+  "- learning: a non-obvious, durable fact about the codebase or tooling — a gotcha, external constraint, or counterintuitive behavior.",
   "- fact: stable info about the user or their project not derivable from the code.",
   "",
-  "Save a memory ONLY if it would still be true and useful weeks from now, in a different task. Ask of each candidate: is this about HOW the user works in general, or only about the task happening right now? Save the former, skip the latter.",
+  "Every save_memory call must classify the candidate on three axes and quote its evidence. The system decides admission from your classification, so classify honestly — a candidate you mislabel to get it past the gate is a memory that will waste a future session's context.",
   "",
-  "DO NOT save:",
-  "- completed-action records: what was fixed/added/removed/changed this session ('fixed the bug in X', 'migration N removed Y', 'the dashboard now does Z'). Do not relabel a fix as a learning or a 'should use Y' rule to get around this — if the detail lives in the code, the code is the source of truth, not a memory.",
-  "- the status or details of the current task, bug, or PR, including TODOs and 'remains unimplemented / requires follow-up' notes.",
-  "- facts derivable from the current code: component locations, exact counts, specific values applied to named files.",
-  "- anything phrased as 'for now', 'in this session', 'just this once'.",
+  "durability — will this outlive the current task?",
+  "- permanent: true independently of the codebase's current state (an external system's behaviour, a fact about the user).",
+  "- stable: true until someone deliberately decides otherwise (a convention, a tech choice).",
+  "- volatile: tied to this task, PR, or branch. 'For now', 'remains unimplemented', 'requires follow-up'.",
   "",
-  "Decisions and learnings are the easiest to get wrong here — only save them when they capture lasting project direction or a non-obvious fact that survives the code changing, not a description of the change you just made.",
+  "derivability — could a future session just look this up?",
+  "- hidden: not learnable from the repo at all (a user preference, an external constraint).",
+  "- costly: learnable, but only by debugging or reading external sources.",
+  "- trivial: one file read or one grep away. Component locations, config values, which linter the repo uses.",
+  "",
+  "actionability — would it change what a future session does?",
+  "- directive: changes what the session DOES ('use pnpm, never npm').",
+  "- constraint: bounds what it MAY do ('never run electron-builder locally').",
+  "- context: describes state without implying an action.",
+  "",
+  "evidence: a verbatim span from the transcript that supports the memory. If you cannot quote it, you are inventing it — do not save it.",
+  "",
+  'Worked examples. "Postgres GUC placeholders reset to \'\' not NULL on a pooled connection" → permanent / hidden / constraint. "Always use conventional commit format" → stable / hidden / directive. "Biome 2.x is the linter for this repo" → stable / trivial / context: still true, but one glance at the config file teaches it. "Fixed the scope resolver to hash the remote URL" → volatile / trivial / context: a description of a change, and the code already encodes it.',
   "",
   "Standing-rule phrasing — 'stop X', 'always Y', 'we use Z', 'don't suggest W', 'we decided', 'from now on' — is a strong save signal even if the assistant already acknowledged it, because the NEXT session won't know.",
   "",
   "Process:",
   "1. Read the supplied transcript end-to-end.",
-  "2. Identify only the signals that pass the durability test. List them mentally before calling tools.",
+  "2. List the candidate signals mentally, with their three-axis classification and the quote backing each.",
   "3. Before calling save_memory for a candidate, call query_memory with focused search terms to check for an existing near-duplicate. If one exists, call update_memory instead of save_memory.",
-  '4. Call save_memory for each new durable signal. Phrase the content as a standalone instruction or fact — strip session framing. Good: "Use pnpm, not npm, for all dependency operations." Bad: "User said stop using npm." Bad: "query_memory should use scopeToProjectHash for global scope" (that only describes a fix you just made — the code already encodes it).',
+  '4. Call save_memory for each candidate. Phrase the content as a standalone instruction or fact — strip session framing. Good: "Use pnpm, not npm, for all dependency operations." Bad: "User said stop using npm."',
   "5. Use `global: true` only when the fact is about the user themselves or applies across every project. Otherwise default to project scope (omit `global`).",
+  "",
+  "When save_memory returns a rejection, do not re-propose the same candidate with a different classification. Move on.",
   "",
   "When the transcript contains no stable signal — pure greetings, time-of-day questions, abandoned tasks, or only task-specific work — return without saving. Do not invent facts. When in doubt, do NOT save.",
 ].join("\n");
 
 class ClaudeExtractionAgentRunner implements ExtractionAgentRunner {
   readonly #tools: ExtractionTools;
+  readonly #rejections: RejectedCandidateRepository;
 
-  constructor(tools: ExtractionTools) {
+  constructor(tools: ExtractionTools, rejections: RejectedCandidateRepository) {
     this.#tools = tools;
+    this.#rejections = rejections;
   }
 
   async run(args: { transcript: string; projectHash: string; sessionId: string }): Promise<void> {
@@ -67,16 +94,70 @@ class ClaudeExtractionAgentRunner implements ExtractionAgentRunner {
 
     const saveMemoryTool = tool(
       "save_memory",
-      "Persist a new memory. The system handles dedup automatically.",
+      "Propose a new memory. The system applies an admission gate to your classification and handles dedup automatically.",
       {
         content: z.string().describe("Memory content — concise, decontextualised"),
         type: z
           .enum(["correction", "preference", "decision", "learning", "fact"])
           .describe("Memory type"),
+        durability: z
+          .enum(DURABILITY_VALUES)
+          .describe("permanent | stable | volatile — see the system prompt"),
+        derivability: z
+          .enum(DERIVABILITY_VALUES)
+          .describe("hidden | costly | trivial — see the system prompt"),
+        actionability: z
+          .enum(ACTIONABILITY_VALUES)
+          .describe("directive | constraint | context — see the system prompt"),
+        evidence: z.string().describe("Verbatim span from the transcript supporting this memory"),
         tags: z.array(z.string()).optional().describe("Optional tags"),
         global: z.boolean().optional().describe("Save as global memory rather than project-scoped"),
       },
-      async ({ content, type, tags, global: isGlobal }) => {
+      async ({
+        content,
+        type,
+        durability,
+        derivability,
+        actionability,
+        evidence,
+        tags,
+        global: isGlobal,
+      }) => {
+        const decision = decideAdmission({
+          content,
+          type,
+          durability,
+          derivability,
+          actionability,
+          evidence,
+        });
+
+        if (decision.kind === "reject") {
+          this.#rejections.record(
+            {
+              content,
+              type,
+              durability,
+              derivability,
+              actionability,
+              evidenceQuote: evidence,
+              rejectedClause: decision.clause,
+              smells: detectContentSmells(content),
+              sessionId: args.sessionId,
+              projectHash: args.projectHash,
+            },
+            new Date()
+          );
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Not saved (${decision.clause}): ${explainRejection(decision.clause)}`,
+              },
+            ],
+          };
+        }
+
         const result = await this.#tools.saveMemory({
           content,
           type,
@@ -176,6 +257,9 @@ class ClaudeExtractionAgentRunner implements ExtractionAgentRunner {
   }
 }
 
-export function createExtractionAgentRunner(tools: ExtractionTools): ExtractionAgentRunner {
-  return new ClaudeExtractionAgentRunner(tools);
+export function createExtractionAgentRunner(
+  tools: ExtractionTools,
+  rejections: RejectedCandidateRepository
+): ExtractionAgentRunner {
+  return new ClaudeExtractionAgentRunner(tools, rejections);
 }

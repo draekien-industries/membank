@@ -7,6 +7,7 @@ LLM memory management system. Stores your corrections, preferences, decisions, a
 - Memories are typed (`correction` > `preference` > `decision` > `learning` > `fact`) and scoped (global or per-project)
 - Embeddings run locally via `bge-small-en-v1.5` — no data leaves your machine
 - Dedup via cosine similarity: >0.92 = auto-overwrite, 0.85–0.92 = flagged for review
+- Session-end extraction proposes memories, and an admission gate rejects the volatile, the trivially code-derivable, the inert, and the unquoted before anything is stored
 - Project scope derived from `git remote get-url origin` hash, fallback to cwd hash
 - Session injection: stats + all pinned global memories + all pinned project memories prepended to every context window
 - Optional background synthesis engine compresses memories into a rolling summary, replacing pinned memory injection when enabled

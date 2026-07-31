@@ -12,6 +12,7 @@ import { createQueryEngine, type QueryEngine } from "../query/index.js";
 import { runExtraction } from "./application/run-extraction.js";
 import { createExtractionAgentRunner } from "./infrastructure/claude-agent-runner.js";
 import { createExtractionRunRepository } from "./infrastructure/sqlite-extraction-run-repository.js";
+import { createRejectedCandidateRepository } from "./infrastructure/sqlite-rejected-candidate-repository.js";
 import { createClaudeCodeTranscriptReader } from "./infrastructure/transcript-reader.js";
 import type { ExtractionTools } from "./ports.js";
 
@@ -109,6 +110,7 @@ describe.skipIf(!runIntegration)("extraction — integration (real Claude Haiku 
     projectHash: string;
     tools: ExtractionTools;
     runRepo: ReturnType<typeof createExtractionRunRepository>;
+    rejections: ReturnType<typeof createRejectedCandidateRepository>;
   } {
     const db = DatabaseManager.open(dbPath);
     manager = db;
@@ -120,7 +122,8 @@ describe.skipIf(!runIntegration)("extraction — integration (real Claude Haiku 
     const queryEngine = createQueryEngine(db, embedding);
     const tools = buildLocalExtractionTools(repo, queryEngine, embedding, projectHash, projectName);
     const runRepo = createExtractionRunRepository(db);
-    return { db, projectHash, tools, runRepo };
+    const rejections = createRejectedCandidateRepository(db);
+    return { db, projectHash, tools, runRepo, rejections };
   }
 
   function writeTranscript(lines: string[]): string {
@@ -150,7 +153,7 @@ describe.skipIf(!runIntegration)("extraction — integration (real Claude Haiku 
     ];
     const transcriptPath = writeTranscript(transcript);
 
-    const agent = createExtractionAgentRunner(world.tools);
+    const agent = createExtractionAgentRunner(world.tools, world.rejections);
 
     const result = await runExtraction(
       {
@@ -162,6 +165,7 @@ describe.skipIf(!runIntegration)("extraction — integration (real Claude Haiku 
         repo: world.runRepo,
         transcripts: createClaudeCodeTranscriptReader(),
         agent,
+        rejections: world.rejections,
         config: {},
       }
     );
@@ -201,7 +205,7 @@ describe.skipIf(!runIntegration)("extraction — integration (real Claude Haiku 
     ];
     const transcriptPath = writeTranscript(transcript);
 
-    const agent = createExtractionAgentRunner(world.tools);
+    const agent = createExtractionAgentRunner(world.tools, world.rejections);
 
     const result = await runExtraction(
       {
@@ -213,6 +217,7 @@ describe.skipIf(!runIntegration)("extraction — integration (real Claude Haiku 
         repo: world.runRepo,
         transcripts: createClaudeCodeTranscriptReader(),
         agent,
+        rejections: world.rejections,
         config: {},
       }
     );

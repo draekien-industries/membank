@@ -8,6 +8,7 @@ import {
   createMemoryRepository,
   createProjectRepository,
   createQueryEngine,
+  createRejectedCandidateRepository,
   createSynthesisAgentRunner,
   createSynthesisRepository,
   DatabaseManager,
@@ -102,8 +103,9 @@ export async function runExtraction(opts: RunExtractionOptions): Promise<RunExtr
     const capabilities = createCapabilityRepository(db, projects);
     const queryEngine = createQueryEngine(db, embedding);
     const runRepo = createExtractionRunRepository(db);
+    const rejections = createRejectedCandidateRepository(db);
     const tools = buildExtractionTools(repo, queryEngine, embedding, capabilities);
-    const agent = createExtractionAgentRunner(tools);
+    const agent = createExtractionAgentRunner(tools, rejections);
     const transcripts = createClaudeCodeTranscriptReader();
 
     const projectHash = opts.projectHash ?? (await resolveProject()).hash;
@@ -118,6 +120,7 @@ export async function runExtraction(opts: RunExtractionOptions): Promise<RunExtr
       repo: runRepo,
       transcripts,
       agent,
+      rejections,
       config: {},
     });
   } finally {

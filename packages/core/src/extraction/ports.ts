@@ -1,3 +1,11 @@
+import type {
+  Actionability,
+  Derivability,
+  Durability,
+  RejectionClause,
+} from "./domain/admission-policy.js";
+import type { ContentSmell } from "./domain/content-smells.js";
+
 export interface ExtractionConfig {
   /** Window after a run starts during which a duplicate run for the same session_id is skipped. */
   inFlightTimeoutMs?: number;
@@ -30,6 +38,31 @@ export interface ExtractionRunRepository {
   reapStale(now: Date, timeoutMs: number): number;
   /** Run counts since `since`, plus the all-time stale in-flight count. */
   stats(now: Date, since: Date, inFlightTimeoutMs: number): ExtractionRunStats;
+}
+
+export interface RejectedCandidate {
+  content: string;
+  type: string;
+  durability: Durability;
+  derivability: Derivability;
+  actionability: Actionability;
+  evidenceQuote: string;
+  rejectedClause: RejectionClause;
+  smells: ContentSmell[];
+  sessionId: string;
+  projectHash: string | null;
+}
+
+export interface RejectionClauseCount {
+  clause: RejectionClause;
+  count: number;
+}
+
+export interface RejectedCandidateRepository {
+  record(candidate: RejectedCandidate, now: Date): void;
+  /** Drops rejections older than `before`. This is a diagnostic log, not an archive. */
+  prune(before: Date): number;
+  countByClause(since: Date): RejectionClauseCount[];
 }
 
 export type TranscriptReadResult = { status: "read"; chunks: string[] } | { status: "unavailable" };

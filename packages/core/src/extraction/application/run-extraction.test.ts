@@ -4,6 +4,7 @@ import type {
   ExtractionConfig,
   ExtractionRunRecord,
   ExtractionRunRepository,
+  RejectedCandidateRepository,
   TranscriptReader,
 } from "../ports.js";
 import { runExtraction } from "./run-extraction.js";
@@ -69,6 +70,16 @@ const transcripts: TranscriptReader = {
 
 const config: ExtractionConfig = {};
 
+const rejections: RejectedCandidateRepository & { prunes: number } = {
+  prunes: 0,
+  record: () => {},
+  prune() {
+    this.prunes += 1;
+    return 0;
+  },
+  countByClause: () => [],
+};
+
 const noSleep = async (): Promise<void> => {};
 
 describe("runExtraction", () => {
@@ -78,7 +89,7 @@ describe("runExtraction", () => {
 
     const result = await runExtraction(
       { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
-      { repo, transcripts, agent, config }
+      { repo, transcripts, agent, rejections, config }
     );
 
     expect(result).toEqual({ status: "completed" });
@@ -99,7 +110,7 @@ describe("runExtraction", () => {
 
     const result = await runExtraction(
       { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
-      { repo, transcripts: chunked, agent, config }
+      { repo, transcripts: chunked, agent, rejections, config }
     );
 
     expect(result).toEqual({ status: "completed" });
@@ -124,7 +135,7 @@ describe("runExtraction", () => {
 
     const result = await runExtraction(
       { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
-      { repo, transcripts: chunked, agent, config }
+      { repo, transcripts: chunked, agent, rejections, config }
     );
 
     expect(result).toEqual({ status: "completed" });
@@ -153,7 +164,7 @@ describe("runExtraction", () => {
 
     const result = await runExtraction(
       { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
-      { repo, transcripts, agent, config }
+      { repo, transcripts, agent, rejections, config }
     );
 
     expect(result).toEqual({ status: "skipped", reason: "in_flight" });
@@ -167,7 +178,7 @@ describe("runExtraction", () => {
 
     const result = await runExtraction(
       { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
-      { repo, transcripts: absent, agent, config, sleep: noSleep }
+      { repo, transcripts: absent, agent, rejections, config, sleep: noSleep }
     );
 
     expect(result).toEqual({ status: "skipped", reason: "transcript_unavailable" });
@@ -186,7 +197,7 @@ describe("runExtraction", () => {
 
     const result = await runExtraction(
       { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
-      { repo, transcripts: { read }, agent, config, sleep: noSleep }
+      { repo, transcripts: { read }, agent, rejections, config, sleep: noSleep }
     );
 
     expect(result).toEqual({ status: "completed" });
@@ -200,7 +211,7 @@ describe("runExtraction", () => {
 
     await runExtraction(
       { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
-      { repo, transcripts, agent, config }
+      { repo, transcripts, agent, rejections, config }
     );
 
     expect(repo.state.reaps).toBe(1);
@@ -214,7 +225,7 @@ describe("runExtraction", () => {
 
     const result = await runExtraction(
       { sessionId: "s1", transcriptPath: "/t", projectHash: "abc" },
-      { repo, transcripts, agent, config }
+      { repo, transcripts, agent, rejections, config }
     );
 
     expect(result).toEqual({ status: "failed", error: "boom" });

@@ -1,5 +1,6 @@
 import {
   DEFAULT_IN_FLIGHT_TIMEOUT_MS,
+  REJECTION_RETENTION_MS,
   TRANSCRIPT_RETRY_DELAY_MS,
 } from "../domain/extraction-policy.js";
 import { MAX_EXTRACTION_CHUNKS } from "../domain/transcript-chunking.js";
@@ -7,6 +8,7 @@ import type {
   ExtractionAgentRunner,
   ExtractionConfig,
   ExtractionRunRepository,
+  RejectedCandidateRepository,
   TranscriptReader,
 } from "../ports.js";
 
@@ -50,6 +52,7 @@ export async function runExtraction(
     repo: ExtractionRunRepository;
     transcripts: TranscriptReader;
     agent: ExtractionAgentRunner;
+    rejections: RejectedCandidateRepository;
     config: ExtractionConfig;
     now?: () => Date;
     sleep?: (ms: number) => Promise<void>;
@@ -65,6 +68,7 @@ export async function runExtraction(
   if (reaped > 0) {
     process.stderr.write(`membank extraction: reaped ${reaped} stale in-flight run(s)\n`);
   }
+  deps.rejections.prune(new Date(now().getTime() - REJECTION_RETENTION_MS));
 
   // Read before claiming: an absent transcript must not leave a run row behind at all.
   const chunks = await readWithRetry(deps.transcripts, input.transcriptPath, sleep);

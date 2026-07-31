@@ -1,6 +1,7 @@
 import {
   createExtractionRunRepository,
   createProjectRepository,
+  createRejectedCandidateRepository,
   DatabaseManager,
   DEFAULT_IN_FLIGHT_TIMEOUT_MS,
   findSplitScopePairs,
@@ -17,7 +18,7 @@ const FAILURE_RATE_WINDOW_DAYS = 30;
 const FAILURE_RATE_WARN = 0.1;
 
 export interface DoctorCheck {
-  id: "auto-memory" | "stale-runs" | "split-scope" | "extraction-failures";
+  id: "auto-memory" | "stale-runs" | "split-scope" | "extraction-failures" | "admission-gate";
   status: "ok" | "warn";
   summary: string;
   detail: string[];
@@ -110,6 +111,16 @@ export async function doctorCommand(
       }
       checks.push(splitCheck);
     }
+
+    const rejections = createRejectedCandidateRepository(db).countByClause(since);
+    const totalRejected = rejections.reduce((sum, r) => sum + r.count, 0);
+    checks.push({
+      id: "admission-gate",
+      status: "ok",
+      summary: `Admission gate rejected ${totalRejected} candidate(s) over ${FAILURE_RATE_WINDOW_DAYS} days`,
+      detail: rejections.map((r) => `${r.clause}: ${r.count}`),
+      fixed: false,
+    });
 
     const rate = stats.total === 0 ? 0 : stats.failed / stats.total;
     const rateSummary = `Extraction failures: ${stats.failed}/${stats.total} over ${FAILURE_RATE_WINDOW_DAYS} days`;
