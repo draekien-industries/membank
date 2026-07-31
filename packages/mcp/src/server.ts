@@ -152,6 +152,7 @@ export function buildExtractionTools(
           type: MemoryTypeSchema.parse(args.type),
           ...(args.tags !== undefined && { tags: args.tags }),
           target,
+          durability: args.durability,
           sourceHarness: "membank-extraction",
         },
         { repo, embedder, capabilities }

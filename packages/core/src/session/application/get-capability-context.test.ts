@@ -17,6 +17,8 @@ function makeMemory(content: string): Memory {
     primaryScopeHash: GLOBAL_SCOPE_HASH,
     sourceHarness: null,
     accessCount: 0,
+    corroborationCount: 0,
+    durability: null,
     pinned: false,
     reviewEvents: [],
     createdAt: now,

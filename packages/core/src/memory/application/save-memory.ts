@@ -4,6 +4,7 @@ import { noopActivityLogger } from "../../activity/ports.js";
 import type { MemoryTarget } from "../../capability/domain/memory-target.js";
 import type { CapabilityRepository } from "../../capability/ports.js";
 import { GLOBAL_PROJECT_NAME, GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
+import type { Durability } from "../../schemas.js";
 import { SaveFieldsSchema } from "../../schemas.js";
 import { classifyDuplicate } from "../domain/dedup-policy.js";
 import type { Memory } from "../domain/memory.js";
@@ -15,6 +16,8 @@ export type SaveOptions = {
   tags?: string[];
   sourceHarness?: string;
   target: MemoryTarget;
+  /** Set by the extraction agent's admission rubric; absent for deliberate human saves. */
+  durability?: Durability;
 };
 
 export async function saveMemory(
@@ -27,7 +30,7 @@ export async function saveMemory(
   }
 ): Promise<Memory> {
   const { content, type, tags = [], sourceHarness } = SaveFieldsSchema.parse(opts);
-  const { target } = opts;
+  const { target, durability } = opts;
   const { repo, embedder, activityLogger = noopActivityLogger } = deps;
 
   const projectScope = resolveProjectScope(target);
@@ -59,7 +62,7 @@ export async function saveMemory(
 
     if (decision === "flag") {
       const newMemory = repo.create(
-        buildCreateOpts({ content, type, tags, sourceHarness, embedding, projectScope })
+        buildCreateOpts({ content, type, tags, sourceHarness, embedding, projectScope, durability })
       );
       repo.createReviewEvent({
         memoryId: top.id,
@@ -88,7 +91,7 @@ export async function saveMemory(
   }
 
   const created = repo.create(
-    buildCreateOpts({ content, type, tags, sourceHarness, embedding, projectScope })
+    buildCreateOpts({ content, type, tags, sourceHarness, embedding, projectScope, durability })
   );
 
   if (target.tag === "capability") {
@@ -132,6 +135,7 @@ function buildCreateOpts(args: {
   sourceHarness: string | undefined;
   embedding: Float32Array;
   projectScope: { hash: string; name: string; origin?: string } | undefined;
+  durability: Durability | undefined;
 }): CreateMemoryOpts {
   return {
     id: randomUUID(),
@@ -140,6 +144,7 @@ function buildCreateOpts(args: {
     tags: args.tags,
     sourceHarness: args.sourceHarness ?? null,
     embedding: args.embedding,
+    ...(args.durability !== undefined && { durability: args.durability }),
     ...(args.projectScope !== undefined && { projectScope: args.projectScope }),
   };
 }

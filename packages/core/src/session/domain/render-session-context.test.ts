@@ -12,6 +12,8 @@ function pinned(content: string, type: Memory["type"]): Memory {
     primaryScopeHash: "0000000000000000",
     sourceHarness: null,
     accessCount: 0,
+    corroborationCount: 0,
+    durability: null,
     pinned: true,
     reviewEvents: [],
     createdAt: "2026-01-01T00:00:00.000Z",

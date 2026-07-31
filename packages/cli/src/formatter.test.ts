@@ -13,6 +13,8 @@ function makeResult(overrides: Partial<QueryResult> = {}): QueryResult {
     score: 0.85,
     sourceHarness: null,
     accessCount: 0,
+    corroborationCount: 0,
+    durability: null,
     pinned: false,
     reviewEvents: [],
     createdAt: new Date().toISOString(),

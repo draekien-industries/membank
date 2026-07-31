@@ -12,7 +12,12 @@ import type {
   ReviewEventRow,
   SynthesisVersionRow,
 } from "../../schemas.js";
-import { MemoryTypeSchema, ReviewEventRowSchema, TagsJsonSchema } from "../../schemas.js";
+import {
+  DurabilitySchema,
+  MemoryTypeSchema,
+  ReviewEventRowSchema,
+  TagsJsonSchema,
+} from "../../schemas.js";
 import type { SynthesisVersion } from "../../synthesis/domain/synthesis-version.js";
 
 export function rowToMemory(
@@ -29,6 +34,8 @@ export function rowToMemory(
     primaryScopeHash: projects[0]?.scopeHash ?? GLOBAL_SCOPE_HASH,
     sourceHarness: row.source,
     accessCount: row.access_count,
+    corroborationCount: row.corroboration_count,
+    durability: row.durability === null ? null : DurabilitySchema.parse(row.durability),
     pinned: row.pinned !== 0,
     reviewEvents,
     createdAt: row.created_at,

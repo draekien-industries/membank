@@ -67,16 +67,16 @@ export class SqliteMemoryRepository implements MemoryRepository {
   }
 
   create(opts: CreateMemoryOpts): Memory {
-    const { id, content, type, tags, sourceHarness, embedding, projectScope } = opts;
+    const { id, content, type, tags, sourceHarness, embedding, projectScope, durability } = opts;
     const now = new Date().toISOString();
     const embeddingBlob = Buffer.from(embedding.buffer);
 
     this.#db.db
       .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)`
+        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, durability, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?)`
       )
-      .run(id, content, type, JSON.stringify(tags), sourceHarness, now, now);
+      .run(id, content, type, JSON.stringify(tags), sourceHarness, durability ?? null, now, now);
 
     this.#db.db
       .prepare(
@@ -107,8 +107,14 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
     this.#db.db.transaction(() => {
       this.#archiveCurrentContent(id);
+      // An overwrite is the same memory being stated again: the strongest available
+      // evidence that it earns its place, and previously discarded.
       this.#db.db
-        .prepare(`UPDATE memories SET content = ?, updated_at = ? WHERE id = ?`)
+        .prepare(
+          `UPDATE memories
+           SET content = ?, updated_at = ?, corroboration_count = corroboration_count + 1
+           WHERE id = ?`
+        )
         .run(content, now, id);
     })();
 

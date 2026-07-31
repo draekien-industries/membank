@@ -1,8 +1,11 @@
-export const DURABILITY_VALUES = ["permanent", "stable", "volatile"] as const;
+import type { DURABILITY_VALUES } from "../../schemas.js";
+
+export type { Durability } from "../../schemas.js";
+export { DURABILITY_VALUES } from "../../schemas.js";
+
 export const DERIVABILITY_VALUES = ["hidden", "costly", "trivial"] as const;
 export const ACTIONABILITY_VALUES = ["directive", "constraint", "context"] as const;
 
-export type Durability = (typeof DURABILITY_VALUES)[number];
 export type Derivability = (typeof DERIVABILITY_VALUES)[number];
 export type Actionability = (typeof ACTIONABILITY_VALUES)[number];
 
@@ -11,7 +14,7 @@ export type RejectionClause = "ungrounded" | "volatile" | "trivially-derivable" 
 export interface MemoryCandidate {
   content: string;
   type: string;
-  durability: Durability;
+  durability: (typeof DURABILITY_VALUES)[number];
   derivability: Derivability;
   actionability: Actionability;
   evidence: string;

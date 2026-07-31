@@ -437,6 +437,13 @@ CREATE TABLE rejected_candidates (
 CREATE INDEX idx_rejected_created ON rejected_candidates(created_at);
 `,
   ],
+  [
+    18,
+    `
+ALTER TABLE memories ADD COLUMN durability TEXT;
+ALTER TABLE memories ADD COLUMN corroboration_count INTEGER NOT NULL DEFAULT 0;
+`,
+  ],
 ];
 
 export class DatabaseManager {

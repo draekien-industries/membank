@@ -62,6 +62,11 @@ export interface Memory {
   updatedAt: string;
 }
 
+export interface LowRetentionEntry {
+  memory: Memory;
+  retention: number;
+}
+
 export interface Stats {
   byType: Record<MemoryType, number>;
   total: number;

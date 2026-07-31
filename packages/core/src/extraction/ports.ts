@@ -89,6 +89,7 @@ export interface ExtractionTools {
     type: string;
     tags?: string[];
     global?: boolean;
+    durability: Durability;
   }) => Promise<string>;
   updateMemory: (args: {
     id: string;

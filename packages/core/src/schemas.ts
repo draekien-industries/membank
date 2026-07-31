@@ -37,6 +37,10 @@ export const CapabilitySchema = z.object({
 });
 export type Capability = z.infer<typeof CapabilitySchema>;
 
+export const DURABILITY_VALUES = ["permanent", "stable", "volatile"] as const;
+export const DurabilitySchema = z.enum(DURABILITY_VALUES);
+export type Durability = z.infer<typeof DurabilitySchema>;
+
 export const ReviewReasonSchema = z.enum(["similarity_dedup"]);
 export type ReviewReason = z.infer<typeof ReviewReasonSchema>;
 
@@ -73,6 +77,8 @@ export const MemorySchema = z.object({
   primaryScopeHash: z.string(),
   sourceHarness: z.string().nullable(),
   accessCount: z.number().int().nonnegative(),
+  corroborationCount: z.number().int().nonnegative(),
+  durability: DurabilitySchema.nullable(),
   pinned: z.boolean(),
   reviewEvents: z.array(ReviewEventSchema),
   createdAt: z.string(),
@@ -145,6 +151,8 @@ export const MemoryRowSchema = z.object({
   tags: z.string(),
   source: z.string().nullable(),
   access_count: z.number(),
+  corroboration_count: z.number(),
+  durability: z.string().nullable(),
   pinned: z.number(),
   created_at: z.string(),
   updated_at: z.string(),

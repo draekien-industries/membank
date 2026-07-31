@@ -161,6 +161,7 @@ class ClaudeExtractionAgentRunner implements ExtractionAgentRunner {
         const result = await this.#tools.saveMemory({
           content,
           type,
+          durability,
           ...(tags !== undefined && { tags }),
           ...(isGlobal !== undefined && { global: isGlobal }),
         });

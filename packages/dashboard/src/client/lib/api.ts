@@ -5,6 +5,7 @@ import type {
   BulkOpResult,
   CapabilitiesResponse,
   Filters,
+  LowRetentionEntry,
   Memory,
   MemoryCluster,
   MemoryType,
@@ -164,6 +165,11 @@ export function getSessionContext(projectId: string): Promise<SessionContext> {
 export function getFlaggedClusters(projectId?: string): Promise<MemoryCluster[]> {
   const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
   return request<MemoryCluster[]>(`/memories/flagged-clusters${qs}`);
+}
+
+export function getLowRetention(projectId?: string): Promise<LowRetentionEntry[]> {
+  const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
+  return request<LowRetentionEntry[]>(`/memories/low-retention${qs}`);
 }
 
 export function mergeMemories(
