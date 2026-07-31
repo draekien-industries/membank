@@ -52,7 +52,7 @@ async function seedProject(core: CoreServices, hash: string, name: string): Prom
       type: "fact",
       target: { tag: "project", scope: { hash, name } },
     },
-    { repo: core.repo, embedder: core.embedding }
+    { repo: core.repo, embedder: core.embedding, thresholds: core.thresholds }
   );
   const project = core.projects.getByHash(hash);
   if (project === undefined) throw new Error("seed failed");

@@ -20,8 +20,6 @@ const IDLE_RAMP_DAYS: Record<Durability, number> = {
   volatile: 30,
 };
 
-export const RETENTION_FLOOR = 0.3;
-
 export function idlePenalty(daysIdle: number, durability: Durability | null): number {
   const ramp = IDLE_RAMP_DAYS[durability ?? "stable"];
   if (!Number.isFinite(ramp)) return 0;
@@ -38,7 +36,7 @@ export function computeRetention(memory: Memory, now: number): number {
   return typeWeight * 0.4 + useNorm * 0.3 + corroborationNorm * 0.2 - idle * 0.3;
 }
 
-export function isLowRetention(memory: Memory, now: number): boolean {
+export function isLowRetention(memory: Memory, now: number, floor: number): boolean {
   if (memory.pinned) return false;
-  return computeRetention(memory, now) < RETENTION_FLOOR;
+  return computeRetention(memory, now) < floor;
 }

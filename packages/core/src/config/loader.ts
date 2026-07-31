@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { resolveThresholds, type Thresholds } from "../memory/domain/thresholds.js";
 
 interface MemoryConfig {
   synthesis?: { enabled?: boolean };
+  thresholds?: Record<string, unknown>;
 }
 
 function loadConfig(): MemoryConfig | null {
@@ -22,4 +24,8 @@ function loadConfig(): MemoryConfig | null {
 export function isSynthesisEnabled(): boolean {
   const config = loadConfig();
   return config?.synthesis?.enabled === true;
+}
+
+export function loadThresholds(): Thresholds {
+  return resolveThresholds(loadConfig()?.thresholds ?? {});
 }

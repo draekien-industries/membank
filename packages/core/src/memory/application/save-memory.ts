@@ -8,6 +8,7 @@ import type { Durability } from "../../schemas.js";
 import { SaveFieldsSchema } from "../../schemas.js";
 import { classifyDuplicate } from "../domain/dedup-policy.js";
 import type { Memory } from "../domain/memory.js";
+import type { Thresholds } from "../domain/thresholds.js";
 import type { CreateMemoryOpts, Embedder, MemoryRepository } from "../ports.js";
 
 export type SaveOptions = {
@@ -25,13 +26,14 @@ export async function saveMemory(
   deps: {
     repo: MemoryRepository;
     embedder: Embedder;
+    thresholds: Thresholds;
     capabilities?: CapabilityRepository;
     activityLogger?: ActivityLogger;
   }
 ): Promise<Memory> {
   const { content, type, tags = [], sourceHarness } = SaveFieldsSchema.parse(opts);
   const { target, durability } = opts;
-  const { repo, embedder, activityLogger = noopActivityLogger } = deps;
+  const { repo, embedder, thresholds, activityLogger = noopActivityLogger } = deps;
 
   const projectScope = resolveProjectScope(target);
   const dedupScope = target.tag === "capability" ? undefined : projectScope?.hash;
@@ -44,7 +46,7 @@ export async function saveMemory(
   // capability memories are self-curated and unassociated from any project, so they bypass
   // the project/global-scoped dedup; the per-capability most-recent cap is their safety valve.
   if (top !== undefined && target.tag !== "capability") {
-    const rawDecision = classifyDuplicate(top.similarity);
+    const rawDecision = classifyDuplicate(top.similarity, thresholds);
     // Cross-type matches are never silently merged — a decision and a preference about the
     // same topic are distinct records even when their wording is near-identical, so an
     // overwrite-strength match across types is downgraded to a flag for human review.

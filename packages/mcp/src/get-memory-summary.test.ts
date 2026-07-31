@@ -83,15 +83,27 @@ describe("get_memory_summary tool", () => {
 
     await saveMemory(
       { content: "prefer tabs", type: "preference", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
     await saveMemory(
       { content: "use pnpm", type: "decision", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
     await saveMemory(
       { content: "node is fast", type: "fact", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
 
     const result = await session.client.callTool({ name: "get_memory_summary", arguments: {} });
@@ -118,11 +130,19 @@ describe("get_memory_summary tool", () => {
 
     const m1 = await saveMemory(
       { content: "prefer tabs", type: "preference", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
     await saveMemory(
       { content: "use pnpm", type: "decision", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
     session.core.repo.setPin(m1.id, true);
 
@@ -144,11 +164,19 @@ describe("get_memory_summary tool", () => {
 
     const m1 = await saveMemory(
       { content: "always use dark mode", type: "preference", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
     const m2 = await saveMemory(
       { content: "always use light mode", type: "preference", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
 
     // Insert directly: real similarity dedup is non-deterministic in unit tests.

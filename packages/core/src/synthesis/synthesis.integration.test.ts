@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DatabaseManager } from "../db/manager.js";
 import { EmbeddingService } from "../embedding/index.js";
+import { DEFAULT_THRESHOLDS } from "../memory/domain/thresholds.js";
 import { createMemoryRepository, saveMemory } from "../memory/index.js";
 import { createProjectRepository } from "../project/index.js";
 import { runSynthesis } from "./application/run-synthesis.js";
@@ -54,7 +55,7 @@ describe.skipIf(!runIntegration)("synthesis — integration (real Claude Haiku a
         target: { tag: "project", scope: { hash: projectHash, name: "membank-int-synth" } },
         sourceHarness: "membank-test",
       },
-      { repo, embedder: embedding }
+      { repo, embedder: embedding, thresholds: DEFAULT_THRESHOLDS }
     );
     await saveMemory(
       {
@@ -63,7 +64,7 @@ describe.skipIf(!runIntegration)("synthesis — integration (real Claude Haiku a
         target: { tag: "project", scope: { hash: projectHash, name: "membank-int-synth" } },
         sourceHarness: "membank-test",
       },
-      { repo, embedder: embedding }
+      { repo, embedder: embedding, thresholds: DEFAULT_THRESHOLDS }
     );
 
     const agentRunner = createSynthesisAgentRunner();

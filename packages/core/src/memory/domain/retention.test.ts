@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Durability, Memory, MemoryType } from "../../schemas.js";
-import { computeRetention, idlePenalty, isLowRetention, RETENTION_FLOOR } from "./retention.js";
+import { computeRetention, idlePenalty, isLowRetention } from "./retention.js";
+import { DEFAULT_THRESHOLDS } from "./thresholds.js";
+
+const FLOOR = DEFAULT_THRESHOLDS.retentionFloor;
 
 const NOW = new Date("2026-07-31T00:00:00.000Z").getTime();
 
@@ -73,22 +76,44 @@ describe("computeRetention", () => {
     const durabilities: Durability[] = ["permanent"];
     for (const durability of durabilities) {
       const m = memory({ type: "correction", durability, updatedAt: daysAgo(10_000) });
-      expect(computeRetention(m, NOW)).toBeGreaterThanOrEqual(RETENTION_FLOOR);
+      expect(computeRetention(m, NOW)).toBeGreaterThanOrEqual(FLOOR);
     }
   });
 });
 
 describe("isLowRetention", () => {
   it("surfaces an idle, never-retrieved learning", () => {
-    expect(isLowRetention(memory({ type: "learning", updatedAt: daysAgo(400) }), NOW)).toBe(true);
+    expect(isLowRetention(memory({ type: "learning", updatedAt: daysAgo(400) }), NOW, FLOOR)).toBe(
+      true
+    );
   });
 
   it("never surfaces a pinned memory", () => {
     const pinned = memory({ type: "fact", pinned: true, updatedAt: daysAgo(10_000) });
-    expect(isLowRetention(pinned, NOW)).toBe(false);
+    expect(isLowRetention(pinned, NOW, FLOOR)).toBe(false);
   });
 
   it("does not surface a frequently retrieved memory", () => {
-    expect(isLowRetention(memory({ accessCount: 50, updatedAt: daysAgo(5) }), NOW)).toBe(false);
+    expect(isLowRetention(memory({ accessCount: 50, updatedAt: daysAgo(5) }), NOW, FLOOR)).toBe(
+      false
+    );
+  });
+
+  // A memory has no retrievals and no corroboration on the day it is written, so a floor
+  // set above the type weight condemns it on arrival — the miscalibration that flagged 88%
+  // of a real corpus.
+  it("does not surface a freshly written memory that has had no chance to be used", () => {
+    for (const type of ["correction", "preference", "decision", "learning"] as const) {
+      expect(isLowRetention(memory({ type, updatedAt: daysAgo(0) }), NOW, FLOOR)).toBe(false);
+    }
+  });
+
+  it("surfaces a never-retrieved memory only once it has gone idle", () => {
+    expect(isLowRetention(memory({ type: "decision", updatedAt: daysAgo(0) }), NOW, FLOOR)).toBe(
+      false
+    );
+    expect(isLowRetention(memory({ type: "decision", updatedAt: daysAgo(180) }), NOW, FLOOR)).toBe(
+      true
+    );
   });
 });

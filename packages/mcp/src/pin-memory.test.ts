@@ -62,7 +62,11 @@ describe("pin_memory tool — pin budget warning", () => {
 
     const memory = await saveMemory(
       { content: "short content", type: "fact", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
 
     const result = await session.client.callTool({
@@ -84,7 +88,11 @@ describe("pin_memory tool — pin budget warning", () => {
     const longContent = "x".repeat(PIN_BUDGET_THRESHOLD + 1);
     const memory = await saveMemory(
       { content: longContent, type: "fact", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
 
     const result = await session.client.callTool({
@@ -107,7 +115,11 @@ describe("pin_memory tool — pin budget warning", () => {
     const longContent = "x".repeat(PIN_BUDGET_THRESHOLD + 1);
     const memory = await saveMemory(
       { content: longContent, type: "fact", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
 
     const result = await session.client.callTool({
@@ -129,7 +141,11 @@ describe("pin_memory tool — pin budget warning", () => {
     const longContent = "x".repeat(PIN_BUDGET_THRESHOLD + 1);
     const memory = await saveMemory(
       { content: longContent, type: "fact", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
     session.core.repo.setPin(memory.id, true);
 

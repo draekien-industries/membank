@@ -2,6 +2,7 @@ import type { ActivityLogger } from "../../activity/ports.js";
 import { noopActivityLogger } from "../../activity/ports.js";
 import { classifyDuplicate } from "../domain/dedup-policy.js";
 import type { Memory } from "../domain/memory.js";
+import type { Thresholds } from "../domain/thresholds.js";
 import type { Embedder, MemoryRepository, MergeMemoriesOpts } from "../ports.js";
 
 export interface MergeMemoriesResult {
@@ -11,10 +12,15 @@ export interface MergeMemoriesResult {
 
 export async function mergeMemories(
   opts: MergeMemoriesOpts,
-  deps: { repo: MemoryRepository; embedder: Embedder; activityLogger?: ActivityLogger }
+  deps: {
+    repo: MemoryRepository;
+    embedder: Embedder;
+    thresholds: Thresholds;
+    activityLogger?: ActivityLogger;
+  }
 ): Promise<MergeMemoriesResult> {
   const { keepId, dropIds, mergedContent } = opts;
-  const { repo, embedder, activityLogger = noopActivityLogger } = deps;
+  const { repo, embedder, thresholds, activityLogger = noopActivityLogger } = deps;
 
   const keep = repo.findById(keepId);
   if (keep === undefined) throw new Error(`Memory not found: ${keepId}`);
@@ -51,7 +57,11 @@ export async function mergeMemories(
 
   // Re-run dedup so the merged memory gets flagged if it's near another existing memory
   const [top] = repo.findSimilar(embedding, keep.primaryScopeHash);
-  if (top !== undefined && top.id !== keepId && classifyDuplicate(top.similarity) === "flag") {
+  if (
+    top !== undefined &&
+    top.id !== keepId &&
+    classifyDuplicate(top.similarity, thresholds) === "flag"
+  ) {
     repo.createReviewEvent({
       memoryId: keepId,
       conflictingMemoryId: top.id,

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DatabaseManager } from "../db/manager.js";
 import { EmbeddingService } from "../embedding/index.js";
+import { DEFAULT_THRESHOLDS } from "../memory/domain/thresholds.js";
 import type { MemoryRepository } from "../memory/index.js";
 import { createMemoryRepository, saveMemory, updateMemory } from "../memory/index.js";
 import { createProjectRepository } from "../project/index.js";
@@ -53,7 +54,7 @@ function buildLocalExtractionTools(
           target,
           sourceHarness: "membank-extraction",
         },
-        { repo, embedder }
+        { repo, embedder, thresholds: DEFAULT_THRESHOLDS }
       );
       return JSON.stringify(memory);
     },

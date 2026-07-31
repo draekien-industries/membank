@@ -1,7 +1,8 @@
 export { CapabilityKey } from "./capability/domain/capability-key.js";
 export type { LineDiff } from "./diff.js";
 export { diffLines } from "./diff.js";
-export { AUTO_OVERWRITE_THRESHOLD, FLAG_THRESHOLD } from "./memory/domain/dedup-policy.js";
+export type { Thresholds } from "./memory/domain/thresholds.js";
+export { DEFAULT_THRESHOLDS } from "./memory/domain/thresholds.js";
 export {
   GLOBAL_PROJECT_ID,
   GLOBAL_PROJECT_NAME,

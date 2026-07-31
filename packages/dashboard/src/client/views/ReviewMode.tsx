@@ -1,4 +1,3 @@
-import { FLAG_THRESHOLD } from "@membank/core/client";
 import {
   ArrowLeft,
   CheckCircle,
@@ -16,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { useThresholds } from "@/hooks/useThresholds";
 import {
   deleteManyMemories,
   getFlaggedClusters,
@@ -28,9 +28,9 @@ import type { Memory, MemoryCluster, Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Route } from "../routes/review";
 
-function similarityLabel(sim: number): string {
+function similarityLabel(sim: number, flagThreshold: number): string {
   if (sim >= 0.9) return "high";
-  if (sim >= FLAG_THRESHOLD) return "mid";
+  if (sim >= flagThreshold) return "mid";
   return "low";
 }
 
@@ -75,10 +75,12 @@ function ClusterListItem({
   cluster,
   selected,
   onClick,
+  flagThreshold,
 }: {
   cluster: MemoryCluster;
   selected: boolean;
   onClick: () => void;
+  flagThreshold: number;
 }) {
   const snippet = cluster.memories[0]?.content.slice(0, 60) ?? "";
   const projects = uniqueProjects(cluster.memories);
@@ -108,7 +110,7 @@ function ClusterListItem({
         </span>
         {!cluster.isStale && (
           <span className="text-[10px] font-mono text-muted-foreground">
-            · {similarityLabel(cluster.maxSimilarity)} similarity
+            · {similarityLabel(cluster.maxSimilarity, flagThreshold)} similarity
           </span>
         )}
       </div>
@@ -408,6 +410,8 @@ export function ReviewMode() {
     void loadClusters();
   }, [loadClusters]);
 
+  const thresholds = useThresholds();
+
   const selectedCluster = clusters.find((cl) => cl.clusterId === selectedId) ?? null;
 
   return (
@@ -461,6 +465,7 @@ export function ReviewMode() {
                   cluster={cl}
                   selected={cl.clusterId === selectedId}
                   onClick={() => setSelectedId(cl.clusterId)}
+                  flagThreshold={thresholds.flag}
                 />
               ))}
             </ScrollArea>
