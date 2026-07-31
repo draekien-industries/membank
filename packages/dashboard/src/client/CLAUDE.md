@@ -24,4 +24,6 @@ Reserve `useNavigate()` for programmatic navigation only: keyboard event handler
 
 **Never import from `@membank/core` in client code** — it pulls `better-sqlite3` and other Node.js-only native modules into the browser bundle. Use `@membank/core/client` instead.
 
-`@membank/core/client` exports pure domain constants (currently `GLOBAL_SCOPE_HASH`, `GLOBAL_PROJECT_ID`, `GLOBAL_PROJECT_NAME`, `FLAG_THRESHOLD`, `AUTO_OVERWRITE_THRESHOLD`). To expose more values browser-side, add them to `packages/core/src/client.ts` (only import from `*/domain/` files to keep it Node-free) and rebuild core.
+`@membank/core/client` exports pure domain constants (currently `GLOBAL_SCOPE_HASH`, `GLOBAL_PROJECT_ID`, `GLOBAL_PROJECT_NAME`, `DEFAULT_THRESHOLDS`). To expose more values browser-side, add them to `packages/core/src/client.ts` (only import from `*/domain/` files to keep it Node-free) and rebuild core.
+
+Thresholds are user-configurable, so a bundled constant is only a fallback — read the effective values with the `useThresholds` hook, which fetches `/api/config/thresholds`.

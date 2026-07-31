@@ -1,5 +1,5 @@
 import type { ProjectRepository } from "@membank/core";
-import { saveMemory } from "@membank/core";
+import { DEFAULT_THRESHOLDS, saveMemory } from "@membank/core";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -139,7 +139,11 @@ describe("error hardening", () => {
 
       const saved = await saveMemory(
         { content: "to be deleted", type: "fact", target: { tag: "global" } },
-        { repo: session.core.repo, embedder: session.core.embedding }
+        {
+          repo: session.core.repo,
+          embedder: session.core.embedding,
+          thresholds: session.core.thresholds,
+        }
       );
 
       vi.spyOn(session.core.repo, "delete").mockImplementation(() => {
@@ -162,7 +166,11 @@ describe("error hardening", () => {
 
       const saved = await saveMemory(
         { content: "to be deleted", type: "fact", target: { tag: "global" } },
-        { repo: session.core.repo, embedder: session.core.embedding }
+        {
+          repo: session.core.repo,
+          embedder: session.core.embedding,
+          thresholds: session.core.thresholds,
+        }
       );
 
       vi.spyOn(session.core.repo, "delete").mockImplementationOnce(() => {
@@ -300,6 +308,7 @@ describe("error hardening", () => {
           getProjectsForMemories: vi.fn().mockReturnValue(new Map()),
         } as unknown as ProjectRepository,
         activityLogger: { logEvent: vi.fn() },
+        thresholds: DEFAULT_THRESHOLDS,
         synthRepo: {
           saveSynthesis: () => {
             throw dbError;

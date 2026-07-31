@@ -56,7 +56,11 @@ describe("query_memory tool", () => {
 
     await saveMemory(
       { content: "prefer dark mode in all editors", type: "preference", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
     await saveMemory(
       {
@@ -64,7 +68,11 @@ describe("query_memory tool", () => {
         type: "preference",
         target: { tag: "global" },
       },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
 
     const result = await session.client.callTool({
@@ -119,7 +127,11 @@ describe("query_memory tool", () => {
 
     await saveMemory(
       { content: "use tabs for indentation", type: "preference", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
     await saveMemory(
       {
@@ -127,7 +139,11 @@ describe("query_memory tool", () => {
         type: "decision",
         target: { tag: "global" },
       },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
 
     const result = await session.client.callTool({
@@ -157,11 +173,19 @@ describe("query_memory tool", () => {
         type: "fact",
         target: { tag: "project", scope: { hash: "abcdef0123456789", name: "project-abc" } },
       },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
     await saveMemory(
       { content: "global linting preference is Biome", type: "fact", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
 
     const result = await session.client.callTool({
@@ -189,7 +213,11 @@ describe("query_memory tool", () => {
         type: "fact",
         target: { tag: "project", scope: { hash: "1234567890abcdef", name: "project-x" } },
       },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
     await saveMemory(
       {
@@ -197,7 +225,11 @@ describe("query_memory tool", () => {
         type: "fact",
         target: { tag: "project", scope: { hash: "fedcba0987654321", name: "project-y" } },
       },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
 
     // Default query resolves to the test process's project (not project-x or project-y)
@@ -259,7 +291,11 @@ describe("query_memory tool", () => {
           type: "learning",
           target: { tag: "global" },
         },
-        { repo: session.core.repo, embedder: session.core.embedding }
+        {
+          repo: session.core.repo,
+          embedder: session.core.embedding,
+          thresholds: session.core.thresholds,
+        }
       );
     }
 
@@ -286,7 +322,11 @@ describe("query_memory tool", () => {
           type: "fact",
           target: { tag: "global" },
         },
-        { repo: session.core.repo, embedder: session.core.embedding }
+        {
+          repo: session.core.repo,
+          embedder: session.core.embedding,
+          thresholds: session.core.thresholds,
+        }
       );
     }
 
@@ -317,7 +357,11 @@ describe("query_memory tool", () => {
 
     const saved = await saveMemory(
       { content: "always use strict TypeScript", type: "preference", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
     session.core.repo.setPin(saved.id, true);
 
@@ -343,7 +387,11 @@ describe("query_memory tool", () => {
 
     const saved = await saveMemory(
       { content: "always use strict TypeScript", type: "preference", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
     session.core.repo.setPin(saved.id, true);
 

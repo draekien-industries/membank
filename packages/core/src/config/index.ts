@@ -1,1 +1,1 @@
-export { isSynthesisEnabled } from "./loader.js";
+export { isSynthesisEnabled, loadThresholds } from "./loader.js";

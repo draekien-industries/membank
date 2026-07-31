@@ -4,6 +4,7 @@ import { CapabilityKey } from "../../capability/domain/capability-key.js";
 import type { CapabilityRepository } from "../../capability/ports.js";
 import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type { Memory, MemoryType } from "../domain/memory.js";
+import { DEFAULT_THRESHOLDS } from "../domain/thresholds.js";
 import type {
   CreateMemoryOpts,
   CreateReviewEventOpts,
@@ -132,7 +133,7 @@ describe("saveMemory", () => {
 
     const result = await saveMemory(
       { content: "Use tabs", type: "preference", target: { tag: "global" } },
-      { repo, embedder }
+      { repo, embedder, thresholds: DEFAULT_THRESHOLDS }
     );
 
     expect(repo.createCalls).toHaveLength(1);
@@ -150,7 +151,7 @@ describe("saveMemory", () => {
 
     await saveMemory(
       { content: "Decided to use tabs", type: "decision", target: { tag: "global" } },
-      { repo, embedder }
+      { repo, embedder, thresholds: DEFAULT_THRESHOLDS }
     );
 
     expect(repo.overwriteCalls).toHaveLength(0);
@@ -166,7 +167,7 @@ describe("saveMemory", () => {
 
     await saveMemory(
       { content: "Updated content", type: "preference", target: { tag: "global" } },
-      { repo, embedder }
+      { repo, embedder, thresholds: DEFAULT_THRESHOLDS }
     );
 
     expect(repo.overwriteCalls).toHaveLength(1);
@@ -183,7 +184,7 @@ describe("saveMemory", () => {
 
     const result = await saveMemory(
       { content: "Similar content", type: "learning", target: { tag: "global" } },
-      { repo, embedder }
+      { repo, embedder, thresholds: DEFAULT_THRESHOLDS }
     );
 
     expect(repo.createCalls).toHaveLength(1);
@@ -202,7 +203,7 @@ describe("saveMemory", () => {
 
     await saveMemory(
       { content: "Different content", type: "fact", target: { tag: "global" } },
-      { repo, embedder }
+      { repo, embedder, thresholds: DEFAULT_THRESHOLDS }
     );
 
     expect(repo.createCalls).toHaveLength(1);
@@ -222,7 +223,7 @@ describe("saveMemory", () => {
         target: { tag: "project", scope: { hash: "abcdef0123456789", name: "proj" } },
         sourceHarness: "claude",
       },
-      { repo, embedder }
+      { repo, embedder, thresholds: DEFAULT_THRESHOLDS }
     );
 
     const created = repo.createCalls[0];
@@ -243,7 +244,7 @@ describe("saveMemory", () => {
         type: "learning",
         target: { tag: "capability", key: CapabilityKey.forTool("Bash") },
       },
-      { repo, embedder, capabilities }
+      { repo, embedder, thresholds: DEFAULT_THRESHOLDS, capabilities }
     );
 
     expect(repo.createCalls).toHaveLength(1);
@@ -264,7 +265,7 @@ describe("saveMemory", () => {
           type: "fact",
           target: { tag: "capability", key: CapabilityKey.forSkill("simplify") },
         },
-        { repo, embedder }
+        { repo, embedder, thresholds: DEFAULT_THRESHOLDS }
       )
     ).rejects.toThrow(/CapabilityRepository/);
   });
@@ -276,7 +277,7 @@ describe("saveMemory", () => {
 
     await saveMemory(
       { content: "Boundary", type: "fact", target: { tag: "global" } },
-      { repo, embedder }
+      { repo, embedder, thresholds: DEFAULT_THRESHOLDS }
     );
 
     expect(repo.reviewEventCalls).toHaveLength(1);
@@ -289,7 +290,7 @@ describe("saveMemory", () => {
 
     await saveMemory(
       { content: "Some content", type: "fact", target: { tag: "global" } },
-      { repo, embedder }
+      { repo, embedder, thresholds: DEFAULT_THRESHOLDS }
     );
 
     expect(embedder.embed).toHaveBeenCalledWith("Some content");
@@ -304,7 +305,7 @@ describe("saveMemory — type validation", () => {
     await expect(
       saveMemory(
         { content: "x", type: "invalid" as MemoryType, target: { tag: "global" } },
-        { repo, embedder }
+        { repo, embedder, thresholds: DEFAULT_THRESHOLDS }
       )
     ).rejects.toThrow();
   });

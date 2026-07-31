@@ -13,6 +13,7 @@ import type {
   Querier,
   SynthesisConfig,
   SynthesisRepository,
+  Thresholds,
 } from "@membank/core";
 import {
   CapabilityKey,
@@ -31,6 +32,7 @@ import {
   GLOBAL_PROJECT_NAME,
   GLOBAL_SCOPE_HASH,
   isSynthesisEnabled,
+  loadThresholds,
   MEMORY_TYPE_VALUES,
   MemoryTypeSchema,
   MIGRATIONS,
@@ -83,6 +85,7 @@ export interface CoreServices {
   capabilities: CapabilityRepository;
   activityLogger: ActivityLogger;
   synthRepo: SynthesisRepository;
+  thresholds: Thresholds;
   synthEngine?: SynthesisEngine;
 }
 
@@ -125,7 +128,8 @@ export function buildExtractionTools(
   repo: MemoryRepository,
   query: Querier,
   embedder: Embedder,
-  capabilities: CapabilityRepository
+  capabilities: CapabilityRepository,
+  thresholds: Thresholds
 ): ExtractionTools {
   return {
     queryMemory: async (args) => {
@@ -155,7 +159,7 @@ export function buildExtractionTools(
           durability: args.durability,
           sourceHarness: "membank-extraction",
         },
-        { repo, embedder, capabilities }
+        { repo, embedder, thresholds, capabilities }
       );
       return JSON.stringify(memory);
     },
@@ -203,6 +207,7 @@ export function initCore(options: ServerOptions = {}): CoreServices {
     capabilities,
     activityLogger,
     synthRepo,
+    thresholds: loadThresholds(),
     ...(synthEngine !== undefined && { synthEngine }),
   };
 }
@@ -577,6 +582,7 @@ export function createServer(core: CoreServices): Server {
           {
             repo: core.repo,
             embedder: core.embedding,
+            thresholds: core.thresholds,
             capabilities: core.capabilities,
             activityLogger: core.activityLogger,
           }
@@ -602,7 +608,11 @@ export function createServer(core: CoreServices): Server {
         const memory = await updateMemory(
           args.id,
           { content: args.content, type: args.type, tags: args.tags },
-          { repo: core.repo, embedder: core.embedding, activityLogger: core.activityLogger }
+          {
+            repo: core.repo,
+            embedder: core.embedding,
+            activityLogger: core.activityLogger,
+          }
         );
 
         if (core.synthEngine !== undefined) {
@@ -882,7 +892,12 @@ export function createServer(core: CoreServices): Server {
       try {
         const result = await mergeMemories(
           { keepId: args.keep_id, dropIds: args.drop_ids, mergedContent: args.merged_content },
-          { repo: core.repo, embedder: core.embedding, activityLogger: core.activityLogger }
+          {
+            repo: core.repo,
+            embedder: core.embedding,
+            thresholds: core.thresholds,
+            activityLogger: core.activityLogger,
+          }
         );
         if (core.synthEngine !== undefined) {
           core.synthEngine.markDirty(result.kept.primaryScopeHash);

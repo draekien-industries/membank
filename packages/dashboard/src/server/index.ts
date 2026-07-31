@@ -15,6 +15,7 @@ import type {
   MemoryType,
   ProjectRepository,
   SynthesisRepository,
+  Thresholds,
 } from "@membank/core";
 import {
   ActivityEventTypeSchema,
@@ -41,6 +42,7 @@ import {
   isLowRetention,
   isSynthesisEnabled,
   listEvents,
+  loadThresholds,
   MEMORY_TYPE_VALUES,
   mergeMemories,
   mergeProjects,
@@ -136,7 +138,8 @@ export function createApiApp(
   synthRepo: SynthesisRepository,
   activityRepo: ActivityRepository,
   activityLogger: ActivityLogger,
-  capabilityRepo: CapabilityRepository
+  capabilityRepo: CapabilityRepository,
+  thresholds: Thresholds
 ): Hono {
   const app = new Hono();
 
@@ -155,13 +158,15 @@ export function createApiApp(
     return c.json(memories);
   });
 
+  app.get("/api/config/thresholds", (c) => c.json(thresholds));
+
   app.get("/api/memories/low-retention", (c) => {
     const projectIdParam = c.req.query("projectId");
     const now = Date.now();
     return c.json(
       repo
         .list({ ...(projectIdParam !== undefined && { projectId: projectIdParam }) })
-        .filter((m) => isLowRetention(m, now))
+        .filter((m) => isLowRetention(m, now, thresholds))
         .map((memory) => ({ memory, retention: computeRetention(memory, now) }))
         .sort((a, b) => a.retention - b.retention)
     );
@@ -216,7 +221,7 @@ export function createApiApp(
           dropIds: body.dropIds as string[],
           mergedContent: body.mergedContent,
         },
-        { repo, embedder, activityLogger }
+        { repo, embedder, thresholds, activityLogger }
       );
       return c.json(kept);
     } catch (err: unknown) {
@@ -579,7 +584,8 @@ export async function startDashboard(opts?: {
     synthRepo,
     activityRepo,
     activityLogger,
-    capabilityRepo
+    capabilityRepo,
+    loadThresholds()
   );
 
   const __dir = dirname(fileURLToPath(import.meta.url));

@@ -5,6 +5,7 @@ import {
   createProjectRepository,
   DatabaseManager,
   EmbeddingService as EmbeddingServiceImpl,
+  loadThresholds,
   resolveProject,
   saveMemory,
 } from "@membank/core";
@@ -47,7 +48,7 @@ export async function addCommand(
         tags,
         target,
       },
-      { repo, embedder, activityLogger }
+      { repo, embedder, thresholds: loadThresholds(), activityLogger }
     );
     spinner?.succeed("Memory saved");
 

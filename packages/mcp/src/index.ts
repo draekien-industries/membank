@@ -15,6 +15,7 @@ import {
   EmbeddingService,
   GLOBAL_SCOPE_HASH,
   isSynthesisEnabled,
+  loadThresholds,
   type RunExtractionInput,
   type RunExtractionResult,
   resolveProject,
@@ -104,7 +105,13 @@ export async function runExtraction(opts: RunExtractionOptions): Promise<RunExtr
     const queryEngine = createQueryEngine(db, embedding);
     const runRepo = createExtractionRunRepository(db);
     const rejections = createRejectedCandidateRepository(db);
-    const tools = buildExtractionTools(repo, queryEngine, embedding, capabilities);
+    const tools = buildExtractionTools(
+      repo,
+      queryEngine,
+      embedding,
+      capabilities,
+      loadThresholds()
+    );
     const agent = createExtractionAgentRunner(tools, rejections);
     const transcripts = createClaudeCodeTranscriptReader();
 

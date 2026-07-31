@@ -8,6 +8,7 @@ import {
   createSynthesisRepository,
   DatabaseManager,
   EmbeddingService,
+  loadThresholds,
 } from "@membank/core";
 import { createApiApp } from "./index.js";
 
@@ -29,7 +30,8 @@ const app = createApiApp(
   synthRepo,
   activityRepo,
   activityLogger,
-  capabilityRepo
+  capabilityRepo,
+  loadThresholds()
 );
 
 serve({ fetch: app.fetch, port: PORT });

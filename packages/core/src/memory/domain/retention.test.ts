@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest";
-import type { Durability, Memory, MemoryType } from "../../schemas.js";
-import { computeRetention, idlePenalty, isLowRetention, RETENTION_FLOOR } from "./retention.js";
+import {
+  type Durability,
+  MEMORY_TYPE_VALUES,
+  type Memory,
+  type MemoryType,
+} from "../../schemas.js";
+import {
+  computeRetention,
+  idlePenalty,
+  isLowRetention,
+  isWithinRetentionGrace,
+} from "./retention.js";
+import { DEFAULT_THRESHOLDS } from "./thresholds.js";
+
+const FLOOR = DEFAULT_THRESHOLDS.retentionFloor;
+const GRACE_DAYS = DEFAULT_THRESHOLDS.retentionGraceDays;
 
 const NOW = new Date("2026-07-31T00:00:00.000Z").getTime();
 
@@ -73,22 +87,78 @@ describe("computeRetention", () => {
     const durabilities: Durability[] = ["permanent"];
     for (const durability of durabilities) {
       const m = memory({ type: "correction", durability, updatedAt: daysAgo(10_000) });
-      expect(computeRetention(m, NOW)).toBeGreaterThanOrEqual(RETENTION_FLOOR);
+      expect(computeRetention(m, NOW)).toBeGreaterThanOrEqual(FLOOR);
     }
   });
 });
 
 describe("isLowRetention", () => {
   it("surfaces an idle, never-retrieved learning", () => {
-    expect(isLowRetention(memory({ type: "learning", updatedAt: daysAgo(400) }), NOW)).toBe(true);
+    expect(
+      isLowRetention(memory({ type: "learning", updatedAt: daysAgo(400) }), NOW, DEFAULT_THRESHOLDS)
+    ).toBe(true);
   });
 
   it("never surfaces a pinned memory", () => {
     const pinned = memory({ type: "fact", pinned: true, updatedAt: daysAgo(10_000) });
-    expect(isLowRetention(pinned, NOW)).toBe(false);
+    expect(isLowRetention(pinned, NOW, DEFAULT_THRESHOLDS)).toBe(false);
   });
 
   it("does not surface a frequently retrieved memory", () => {
-    expect(isLowRetention(memory({ accessCount: 50, updatedAt: daysAgo(5) }), NOW)).toBe(false);
+    expect(
+      isLowRetention(memory({ accessCount: 50, updatedAt: daysAgo(5) }), NOW, DEFAULT_THRESHOLDS)
+    ).toBe(false);
+  });
+
+  // A memory has no retrievals and no corroboration on the day it is written, and a fact
+  // scores only 0.08 on arrival, so without the grace period the score alone condemns it.
+  it("does not surface a freshly written memory of any type", () => {
+    for (const type of MEMORY_TYPE_VALUES) {
+      const fresh = memory({ type, createdAt: daysAgo(0), updatedAt: daysAgo(0) });
+      expect(isLowRetention(fresh, NOW, DEFAULT_THRESHOLDS)).toBe(false);
+    }
+  });
+
+  it("keeps a memory out of the queue for the whole grace period, then admits it", () => {
+    const justInside = memory({
+      type: "fact",
+      createdAt: daysAgo(GRACE_DAYS - 1),
+      updatedAt: daysAgo(GRACE_DAYS - 1),
+    });
+    const justOutside = memory({
+      type: "fact",
+      createdAt: daysAgo(GRACE_DAYS + 1),
+      updatedAt: daysAgo(GRACE_DAYS + 1),
+    });
+
+    expect(isLowRetention(justInside, NOW, DEFAULT_THRESHOLDS)).toBe(false);
+    expect(isLowRetention(justOutside, NOW, DEFAULT_THRESHOLDS)).toBe(true);
+  });
+
+  // Grace is keyed off createdAt so a save that re-affirms an old memory cannot restart it.
+  it("does not restart the grace period when an old memory is updated", () => {
+    const reaffirmed = memory({
+      type: "fact",
+      createdAt: daysAgo(400),
+      updatedAt: daysAgo(0),
+    });
+
+    expect(isWithinRetentionGrace(reaffirmed, NOW, GRACE_DAYS)).toBe(false);
+    expect(isLowRetention(reaffirmed, NOW, DEFAULT_THRESHOLDS)).toBe(true);
+  });
+
+  it("admits everything immediately when the grace period is configured to zero", () => {
+    const fresh = memory({ type: "fact", createdAt: daysAgo(0), updatedAt: daysAgo(0) });
+
+    expect(isLowRetention(fresh, NOW, { ...DEFAULT_THRESHOLDS, retentionGraceDays: 0 })).toBe(true);
+  });
+
+  it("surfaces a never-retrieved memory only once it has gone idle", () => {
+    expect(
+      isLowRetention(memory({ type: "decision", updatedAt: daysAgo(0) }), NOW, DEFAULT_THRESHOLDS)
+    ).toBe(false);
+    expect(
+      isLowRetention(memory({ type: "decision", updatedAt: daysAgo(180) }), NOW, DEFAULT_THRESHOLDS)
+    ).toBe(true);
   });
 });

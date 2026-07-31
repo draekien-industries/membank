@@ -6,7 +6,7 @@ LLM memory management system. Stores your corrections, preferences, decisions, a
 
 - Memories are typed (`correction` > `preference` > `decision` > `learning` > `fact`) and scoped (global or per-project)
 - Embeddings run locally via `bge-small-en-v1.5` — no data leaves your machine
-- Dedup via cosine similarity: >0.92 = auto-overwrite, 0.85–0.92 = flagged for review
+- Dedup via cosine similarity: >0.92 = auto-overwrite, 0.85–0.92 = flagged for review (both configurable)
 - Session-end extraction proposes memories, and an admission gate rejects the volatile, the trivially code-derivable, the inert, and the unquoted before anything is stored
 - Project scope derived from `git remote get-url origin` hash, fallback to cwd hash
 - Session injection: stats + all pinned global memories + all pinned project memories prepended to every context window
@@ -159,6 +159,34 @@ membank synthesize history           # list archived synthesis versions
 membank synthesize diff <v1> <v2>    # line diff between two archived versions
 membank synthesize revert <version>  # revert active synthesis to a previous version
 ```
+
+## Tuning thresholds (optional)
+
+Membank ships with defaults that suit most corpora. To adjust them, set any of these in
+`~/.membank/config.json` — or use `membank config set thresholds.<key> <value>`:
+
+```json
+{
+  "thresholds": {
+    "autoOverwrite": 0.92,
+    "flag": 0.85,
+    "retentionFloor": 0.1,
+    "retentionGraceDays": 30
+  }
+}
+```
+
+| Key | Default | Effect |
+| --- | --- | --- |
+| `autoOverwrite` | `0.92` | Similarity above which a save replaces the existing memory outright. Lower it to merge more aggressively. |
+| `flag` | `0.85` | Similarity at which a near-duplicate is queued for review instead. Lower it to catch more loosely related pairs, at the cost of a noisier queue. |
+| `retentionFloor` | `0.1` | Retention score below which a memory appears in the dashboard's Retention lane. Raise it to review more of the corpus; nothing is ever deleted automatically. |
+| `retentionGraceDays` | `30` | How long a new memory is exempt from the Retention lane. Measured from creation, so re-saving an old memory does not restart it. Set to `0` to disable. |
+
+The first three are similarity/score values between 0 and 1; `retentionGraceDays` is a day count.
+`flag` must not exceed `autoOverwrite`,
+otherwise nothing would ever be flagged. An out-of-range or non-numeric value fails loudly with the
+offending key rather than being silently ignored.
 
 ## Storage
 

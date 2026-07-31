@@ -69,7 +69,11 @@ describe("update_memory tool", () => {
 
     const saved = await saveMemory(
       { content: "use tabs for indentation", type: "preference", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
 
     const result = await session.client.callTool({
@@ -93,7 +97,11 @@ describe("update_memory tool", () => {
         tags: ["react"],
         target: { tag: "global" },
       },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
 
     const result = await session.client.callTool({
@@ -138,7 +146,11 @@ describe("update_memory tool", () => {
 
     const saved = await saveMemory(
       { content: "always use semicolons", type: "preference", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
 
     const result = await session.client.callTool({
@@ -158,7 +170,11 @@ describe("update_memory tool", () => {
 
     const saved = await saveMemory(
       { content: "old content", type: "fact", target: { tag: "global" } },
-      { repo: session.core.repo, embedder: session.core.embedding }
+      {
+        repo: session.core.repo,
+        embedder: session.core.embedding,
+        thresholds: session.core.thresholds,
+      }
     );
 
     const result = await session.client.callTool({

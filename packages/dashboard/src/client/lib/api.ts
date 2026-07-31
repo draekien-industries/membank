@@ -1,3 +1,4 @@
+import type { Thresholds } from "@membank/core/client";
 import type {
   ActivityDay,
   ActivityEvent,
@@ -208,4 +209,8 @@ export function listCapabilities(): Promise<CapabilitiesResponse> {
 export function listCapabilityMemories(key: string): Promise<Memory[]> {
   const params = new URLSearchParams({ key });
   return request<Memory[]>(`/capabilities/memories?${params.toString()}`);
+}
+
+export function getThresholds(): Promise<Thresholds> {
+  return request<Thresholds>("/config/thresholds");
 }

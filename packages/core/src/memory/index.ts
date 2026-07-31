@@ -16,8 +16,14 @@ export {
   computeRetention,
   idlePenalty,
   isLowRetention,
-  RETENTION_FLOOR,
+  isWithinRetentionGrace,
 } from "./domain/retention.js";
+export type { ThresholdKey, Thresholds } from "./domain/thresholds.js";
+export {
+  DEFAULT_THRESHOLDS,
+  resolveThresholds,
+  ThresholdConfigError,
+} from "./domain/thresholds.js";
 export {
   createMemoryRepository,
   SqliteMemoryRepository,

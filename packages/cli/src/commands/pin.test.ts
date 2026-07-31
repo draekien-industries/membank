@@ -3,6 +3,7 @@ import {
   createMemoryRepository,
   createProjectRepository,
   DatabaseManager,
+  DEFAULT_THRESHOLDS,
   saveMemory,
 } from "@membank/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -34,7 +35,7 @@ async function insertMemory(db: DatabaseManager, embeddingStub: EmbeddingService
   const repo = createMemoryRepository(db, createProjectRepository(db));
   const memory = await saveMemory(
     { content: "test content", type: "fact", target: { tag: "global" } },
-    { repo, embedder: embeddingStub }
+    { repo, embedder: embeddingStub, thresholds: DEFAULT_THRESHOLDS }
   );
   return memory.id;
 }

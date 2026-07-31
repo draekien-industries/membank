@@ -1,10 +1,9 @@
-export const AUTO_OVERWRITE_THRESHOLD = 0.92;
-export const FLAG_THRESHOLD = 0.85;
+import type { Thresholds } from "./thresholds.js";
 
 export type DedupDecision = "overwrite" | "flag" | null;
 
-export function classifyDuplicate(similarity: number): DedupDecision {
-  if (similarity > AUTO_OVERWRITE_THRESHOLD) return "overwrite";
-  if (similarity >= FLAG_THRESHOLD) return "flag";
+export function classifyDuplicate(similarity: number, thresholds: Thresholds): DedupDecision {
+  if (similarity > thresholds.autoOverwrite) return "overwrite";
+  if (similarity >= thresholds.flag) return "flag";
   return null;
 }
