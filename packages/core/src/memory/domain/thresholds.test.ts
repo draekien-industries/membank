@@ -40,4 +40,17 @@ describe("resolveThresholds", () => {
   it("allows the two dedup thresholds to be equal", () => {
     expect(resolveThresholds({ flag: 0.9, autoOverwrite: 0.9 }).flag).toBe(0.9);
   });
+
+  // A day count is not a similarity, so it must not be held to the 0..1 range.
+  it("accepts a grace period beyond the unit interval", () => {
+    expect(resolveThresholds({ retentionGraceDays: 90 }).retentionGraceDays).toBe(90);
+    expect(resolveThresholds({ retentionGraceDays: 0 }).retentionGraceDays).toBe(0);
+  });
+
+  it("rejects a negative or non-numeric grace period", () => {
+    expect(() => resolveThresholds({ retentionGraceDays: -1 })).toThrow(
+      /thresholds\.retentionGraceDays/
+    );
+    expect(() => resolveThresholds({ retentionGraceDays: "30" })).toThrow(ThresholdConfigError);
+  });
 });

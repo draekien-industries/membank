@@ -37,7 +37,7 @@ describe("classifyDuplicate", () => {
   });
 
   it("classifies against the caller's thresholds, not the defaults", () => {
-    const loose = { autoOverwrite: 0.99, flag: 0.7, retentionFloor: 0.1 };
+    const loose = { ...DEFAULT_THRESHOLDS, autoOverwrite: 0.99, flag: 0.7 };
 
     expect(classifyDuplicate(0.75, loose)).toBe("flag");
     expect(classifyDuplicate(0.95, loose)).toBe("flag");

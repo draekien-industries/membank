@@ -12,7 +12,12 @@ export { suggestMerge } from "./application/suggest-merge.js";
 export { updateMemory } from "./application/update-memory.js";
 export type { MemoryVersion } from "./domain/memory-version.js";
 export { isOverBudget, PIN_BUDGET_THRESHOLD } from "./domain/pin-budget.js";
-export { computeRetention, idlePenalty, isLowRetention } from "./domain/retention.js";
+export {
+  computeRetention,
+  idlePenalty,
+  isLowRetention,
+  isWithinRetentionGrace,
+} from "./domain/retention.js";
 export type { ThresholdKey, Thresholds } from "./domain/thresholds.js";
 export {
   DEFAULT_THRESHOLDS,

@@ -166,7 +166,7 @@ export function createApiApp(
     return c.json(
       repo
         .list({ ...(projectIdParam !== undefined && { projectId: projectIdParam }) })
-        .filter((m) => isLowRetention(m, now, thresholds.retentionFloor))
+        .filter((m) => isLowRetention(m, now, thresholds))
         .map((memory) => ({ memory, retention: computeRetention(memory, now) }))
         .sort((a, b) => a.retention - b.retention)
     );
