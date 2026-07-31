@@ -31,6 +31,12 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
 
+      - name: Cache embedding model
+        uses: actions/cache@v4
+        with:
+          path: ~/.membank/models
+          key: huggingface-Xenova-bge-small-en-v1.5
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
