@@ -1,5 +1,21 @@
 # @membank/cli
 
+## 0.22.0
+
+### Minor Changes
+
+- 960b031: Session-end extraction now classifies every candidate memory on durability, derivability and actionability, quotes the transcript span that supports it, and passes it through a testable admission gate before anything is stored. The gate rejects candidates that are tied to the current task, learnable from one file read, purely descriptive, or unquoted — the last two being what filled the corpus with memories no session ever retrieved. Rejections are logged for 30 days so the gate can be tuned against real data, and `membank doctor` reports the counts by clause.
+- 960b031: Extraction now skips sessions whose transcript is missing instead of recording a failure, retrying once in case the harness has not flushed the file yet, and reaps in-flight runs whose process died so they no longer block re-extraction. A new `membank doctor` command reports stuck runs, project scopes split between a local path and a git remote, the 30-day extraction failure rate, and Claude Code's native auto-memory — which competes with membank for captures — with `--fix` to apply repairs after confirmation. `membank setup` now detects the same auto-memory conflict and offers to turn it off, never writing the setting under `--yes` or `--json`.
+
+### Patch Changes
+
+- Updated dependencies [960b031]
+- Updated dependencies [960b031]
+- Updated dependencies [960b031]
+- Updated dependencies [960b031]
+  - @membank/core@0.21.0
+  - @membank/mcp@0.19.2
+
 ## 0.21.1
 
 ### Patch Changes
