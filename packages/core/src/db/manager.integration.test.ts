@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
-import BetterSqlite3 from "better-sqlite3";
 import * as sqliteVec from "sqlite-vec";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createSynthesisRepository } from "../synthesis/infrastructure/sqlite-synthesis-repository.js";
@@ -13,14 +13,16 @@ const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "../../test-fi
 
 // Returns a raw file-based DB at schema v4 (pre-migration-5 state) with a projects table
 // that has no CHECK constraint, allowing corrupt scope_hash values to be inserted.
-function setupV4Db(dbPath: string): BetterSqlite3.Database {
+function setupV4Db(dbPath: string): DatabaseSync {
   mkdirSync(dirname(dbPath), { recursive: true });
-  const db = new BetterSqlite3(dbPath);
+  const db = new DatabaseSync(dbPath, {
+    allowExtension: true,
+    enableForeignKeyConstraints: true,
+  });
   sqliteVec.load(db);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  db.prepare("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)").run();
-  db.prepare(`
+  db.exec("PRAGMA journal_mode = WAL");
+  db.exec("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
+  db.exec(`
     CREATE TABLE memories (
       id           TEXT PRIMARY KEY,
       content      TEXT NOT NULL,
@@ -32,9 +34,9 @@ function setupV4Db(dbPath: string): BetterSqlite3.Database {
       created_at   TEXT NOT NULL,
       updated_at   TEXT NOT NULL
     )
-  `).run();
-  db.prepare("CREATE VIRTUAL TABLE embeddings USING vec0(embedding FLOAT[384])").run();
-  db.prepare(`
+  `);
+  db.exec("CREATE VIRTUAL TABLE embeddings USING vec0(embedding FLOAT[384])");
+  db.exec(`
     CREATE TABLE projects (
       id         TEXT PRIMARY KEY,
       name       TEXT NOT NULL,
@@ -42,15 +44,15 @@ function setupV4Db(dbPath: string): BetterSqlite3.Database {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )
-  `).run();
-  db.prepare(`
+  `);
+  db.exec(`
     CREATE TABLE memory_projects (
       memory_id  TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
       project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       PRIMARY KEY (memory_id, project_id)
     )
-  `).run();
-  db.prepare(`
+  `);
+  db.exec(`
     CREATE TABLE memory_review_events (
       id                        TEXT PRIMARY KEY,
       memory_id                 TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
@@ -61,8 +63,8 @@ function setupV4Db(dbPath: string): BetterSqlite3.Database {
       created_at                TEXT NOT NULL,
       resolved_at               TEXT
     )
-  `).run();
-  db.prepare(`
+  `);
+  db.exec(`
     CREATE TABLE syntheses (
       id                 TEXT PRIMARY KEY,
       scope              TEXT NOT NULL,
@@ -76,8 +78,8 @@ function setupV4Db(dbPath: string): BetterSqlite3.Database {
       UNIQUE(scope),
       CHECK(expires_at > synthesized_at)
     )
-  `).run();
-  db.prepare("INSERT INTO meta VALUES ('schema_version', '4')").run();
+  `);
+  db.exec("INSERT INTO meta VALUES ('schema_version', '4')");
   return db;
 }
 
@@ -100,40 +102,47 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
 
   it("applies all migrations and sets schema_version to 18 on a fresh file DB", () => {
     manager = DatabaseManager.open(dbPath);
-    const row = manager.db
-      .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
-      .get();
+    const row = manager.one<{ value: string }>(
+      "SELECT value FROM meta WHERE key = 'schema_version'"
+    );
     expect(row?.value).toBe("18");
   });
 
   it("data persists across close and reopen", () => {
     manager = DatabaseManager.open(dbPath);
     const now = new Date().toISOString();
-    manager.db
-      .prepare(
-        "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
-      )
-      .run("pid-1", "my-project", "abcdef0123456789", now, now);
+    manager.mutate(
+      "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+      "pid-1",
+      "my-project",
+      "abcdef0123456789",
+      now,
+      now
+    );
     manager.close();
     manager = undefined;
 
     manager = DatabaseManager.open(dbPath);
-    const row = manager.db
-      .prepare<[string], { name: string }>("SELECT name FROM projects WHERE scope_hash = ?")
-      .get("abcdef0123456789");
+    const row = manager.one<{ name: string }>(
+      "SELECT name FROM projects WHERE scope_hash = ?",
+      "abcdef0123456789"
+    );
     expect(row?.name).toBe("my-project");
   });
 
   it("scope_hash CHECK constraint is enforced on a file DB", () => {
     manager = DatabaseManager.open(dbPath);
-    const db = manager.db;
+    const db = manager;
     const now = new Date().toISOString();
     expect(() =>
-      db
-        .prepare(
-          "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
-        )
-        .run("pid-bad", "test", "not-a-valid-hash", now, now)
+      db.mutate(
+        "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+        "pid-bad",
+        "test",
+        "not-a-valid-hash",
+        now,
+        now
+      )
     ).toThrow();
   });
 
@@ -165,17 +174,17 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
     manager = DatabaseManager.open(dbPath);
 
     // Corrupt project must be gone
-    const corruptProject = manager.db
-      .prepare<[string], { id: string }>("SELECT id FROM projects WHERE scope_hash = ?")
-      .get("athena");
+    const corruptProject = manager.one<{ id: string }>(
+      "SELECT id FROM projects WHERE scope_hash = ?",
+      "athena"
+    );
     expect(corruptProject).toBeUndefined();
 
     // Memory must be re-linked to the valid project
-    const assoc = manager.db
-      .prepare<[string], { project_id: string }>(
-        "SELECT project_id FROM memory_projects WHERE memory_id = ?"
-      )
-      .get("mem-1");
+    const assoc = manager.one<{ project_id: string }>(
+      "SELECT project_id FROM memory_projects WHERE memory_id = ?",
+      "mem-1"
+    );
     expect(assoc?.project_id).toBe("valid-pid");
   });
 
@@ -202,23 +211,21 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
     manager = DatabaseManager.open(dbPath);
 
     // Corrupt project must be gone
-    const corruptProject = manager.db
-      .prepare<[string], { id: string }>("SELECT id FROM projects WHERE scope_hash = ?")
-      .get("parasol");
+    const corruptProject = manager.one<{ id: string }>(
+      "SELECT id FROM projects WHERE scope_hash = ?",
+      "parasol"
+    );
     expect(corruptProject).toBeUndefined();
 
     // Migration 7 reassigns orphaned memory to the sentinel global project
-    const assoc = manager.db
-      .prepare<[string], { project_id: string }>(
-        "SELECT project_id FROM memory_projects WHERE memory_id = ?"
-      )
-      .get("mem-1");
+    const assoc = manager.one<{ project_id: string }>(
+      "SELECT project_id FROM memory_projects WHERE memory_id = ?",
+      "mem-1"
+    );
     expect(assoc?.project_id).toBe("00000000-0000-0000-0000-000000000000");
 
     // Memory record itself must still exist
-    const memory = manager.db
-      .prepare<[string], { id: string }>("SELECT id FROM memories WHERE id = ?")
-      .get("mem-1");
+    const memory = manager.one<{ id: string }>("SELECT id FROM memories WHERE id = ?", "mem-1");
     expect(memory?.id).toBe("mem-1");
   });
 
@@ -248,44 +255,47 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
     manager = DatabaseManager.open(dbPath);
 
     // Project memory must still point to the real project
-    const projectAssoc = manager.db
-      .prepare<[string], { project_id: string }>(
-        "SELECT project_id FROM memory_projects WHERE memory_id = ?"
-      )
-      .get("project-mem");
+    const projectAssoc = manager.one<{ project_id: string }>(
+      "SELECT project_id FROM memory_projects WHERE memory_id = ?",
+      "project-mem"
+    );
     expect(projectAssoc?.project_id).toBe("real-pid");
 
     // Global memory must now point to the sentinel
-    const globalAssoc = manager.db
-      .prepare<[string], { project_id: string }>(
-        "SELECT project_id FROM memory_projects WHERE memory_id = ?"
-      )
-      .get("global-mem");
+    const globalAssoc = manager.one<{ project_id: string }>(
+      "SELECT project_id FROM memory_projects WHERE memory_id = ?",
+      "global-mem"
+    );
     expect(globalAssoc?.project_id).toBe("00000000-0000-0000-0000-000000000000");
 
     // Sentinel project row must exist with the reserved scope_hash
-    const sentinel = manager.db
-      .prepare<[string], { scope_hash: string; name: string }>(
-        "SELECT scope_hash, name FROM projects WHERE id = ?"
-      )
-      .get("00000000-0000-0000-0000-000000000000");
+    const sentinel = manager.one<{ scope_hash: string; name: string }>(
+      "SELECT scope_hash, name FROM projects WHERE id = ?",
+      "00000000-0000-0000-0000-000000000000"
+    );
     expect(sentinel?.scope_hash).toBe("0000000000000000");
     expect(sentinel?.name).toBe("global");
   });
 
   it("migration v8: syntheses FK rejects rows with unknown scope_hash", () => {
     manager = DatabaseManager.open(dbPath);
-    const db = manager.db;
+    const db = manager;
     const now = new Date().toISOString();
     const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
 
     expect(() =>
-      db
-        .prepare(
-          `INSERT INTO syntheses (id, scope, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-        .run("bad", "deadbeefdeadbeef", "content", "hash", now, future, now, now)
+      db.mutate(
+        `INSERT INTO syntheses (id, scope, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        "bad",
+        "deadbeefdeadbeef",
+        "content",
+        "hash",
+        now,
+        future,
+        now,
+        now
+      )
     ).toThrow();
   });
 
@@ -319,28 +329,33 @@ describe.skipIf(!runIntegration)("DatabaseManager — integration (file-based DB
     );
 
     // Legacy single-blob synthesis: keyed by scope only, no memory_type column exists.
-    db.prepare(
-      `INSERT INTO syntheses (id, scope, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run("legacy-s1", PROJECT_SCOPE, LEGACY_BLOB, "legacy-hash", now, future, now, now);
+    db.prepare(`INSERT INTO syntheses (id, scope, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      "legacy-s1",
+      PROJECT_SCOPE,
+      LEGACY_BLOB,
+      "legacy-hash",
+      now,
+      future,
+      now,
+      now
+    );
 
-    db.prepare("UPDATE meta SET value = '14' WHERE key = 'schema_version'").run();
+    db.exec("UPDATE meta SET value = '14' WHERE key = 'schema_version'");
     db.close();
 
     manager = DatabaseManager.open(dbPath);
 
     // The table now carries the per-MemoryType column and the legacy blob is gone entirely.
-    const synthCols = manager.db
-      .prepare<[], { name: string }>("PRAGMA table_info(syntheses)")
-      .all()
+    const synthCols = manager
+      .query<{ name: string }>("PRAGMA table_info(syntheses)")
       .map((r) => r.name);
     expect(synthCols).toContain("memory_type");
 
-    const blobRows = manager.db
-      .prepare<[string], { count: number }>(
-        "SELECT COUNT(*) AS count FROM syntheses WHERE content = ?"
-      )
-      .get(LEGACY_BLOB);
+    const blobRows = manager.one<{ count: number }>(
+      "SELECT COUNT(*) AS count FROM syntheses WHERE content = ?",
+      LEGACY_BLOB
+    );
     expect(blobRows?.count).toBe(0);
 
     // The legacy blob is unreachable through the session-injection read path

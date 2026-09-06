@@ -6,7 +6,6 @@ const sharedDeps = {
     "hono",
     "@hono/node-server",
     "open",
-    "better-sqlite3",
     "sqlite-vec",
     "@huggingface/transformers",
     "commander",

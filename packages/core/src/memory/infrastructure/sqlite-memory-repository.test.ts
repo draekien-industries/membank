@@ -1,15 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DatabaseManager } from "../../db/manager.js";
+import type { DatabaseManager } from "../../db/manager.js";
 import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import { ProjectRepository } from "../../project/repository.js";
+import { openTempDatabase, type TempDatabase } from "../../test-support/index.js";
 import { SqliteMemoryRepository } from "./sqlite-memory-repository.js";
-
-const runIntegration = process.env.MEMBANK_INTEGRATION === "true";
-const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "../../../../test-fixtures");
 
 function makeEmbedding(dimension: number): Float32Array {
   const arr = new Float32Array(384).fill(0);
@@ -17,25 +12,21 @@ function makeEmbedding(dimension: number): Float32Array {
   return arr;
 }
 
-describe.skipIf(!runIntegration)("SqliteMemoryRepository — integration (file-based DB)", () => {
-  let dbPath: string;
+describe("SqliteMemoryRepository — file-based DB", () => {
+  let temp: TempDatabase;
   let db: DatabaseManager;
   let projects: ProjectRepository;
   let repo: SqliteMemoryRepository;
 
   beforeEach(() => {
-    mkdirSync(fixturesDir, { recursive: true });
-    dbPath = join(fixturesDir, `${randomUUID()}.db`);
-    db = DatabaseManager.open(dbPath);
+    temp = openTempDatabase();
+    db = temp.db;
     projects = new ProjectRepository(db);
     repo = new SqliteMemoryRepository(db, projects);
   });
 
   afterEach(() => {
-    db.close();
-    for (const suffix of ["", "-wal", "-shm"]) {
-      rmSync(dbPath + suffix, { force: true });
-    }
+    temp.cleanup();
   });
 
   it("create() inserts a memory and returns it with correct shape", () => {
@@ -439,9 +430,10 @@ describe.skipIf(!runIntegration)("SqliteMemoryRepository — integration (file-b
     repo.incrementAccessCount(id);
     repo.incrementAccessCount(id);
 
-    const row = db.db
-      .prepare<[string], { access_count: number }>("SELECT access_count FROM memories WHERE id = ?")
-      .get(id) as { access_count: number };
+    const row = db.one<{ access_count: number }>(
+      "SELECT access_count FROM memories WHERE id = ?",
+      id
+    ) as { access_count: number };
     expect(row.access_count).toBe(2);
   });
 
@@ -458,9 +450,10 @@ describe.skipIf(!runIntegration)("SqliteMemoryRepository — integration (file-b
 
     repo.incrementAccessCountBy(id, 5);
 
-    const row = db.db
-      .prepare<[string], { access_count: number }>("SELECT access_count FROM memories WHERE id = ?")
-      .get(id) as { access_count: number };
+    const row = db.one<{ access_count: number }>(
+      "SELECT access_count FROM memories WHERE id = ?",
+      id
+    ) as { access_count: number };
     expect(row.access_count).toBe(5);
   });
 

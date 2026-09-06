@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { DatabaseManager } from "../../db/manager.js";
 import { GLOBAL_PROJECT_ID, GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
 import type { MemoryType } from "../../schemas.js";
+import { countRows, seedMemory, seedProject, seedSynthesis } from "../../test-support/index.js";
 import type { SynthesisRepository } from "../ports.js";
 import { createSynthesisRepository } from "./sqlite-synthesis-repository.js";
 
@@ -9,33 +10,22 @@ const EXPIRED_SCOPE = "aabbccddeeff0011";
 const FRESH_SCOPE = "1100ffeeddccbbaa";
 
 function insertProject(db: DatabaseManager, scopeHash: string): string {
-  const id = `proj-${scopeHash}`;
-  db.db
-    .prepare(
-      `INSERT OR IGNORE INTO projects (id, name, scope_hash, created_at, updated_at)
-       VALUES (?, 'test-' || ?, ?, datetime('now'), datetime('now'))`
-    )
-    .run(id, scopeHash, scopeHash);
-  return id;
+  return seedProject(db, { id: `proj-${scopeHash}`, name: `test-${scopeHash}`, scopeHash });
 }
 
 function insertMemory(
   db: DatabaseManager,
   opts: { scope: string; type?: MemoryType; content?: string; pinned?: boolean }
 ): void {
-  const id = `mem-${Math.random().toString(36).slice(2)}`;
-  const now = new Date().toISOString();
   const projectId =
     opts.scope === GLOBAL_SCOPE_HASH ? GLOBAL_PROJECT_ID : insertProject(db, opts.scope);
-  db.db
-    .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-       VALUES (?, ?, ?, '[]', NULL, 0, ?, ?, ?)`
-    )
-    .run(id, opts.content ?? "a memory", opts.type ?? "preference", opts.pinned ? 1 : 0, now, now);
-  db.db
-    .prepare(`INSERT INTO memory_projects (memory_id, project_id) VALUES (?, ?)`)
-    .run(id, projectId);
+  seedMemory(db, {
+    id: `mem-${Math.random().toString(36).slice(2)}`,
+    content: opts.content ?? "a memory",
+    type: opts.type ?? "preference",
+    pinned: opts.pinned,
+    projectId,
+  });
 }
 
 describe("SqliteSynthesisRepository", () => {
@@ -71,10 +61,7 @@ describe("SqliteSynthesisRepository", () => {
     expect(updated.content).toBe("second");
     expect(updated.sourceMemoryHash).toBe("hash2");
 
-    const rows = db.db.prepare("SELECT COUNT(*) as count FROM syntheses").get() as {
-      count: number;
-    };
-    expect(rows.count).toBe(1);
+    expect(countRows(db, "syntheses")).toBe(1);
   });
 
   it("saveSynthesis() keeps one row per (scope, MemoryType) within a scope", () => {
@@ -82,11 +69,10 @@ describe("SqliteSynthesisRepository", () => {
     repo.saveSynthesis(GLOBAL_SCOPE_HASH, "preference", "p", "h2");
     repo.saveSynthesis(GLOBAL_SCOPE_HASH, "preference", "p-updated", "h3");
 
-    const rows = db.db
-      .prepare<[string], { memory_type: MemoryType; content: string }>(
-        "SELECT memory_type, content FROM syntheses WHERE scope = ? ORDER BY memory_type"
-      )
-      .all(GLOBAL_SCOPE_HASH);
+    const rows = db.query<{ memory_type: MemoryType; content: string }>(
+      "SELECT memory_type, content FROM syntheses WHERE scope = ? ORDER BY memory_type",
+      GLOBAL_SCOPE_HASH
+    );
 
     expect(rows).toEqual([
       { memory_type: "correction", content: "c" },
@@ -134,17 +120,12 @@ describe("SqliteSynthesisRepository", () => {
   it("sourceMemoryHash() returns different hash when memories differ", () => {
     const hashEmpty = repo.sourceMemoryHash(GLOBAL_SCOPE_HASH, "preference");
 
-    db.db
-      .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-         VALUES ('m1', 'some memory', 'preference', '[]', NULL, 0, 0, datetime('now'), datetime('now'))`
-      )
-      .run();
-    db.db
-      .prepare(
-        `INSERT INTO memory_projects (memory_id, project_id) VALUES ('m1', '00000000-0000-0000-0000-000000000000')`
-      )
-      .run();
+    seedMemory(db, {
+      id: "m1",
+      content: "some memory",
+      type: "preference",
+      projectId: GLOBAL_PROJECT_ID,
+    });
 
     const hashWithMemory = repo.sourceMemoryHash(GLOBAL_SCOPE_HASH, "preference");
     expect(hashWithMemory).not.toBe(hashEmpty);
@@ -159,25 +140,32 @@ describe("SqliteSynthesisRepository", () => {
     const futureExpiry = new Date(Date.now() + 1000 * 60 * 60).toISOString();
     const now = new Date().toISOString();
 
-    db.db
-      .prepare(
-        `INSERT INTO syntheses (id, scope, memory_type, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
-         VALUES ('s1', ?, 'preference', 'old', 'h1', ?, ?, ?, ?)`
-      )
-      .run(EXPIRED_SCOPE, veryPast, pastExpiry, veryPast, now);
+    seedSynthesis(db, {
+      id: "s1",
+      scope: EXPIRED_SCOPE,
+      content: "old",
+      sourceMemoryHash: "h1",
+      synthesizedAt: veryPast,
+      expiresAt: pastExpiry,
+      createdAt: veryPast,
+      updatedAt: now,
+    });
 
-    db.db
-      .prepare(
-        `INSERT INTO syntheses (id, scope, memory_type, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
-         VALUES ('s2', ?, 'preference', 'new', 'h2', ?, ?, ?, ?)`
-      )
-      .run(FRESH_SCOPE, now, futureExpiry, now, now);
+    seedSynthesis(db, {
+      id: "s2",
+      scope: FRESH_SCOPE,
+      content: "new",
+      sourceMemoryHash: "h2",
+      synthesizedAt: now,
+      expiresAt: futureExpiry,
+      createdAt: now,
+      updatedAt: now,
+    });
 
     repo.expireStale();
 
-    const remaining = db.db
-      .prepare<[], { scope: string }>("SELECT scope FROM syntheses")
-      .all()
+    const remaining = db
+      .query<{ scope: string }>("SELECT scope FROM syntheses")
       .map((r) => r.scope);
 
     expect(remaining).not.toContain(EXPIRED_SCOPE);
@@ -232,12 +220,16 @@ describe("SqliteSynthesisRepository", () => {
     const now = new Date().toISOString();
 
     const hash = repo.sourceMemoryHash(GLOBAL_SCOPE_HASH, "preference");
-    db.db
-      .prepare(
-        `INSERT INTO syntheses (id, scope, memory_type, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
-         VALUES ('s1', ?, 'preference', 'content', ?, ?, ?, ?, ?)`
-      )
-      .run(GLOBAL_SCOPE_HASH, hash, veryPast, past, veryPast, now);
+    seedSynthesis(db, {
+      id: "s1",
+      scope: GLOBAL_SCOPE_HASH,
+      content: "content",
+      sourceMemoryHash: hash,
+      synthesizedAt: veryPast,
+      expiresAt: past,
+      createdAt: veryPast,
+      updatedAt: now,
+    });
 
     const scopes = repo.getExpiredOrDirtyScopes();
     const globalScope = scopes.find((s) => s.scope === GLOBAL_SCOPE_HASH);
@@ -249,12 +241,16 @@ describe("SqliteSynthesisRepository", () => {
     const now = new Date().toISOString();
     const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString();
 
-    db.db
-      .prepare(
-        `INSERT INTO syntheses (id, scope, memory_type, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
-         VALUES ('s1', ?, 'preference', 'content', 'stale-hash', ?, ?, ?, ?)`
-      )
-      .run(GLOBAL_SCOPE_HASH, now, future, now, now);
+    seedSynthesis(db, {
+      id: "s1",
+      scope: GLOBAL_SCOPE_HASH,
+      content: "content",
+      sourceMemoryHash: "stale-hash",
+      synthesizedAt: now,
+      expiresAt: future,
+      createdAt: now,
+      updatedAt: now,
+    });
 
     insertMemory(db, { scope: GLOBAL_SCOPE_HASH, type: "preference", content: "new memory" });
 
@@ -294,12 +290,17 @@ describe("SqliteSynthesisRepository", () => {
     const veryPast = new Date(Date.now() - 2000).toISOString();
 
     // Stale in-flight + already expired: clearStaleInFlight clears it, expireStale removes it
-    db.db
-      .prepare(
-        `INSERT INTO syntheses (id, scope, memory_type, content, source_memory_hash, synthesized_at, expires_at, in_flight_since, created_at, updated_at)
-         VALUES ('s1', ?, 'preference', 'old', 'h1', ?, ?, ?, ?, ?)`
-      )
-      .run(EXPIRED_SCOPE, veryPast, pastExpiry, staleInFlight, veryPast, veryPast);
+    seedSynthesis(db, {
+      id: "s1",
+      scope: EXPIRED_SCOPE,
+      content: "old",
+      sourceMemoryHash: "h1",
+      synthesizedAt: veryPast,
+      expiresAt: pastExpiry,
+      inFlightSince: staleInFlight,
+      createdAt: veryPast,
+      updatedAt: veryPast,
+    });
 
     const dirty = repo.initializeAndGetDirtyScopes(120_000);
 
@@ -308,9 +309,10 @@ describe("SqliteSynthesisRepository", () => {
     expect(scopeNames).toContain(EXPIRED_SCOPE);
 
     // expireStale() removed the expired row entirely
-    const expiredRow = db.db
-      .prepare<[string], { id: string }>("SELECT id FROM syntheses WHERE scope = ?")
-      .get(EXPIRED_SCOPE);
+    const expiredRow = db.one<{ id: string }>(
+      "SELECT id FROM syntheses WHERE scope = ?",
+      EXPIRED_SCOPE
+    );
     expect(expiredRow).toBeUndefined();
   });
 

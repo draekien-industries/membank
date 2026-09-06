@@ -9,7 +9,8 @@ Provides the database layer, embedding inference, and query engine that all othe
 ## Requirements
 
 - Node.js >=24
-- Native modules: `better-sqlite3`, `sqlite-vec` (pre-built binaries, not compiled on install)
+- SQLite driver: `node:sqlite`, built into Node >=24 — no native module, no ABI to mismatch
+- Native modules: `sqlite-vec` (a loadable extension, not a Node addon — no rebuild on version change)
 
 ## Installation
 

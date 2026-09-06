@@ -1,4 +1,5 @@
 import { createProjectRepository, DatabaseManager } from "@membank/core";
+import { seedMemory } from "@membank/core/test-support";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Formatter } from "../../formatter.js";
 import { PromptHelper } from "../../prompt-helper.js";
@@ -53,22 +54,12 @@ describe("projects reconcile command", () => {
     const projects = createProjectRepository(db);
     const source = projects.upsertByHash(HASH_A, "orphan");
     const target = projects.upsertByHash(HASH_B, "parent");
-    db.db
-      .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        "mem-1",
-        "c",
-        "fact",
-        "[]",
-        null,
-        0,
-        0,
-        "2026-01-01T00:00:00.000Z",
-        "2026-01-01T00:00:00.000Z"
-      );
+    seedMemory(db, {
+      id: "mem-1",
+      content: "c",
+      type: "fact",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
     projects.addAssociation("mem-1", source.id);
     return { sourceId: source.id, targetId: target.id };
   }

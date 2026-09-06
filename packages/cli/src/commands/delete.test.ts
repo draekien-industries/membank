@@ -1,24 +1,17 @@
 import { DatabaseManager } from "@membank/core";
+import { seedMemory } from "@membank/core/test-support";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Formatter } from "../formatter.js";
 import { PromptHelper } from "../prompt-helper.js";
 import { deleteCommand } from "./delete.js";
 
 function insertMemory(db: DatabaseManager, id: string): void {
-  const now = new Date().toISOString();
-  db.db
-    .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(id, "test content", "fact", "[]", null, 0, 0, now, now);
-
-  const zero = Buffer.from(new Float32Array(384).fill(0).buffer);
-  db.db
-    .prepare(
-      `INSERT INTO embeddings (rowid, embedding) SELECT m.rowid, ? FROM memories m WHERE m.id = ?`
-    )
-    .run(zero, id);
+  seedMemory(db, {
+    id,
+    content: "test content",
+    type: "fact",
+    embedding: new Float32Array(384).fill(0),
+  });
 }
 
 function captureStdout(fn: () => Promise<void>): Promise<string> {
@@ -67,9 +60,7 @@ describe("delete command — real in-memory SQLite", () => {
 
     expect(output).toContain("Deleted memory: mem-1");
 
-    const row = db.db
-      .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
-      .get("mem-1");
+    const row = db.one<{ id: string }>(`SELECT id FROM memories WHERE id = ?`, "mem-1");
     expect(row).toBeUndefined();
   });
 
@@ -108,9 +99,7 @@ describe("delete command — real in-memory SQLite", () => {
 
     expect(output).toBe("");
 
-    const row = db.db
-      .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
-      .get("mem-2");
+    const row = db.one<{ id: string }>(`SELECT id FROM memories WHERE id = ?`, "mem-2");
     expect(row).toBeDefined();
   });
 

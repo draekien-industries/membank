@@ -5,6 +5,7 @@ import {
   DatabaseManager,
   PIN_BUDGET_THRESHOLD,
 } from "@membank/core";
+import { seedMemory, seedReviewEvent } from "@membank/core/test-support";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Formatter } from "../formatter.js";
 
@@ -17,20 +18,16 @@ interface InsertOpts {
 
 function insertMemory(db: DatabaseManager, opts: InsertOpts): void {
   const now = new Date().toISOString();
-  db.db
-    .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(opts.id, opts.content, opts.type, JSON.stringify([]), null, 0, 0, now, now);
+  seedMemory(db, { id: opts.id, content: opts.content, type: opts.type, createdAt: now });
 
   if (opts.withReviewEvent) {
-    db.db
-      .prepare(
-        `INSERT INTO memory_review_events (id, memory_id, conflicting_memory_id, similarity, conflict_content_snapshot, reason, created_at)
-         VALUES (?, ?, NULL, ?, ?, ?, ?)`
-      )
-      .run(`evt-${opts.id}`, opts.id, 0.8, "snapshot", "similarity_dedup", now);
+    seedReviewEvent(db, {
+      id: `evt-${opts.id}`,
+      memoryId: opts.id,
+      similarity: 0.8,
+      conflictContentSnapshot: "snapshot",
+      createdAt: now,
+    });
   }
 }
 
@@ -153,12 +150,13 @@ describe("stats command integration — real in-memory SQLite", () => {
 
   it("outputStats human mode shows pin_budget line with threshold", () => {
     const now = new Date().toISOString();
-    db.db
-      .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run("pin1", "pinned content here", "fact", JSON.stringify([]), null, 0, 1, now, now);
+    seedMemory(db, {
+      id: "pin1",
+      content: "pinned content here",
+      type: "fact",
+      pinned: true,
+      createdAt: now,
+    });
 
     const stats = repo.stats();
     const formatter = new Formatter(false);
@@ -171,12 +169,13 @@ describe("stats command integration — real in-memory SQLite", () => {
   it("outputStats human mode shows warning icon when pin budget exceeded", () => {
     const now = new Date().toISOString();
     const bigContent = "x".repeat(PIN_BUDGET_THRESHOLD + 1);
-    db.db
-      .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run("pin2", bigContent, "fact", JSON.stringify([]), null, 0, 1, now, now);
+    seedMemory(db, {
+      id: "pin2",
+      content: bigContent,
+      type: "fact",
+      pinned: true,
+      createdAt: now,
+    });
 
     const stats = repo.stats();
     const formatter = new Formatter(false);

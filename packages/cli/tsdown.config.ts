@@ -7,13 +7,7 @@ export default defineConfig({
   clean: true,
   deps: {
     // Workspace packages and native modules are installed via npm — not bundled
-    neverBundle: [
-      "@membank/core",
-      "@membank/mcp",
-      "better-sqlite3",
-      "sqlite-vec",
-      "@huggingface/transformers",
-    ],
+    neverBundle: ["@membank/core", "@membank/mcp", "sqlite-vec", "@huggingface/transformers"],
   },
   define: {
     "import.meta.url": "import.meta.url",

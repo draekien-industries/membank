@@ -28,18 +28,20 @@ export class SqliteProjectRepository implements ProjectRepository {
     const now = new Date().toISOString();
     const id = hash === GLOBAL_SCOPE_HASH ? GLOBAL_PROJECT_ID : randomUUID();
     const resolvedName = hash === GLOBAL_SCOPE_HASH ? GLOBAL_PROJECT_NAME : name;
-    this.#db.db
-      .prepare(
-        `INSERT INTO projects (id, name, scope_hash, origin, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT(scope_hash) DO UPDATE SET origin = COALESCE(origin, excluded.origin)`
-      )
-      .run(id, resolvedName, hash, origin ?? null, now, now);
+    this.#db.mutate(
+      `INSERT INTO projects (id, name, scope_hash, origin, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(scope_hash) DO UPDATE SET origin = COALESCE(origin, excluded.origin)`,
+      id,
+      resolvedName,
+      hash,
+      origin ?? null,
+      now,
+      now
+    );
 
     const row = ProjectRowSchema.parse(
-      this.#db.db
-        .prepare<[string], unknown>(`SELECT * FROM projects WHERE scope_hash = ?`)
-        .get(hash)
+      this.#db.one<unknown>(`SELECT * FROM projects WHERE scope_hash = ?`, hash)
     );
 
     return rowToProject(row);
@@ -47,77 +49,66 @@ export class SqliteProjectRepository implements ProjectRepository {
 
   rename(id: string, name: string): Project {
     const now = new Date().toISOString();
-    this.#db.db
-      .prepare(`UPDATE projects SET name = ?, updated_at = ? WHERE id = ?`)
-      .run(name, now, id);
+    this.#db.mutate(`UPDATE projects SET name = ?, updated_at = ? WHERE id = ?`, name, now, id);
 
-    const row = this.#db.db
-      .prepare<[string], ProjectRow>(`SELECT * FROM projects WHERE id = ?`)
-      .get(id);
+    const row = this.#db.one<ProjectRow>(`SELECT * FROM projects WHERE id = ?`, id);
 
     if (row === undefined) throw new Error(`Project not found: ${id}`);
     return rowToProject(row);
   }
 
   list(): Project[] {
-    return this.#db.db
-      .prepare<[], ProjectRow>(`SELECT * FROM projects ORDER BY name ASC`)
-      .all()
-      .map(rowToProject);
+    return this.#db.query<ProjectRow>(`SELECT * FROM projects ORDER BY name ASC`).map(rowToProject);
   }
 
   getById(id: string): Project | undefined {
-    const row = this.#db.db
-      .prepare<[string], ProjectRow>(`SELECT * FROM projects WHERE id = ?`)
-      .get(id);
+    const row = this.#db.one<ProjectRow>(`SELECT * FROM projects WHERE id = ?`, id);
     return row !== undefined ? rowToProject(row) : undefined;
   }
 
   getByHash(hash: string): Project | undefined {
-    const row = this.#db.db
-      .prepare<[string], ProjectRow>(`SELECT * FROM projects WHERE scope_hash = ?`)
-      .get(hash);
+    const row = this.#db.one<ProjectRow>(`SELECT * FROM projects WHERE scope_hash = ?`, hash);
     return row !== undefined ? rowToProject(row) : undefined;
   }
 
   getByName(name: string): Project | undefined {
-    const row = this.#db.db
-      .prepare<[string], ProjectRow>(`SELECT * FROM projects WHERE name = ? LIMIT 1`)
-      .get(name);
+    const row = this.#db.one<ProjectRow>(`SELECT * FROM projects WHERE name = ? LIMIT 1`, name);
     return row !== undefined ? rowToProject(row) : undefined;
   }
 
   addAssociation(memoryId: string, projectId: string): void {
-    this.#db.db
-      .prepare(`INSERT OR IGNORE INTO memory_projects (memory_id, project_id) VALUES (?, ?)`)
-      .run(memoryId, projectId);
+    this.#db.mutate(
+      `INSERT OR IGNORE INTO memory_projects (memory_id, project_id) VALUES (?, ?)`,
+      memoryId,
+      projectId
+    );
   }
 
   removeAssociation(memoryId: string, projectId: string): void {
-    this.#db.db
-      .prepare(`DELETE FROM memory_projects WHERE memory_id = ? AND project_id = ?`)
-      .run(memoryId, projectId);
+    this.#db.mutate(
+      `DELETE FROM memory_projects WHERE memory_id = ? AND project_id = ?`,
+      memoryId,
+      projectId
+    );
   }
 
   countMemories(projectId: string): number {
-    const row = this.#db.db
-      .prepare<[string], { count: number }>(
-        `SELECT COUNT(*) AS count FROM memory_projects WHERE project_id = ?`
-      )
-      .get(projectId);
+    const row = this.#db.one<{ count: number }>(
+      `SELECT COUNT(*) AS count FROM memory_projects WHERE project_id = ?`,
+      projectId
+    );
     return row?.count ?? 0;
   }
 
   getProjectsForMemories(memoryIds: string[]): Map<string, Project[]> {
     if (memoryIds.length === 0) return new Map();
     const placeholders = memoryIds.map(() => "?").join(",");
-    const rows = this.#db.db
-      .prepare<string[], ProjectMemoryRow>(
-        `SELECT p.*, mp.memory_id FROM projects p
-         JOIN memory_projects mp ON mp.project_id = p.id
-         WHERE mp.memory_id IN (${placeholders})`
-      )
-      .all(...memoryIds);
+    const rows = this.#db.query<ProjectMemoryRow>(
+      `SELECT p.*, mp.memory_id FROM projects p
+       JOIN memory_projects mp ON mp.project_id = p.id
+       WHERE mp.memory_id IN (${placeholders})`,
+      ...memoryIds
+    );
 
     const result = new Map<string, Project[]>();
     for (const row of rows) {
@@ -135,43 +126,42 @@ export class SqliteProjectRepository implements ProjectRepository {
     if (sourceId === GLOBAL_PROJECT_ID) {
       throw new Error("Cannot merge away the global project");
     }
-    const source = this.#db.db
-      .prepare<[string], ProjectRow>(`SELECT * FROM projects WHERE id = ?`)
-      .get(sourceId);
-    const target = this.#db.db
-      .prepare<[string], ProjectRow>(`SELECT * FROM projects WHERE id = ?`)
-      .get(targetId);
+    const source = this.#db.one<ProjectRow>(`SELECT * FROM projects WHERE id = ?`, sourceId);
+    const target = this.#db.one<ProjectRow>(`SELECT * FROM projects WHERE id = ?`, targetId);
     if (source === undefined) throw new Error(`Project not found: ${sourceId}`);
     if (target === undefined) throw new Error(`Project not found: ${targetId}`);
 
-    return this.#db.db.transaction(() => {
+    return this.#db.inTransaction(() => {
       const movedMemories = this.countMemories(sourceId);
 
-      this.#db.db
-        .prepare(
-          `INSERT OR IGNORE INTO memory_projects (memory_id, project_id)
-           SELECT memory_id, ? FROM memory_projects WHERE project_id = ?`
-        )
-        .run(targetId, sourceId);
+      this.#db.mutate(
+        `INSERT OR IGNORE INTO memory_projects (memory_id, project_id)
+         SELECT memory_id, ? FROM memory_projects WHERE project_id = ?`,
+        targetId,
+        sourceId
+      );
 
-      this.#db.db
-        .prepare(`UPDATE activity_events SET project_hash = ? WHERE project_hash = ?`)
-        .run(target.scope_hash, source.scope_hash);
+      this.#db.mutate(
+        `UPDATE activity_events SET project_hash = ? WHERE project_hash = ?`,
+        target.scope_hash,
+        source.scope_hash
+      );
 
       this.deleteById(sourceId);
 
       return { movedMemories };
-    })();
+    });
   }
 
   listExclusiveMemoryIds(projectId: string): string[] {
-    return this.#db.db
-      .prepare<[string, string], { memory_id: string }>(
+    return this.#db
+      .query<{ memory_id: string }>(
         `SELECT memory_id FROM memory_projects
          WHERE project_id = ?
-           AND memory_id NOT IN (SELECT memory_id FROM memory_projects WHERE project_id != ?)`
+           AND memory_id NOT IN (SELECT memory_id FROM memory_projects WHERE project_id != ?)`,
+        projectId,
+        projectId
       )
-      .all(projectId, projectId)
       .map((row) => row.memory_id);
   }
 
@@ -179,7 +169,7 @@ export class SqliteProjectRepository implements ProjectRepository {
     if (id === GLOBAL_PROJECT_ID) {
       throw new Error("Cannot delete the global project");
     }
-    this.#db.db.prepare(`DELETE FROM projects WHERE id = ?`).run(id);
+    this.#db.mutate(`DELETE FROM projects WHERE id = ?`, id);
   }
 }
 

@@ -1,16 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DatabaseManager } from "../../db/manager.js";
+import type { DatabaseManager } from "../../db/manager.js";
 import { SqliteMemoryRepository } from "../../memory/infrastructure/sqlite-memory-repository.js";
 import { SqliteProjectRepository } from "../../project/infrastructure/sqlite-project-repository.js";
+import { openTempDatabase, type TempDatabase } from "../../test-support/index.js";
 import { CapabilityKey } from "../domain/capability-key.js";
 import { SqliteCapabilityRepository } from "./sqlite-capability-repository.js";
-
-const runIntegration = process.env.MEMBANK_INTEGRATION === "true";
-const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "../../../../test-fixtures");
 
 function makeEmbedding(dimension: number): Float32Array {
   const arr = new Float32Array(384).fill(0);
@@ -18,27 +13,23 @@ function makeEmbedding(dimension: number): Float32Array {
   return arr;
 }
 
-describe.skipIf(!runIntegration)("SqliteCapabilityRepository — integration (file-based DB)", () => {
-  let dbPath: string;
+describe("SqliteCapabilityRepository — file-based DB", () => {
+  let temp: TempDatabase;
   let db: DatabaseManager;
   let projects: SqliteProjectRepository;
   let memories: SqliteMemoryRepository;
   let capabilities: SqliteCapabilityRepository;
 
   beforeEach(() => {
-    mkdirSync(fixturesDir, { recursive: true });
-    dbPath = join(fixturesDir, `${randomUUID()}.db`);
-    db = DatabaseManager.open(dbPath);
+    temp = openTempDatabase();
+    db = temp.db;
     projects = new SqliteProjectRepository(db);
     memories = new SqliteMemoryRepository(db, projects);
     capabilities = new SqliteCapabilityRepository(db, projects);
   });
 
   afterEach(() => {
-    db.close();
-    for (const suffix of ["", "-wal", "-shm"]) {
-      rmSync(dbPath + suffix, { force: true });
-    }
+    temp.cleanup();
   });
 
   function createUnassociatedMemory(content: string): string {

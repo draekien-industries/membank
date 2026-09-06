@@ -29,7 +29,7 @@ packages/core/src/<context>/
     <use-case>.ts                 ← one file per use-case
     <use-case>.test.ts            ← uses in-memory fake implementations of ports
   infrastructure/                 ← adapters; the only place Node-only deps live
-    sqlite-<entity>-repository.ts ← implements port using better-sqlite3
+    sqlite-<entity>-repository.ts ← implements port via DatabaseManager
     sqlite-<entity>-repository.test.ts ← integration, real sqlite
   ports.ts                        ← interfaces (MemoryRepository, Embedder, AgentRunner, …)
   index.ts                        ← public re-exports: use-cases + domain types + ports only
@@ -56,25 +56,28 @@ These rules are enforced by `scripts/arch-lint.mjs` (run via `pnpm lint`).
 
 Wiring concrete adapters into use-cases happens in each context's `index.ts` (or a
 `factory.ts` consumed by presentation packages). Use-cases are pure functions over port
-interfaces — they have no `better-sqlite3`, `@huggingface/transformers`, or
+interfaces — they have no `node:sqlite`, `@huggingface/transformers`, or
 `@anthropic-ai/claude-agent-sdk` imports.
 
 ## Tests
 
 - `domain/*.test.ts` — pure unit tests, no I/O, no DB.
 - `application/*.test.ts` — in-memory fake implementations of ports.
-- `infrastructure/*.test.ts` — real SQLite, guarded by `MEMBANK_INTEGRATION=true`.
-  Follow the pattern in `core/src/db/manager.integration.test.ts`.
+- `infrastructure/*.test.ts` — real SQLite, ungated: they run on every PR. Seed through
+  `@membank/core/test-support`, never through the driver.
+- `*.integration.test.ts` — network or model download, gated by `MEMBANK_INTEGRATION=true`
+  and excluded by filename in CI. Follow `core/src/db/manager.integration.test.ts`.
 
 ## External dependencies
 
-All native and heavyweight deps (`better-sqlite3`, `sqlite-vec`, `@huggingface/transformers`,
+All native and heavyweight deps (`sqlite-vec`, `@huggingface/transformers`,
 `@anthropic-ai/claude-agent-sdk`) are declared external in `tsdown.config.ts` and must never
 be imported in `domain/` or `application/` layers.
 
 ## Architecture decisions
 
-- **Storage**: SQLite at `~/.membank/memory.db` via `better-sqlite3` + `sqlite-vec` for vector search
+- **Storage**: SQLite at `~/.membank/memory.db` via `node:sqlite` + `sqlite-vec` for vector search.
+  Repositories never touch the driver: all SQL goes through `DatabaseManager.query/one/mutate/inTransaction`
 - **Embeddings**: `bge-small-en-v1.5` via `@huggingface/transformers`, CPU-only, cached at `~/.membank/models/`
 - **Dedup**: cosine similarity compared within the same scope (any type) — >0.92 = auto-overwrite (keeps the existing memory's type); 0.85–0.92 = flag `needs_review`. Both are defaults in `memory/domain/thresholds.ts`, overridable per user via `thresholds` in `~/.membank/config.json`; `classifyDuplicate` and `isLowRetention` take the resolved values as arguments so `domain/` never reads config
 - **Session injection**: stats + all pinned global memories + all pinned project memories (deterministic, not algorithmic)

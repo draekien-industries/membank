@@ -43,7 +43,8 @@ pnpm --filter @membank/cli dev
 
 ## Conventions
 
-- All native deps (`better-sqlite3`, `sqlite-vec`) are external in tsdown configs — not bundled
+- The vector extension (`sqlite-vec`) is external in tsdown configs — not bundled. The SQLite
+  driver is Node's built-in `node:sqlite`, which requires Node >=24.
 - TypeScript and lint rules: see `.claude/rules/typescript.md`
 
 ## Changesets

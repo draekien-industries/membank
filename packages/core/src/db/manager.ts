@@ -1,13 +1,13 @@
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import BetterSqlite3 from "better-sqlite3";
+import { DatabaseSync, type StatementSync } from "node:sqlite";
 import * as sqliteVec from "sqlite-vec";
 import { DatabaseError } from "./errors.js";
 
 const DEFAULT_DB_PATH = join(homedir(), ".membank", "memory.db");
 
-type VecLoader = (db: BetterSqlite3.Database) => void;
+type VecLoader = (db: DatabaseSync) => void;
 
 const MIGRATIONS: [number, string][] = [
   [
@@ -446,18 +446,33 @@ ALTER TABLE memories ADD COLUMN corroboration_count INTEGER NOT NULL DEFAULT 0;
   ],
 ];
 
-export class DatabaseManager {
-  readonly #db: BetterSqlite3.Database;
+/**
+ * Ceiling on cached prepared statements. Comfortably above the number of static SQL
+ * shapes in the codebase, so eviction only ever touches generated IN-list variants.
+ */
+const MAX_CACHED_STATEMENTS = 256;
 
-  private constructor(db: BetterSqlite3.Database) {
+/**
+ * Every value SQLite can bind. Excludes `boolean` — SQLite has no boolean type.
+ *
+ * A JS `number` binds as REAL. Ordinary tables coerce it back via column affinity,
+ * but `vec0` virtual tables inspect the raw type and reject a float rowid on INSERT.
+ * Bind a `bigint` when the target is an `embeddings` rowid.
+ */
+export type Bindable = null | number | bigint | string | Uint8Array;
+
+export class DatabaseManager {
+  readonly #db: DatabaseSync;
+  readonly #statements = new Map<string, StatementSync>();
+
+  private constructor(db: DatabaseSync) {
     this.#db = db;
   }
 
   static open(dbPath?: string): DatabaseManager {
     const resolvedPath = dbPath ?? DEFAULT_DB_PATH;
     mkdirSync(dirname(resolvedPath), { recursive: true });
-    const db = new BetterSqlite3(resolvedPath);
-    return DatabaseManager.#init(db, sqliteVec.load);
+    return DatabaseManager.#init(DatabaseManager.#connect(resolvedPath), sqliteVec.load);
   }
 
   static openInMemory(): DatabaseManager {
@@ -470,11 +485,17 @@ export class DatabaseManager {
   }
 
   static #initInMemory(loader: VecLoader): DatabaseManager {
-    const db = new BetterSqlite3(":memory:");
-    return DatabaseManager.#init(db, loader);
+    return DatabaseManager.#init(DatabaseManager.#connect(":memory:"), loader);
   }
 
-  static #init(db: BetterSqlite3.Database, loader: VecLoader): DatabaseManager {
+  static #connect(path: string): DatabaseSync {
+    return new DatabaseSync(path, {
+      allowExtension: true,
+      enableForeignKeyConstraints: true,
+    });
+  }
+
+  static #init(db: DatabaseSync, loader: VecLoader): DatabaseManager {
     try {
       loader(db);
     } catch (err) {
@@ -482,9 +503,9 @@ export class DatabaseManager {
         cause: err,
       });
     }
+    db.enableLoadExtension(false);
 
-    db.pragma("journal_mode = WAL");
-    db.pragma("foreign_keys = ON");
+    db.exec("PRAGMA journal_mode = WAL");
 
     const manager = new DatabaseManager(db);
     manager.#runMigrations();
@@ -500,27 +521,78 @@ export class DatabaseManager {
       );
     `);
 
-    const row = this.#db
-      .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
-      .get();
+    const row = this.one<{ value: string }>("SELECT value FROM meta WHERE key = 'schema_version'");
 
     const currentVersion = row ? Number.parseInt(row.value, 10) : 0;
 
     for (const [targetVersion, sql] of MIGRATIONS) {
       if (currentVersion < targetVersion) {
         this.#db.exec(sql);
-        this.#db
-          .prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)")
-          .run(String(targetVersion));
+        this.mutate(
+          "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)",
+          String(targetVersion)
+        );
       }
     }
   }
 
-  get db(): BetterSqlite3.Database {
-    return this.#db;
+  #stmt(sql: string): StatementSync {
+    const cached = this.#statements.get(sql);
+    if (cached !== undefined) return cached;
+
+    // Callers that build an IN-list emit one shape per element count, so the set of
+    // distinct SQL texts is not bounded by the source. Evicting the oldest keeps the
+    // hot static statements resident without letting the map grow with the data.
+    if (this.#statements.size >= MAX_CACHED_STATEMENTS) {
+      const oldest = this.#statements.keys().next();
+      if (!oldest.done) this.#statements.delete(oldest.value);
+    }
+
+    const statement = this.#db.prepare(sql);
+    this.#statements.set(sql, statement);
+    return statement;
+  }
+
+  /**
+   * Runs a SELECT and returns every row.
+   *
+   * Rows carry no guaranteed prototype. Assert against them with `toEqual`, never
+   * `toStrictEqual`.
+   */
+  query<Row>(sql: string, ...params: Bindable[]): Row[] {
+    return this.#stmt(sql).all(...params) as Row[];
+  }
+
+  /** Runs a SELECT and returns the first row, or `undefined` when there are none. */
+  one<Row>(sql: string, ...params: Bindable[]): Row | undefined {
+    return this.#stmt(sql).get(...params) as Row | undefined;
+  }
+
+  /** Runs an INSERT, UPDATE or DELETE and returns the number of rows affected. */
+  mutate(sql: string, ...params: Bindable[]): number {
+    return Number(this.#stmt(sql).run(...params).changes);
+  }
+
+  /**
+   * Runs `work` inside a transaction, committing on return and rolling back on throw.
+   * Nested calls use a savepoint, so a repository method that opens a transaction
+   * stays safe to call from inside another one.
+   */
+  inTransaction<T>(work: () => T): T {
+    const nested = this.#db.isTransaction;
+    this.#db.exec(nested ? "SAVEPOINT membank_tx" : "BEGIN");
+    try {
+      const result = work();
+      this.#db.exec(nested ? "RELEASE membank_tx" : "COMMIT");
+      return result;
+    } catch (err) {
+      this.#db.exec(nested ? "ROLLBACK TO membank_tx" : "ROLLBACK");
+      throw err;
+    }
   }
 
   close(): void {
+    this.#statements.clear();
     this.#db.close();
   }
 }

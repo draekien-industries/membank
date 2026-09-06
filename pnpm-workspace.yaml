@@ -9,9 +9,16 @@ minimumReleaseAgeExclude:
   - rolldown
 trustPolicy: no-downgrade # blocks packages whose trust level regressed vs prior versions
 
+# TypeScript 7 support in .d.ts generation landed in rolldown-plugin-dts 0.28.0, which tsdown
+# 0.22.x does not yet pull. rolldown is pinned alongside it because 0.28.x needs rolldown >=1.2.0,
+# and 1.2.7 pins an @oxc-project/types newer than minimumReleaseAge allows. The rolldown pin is
+# scoped to tsdown — vite 8 embeds its own rolldown and breaks if it is downgraded.
+overrides:
+  rolldown-plugin-dts: 0.28.3
+  tsdown>rolldown: 1.2.6
+
 onlyBuiltDependencies:
   - "@biomejs/biome"
-  - better-sqlite3
   - esbuild
   - lefthook
   - onnxruntime-node

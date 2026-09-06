@@ -2,6 +2,7 @@ import { existsSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseManager } from "@membank/core";
+import { seedMemory } from "@membank/core/test-support";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Formatter } from "../formatter.js";
 import type { ExportFile } from "./export.js";
@@ -12,30 +13,13 @@ function insertMemory(
   id: string,
   opts?: { content?: string; type?: string; pinned?: boolean }
 ): void {
-  const now = new Date().toISOString();
-  db.db
-    .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
-      id,
-      opts?.content ?? "test content",
-      opts?.type ?? "fact",
-      "[]",
-      null,
-      0,
-      opts?.pinned === true ? 1 : 0,
-      now,
-      now
-    );
-
-  const zero = Buffer.from(new Float32Array(384).fill(0.1).buffer);
-  db.db
-    .prepare(
-      `INSERT INTO embeddings (rowid, embedding) SELECT m.rowid, ? FROM memories m WHERE m.id = ?`
-    )
-    .run(zero, id);
+  seedMemory(db, {
+    id,
+    content: opts?.content ?? "test content",
+    type: opts?.type ?? "fact",
+    pinned: opts?.pinned,
+    embedding: new Float32Array(384).fill(0.1),
+  });
 }
 
 function captureStdout(fn: () => void): string {
@@ -126,13 +110,7 @@ describe("export command — real in-memory SQLite", () => {
 
   it("exports null embedding when no embedding row exists", () => {
     // Insert memory without embedding
-    const now = new Date().toISOString();
-    db.db
-      .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run("mem-noEmbed", "no embedding", "fact", "[]", null, 0, 0, now, now);
+    seedMemory(db, { id: "mem-noEmbed", content: "no embedding", type: "fact" });
 
     const outputPath = tempPath("export-test-4.json");
     captureStdout(() => exportCommand(db, humanFormatter, { output: outputPath }));

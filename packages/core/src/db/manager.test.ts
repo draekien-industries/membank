@@ -7,11 +7,10 @@ describe("DatabaseManager", () => {
     it("creates all required tables on first open", () => {
       const mgr = DatabaseManager.openInMemory();
 
-      const tables = mgr.db
-        .prepare<[], { name: string }>(
+      const tables = mgr
+        .query<{ name: string }>(
           "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"
         )
-        .all()
         .map((r) => r.name);
 
       expect(tables).toContain("memories");
@@ -21,9 +20,8 @@ describe("DatabaseManager", () => {
       expect(tables).toContain("memory_review_events");
 
       // embeddings is a virtual table; its shadow tables are visible in sqlite_master
-      const allNames = mgr.db
-        .prepare<[], { name: string }>("SELECT name FROM sqlite_master ORDER BY name")
-        .all()
+      const allNames = mgr
+        .query<{ name: string }>("SELECT name FROM sqlite_master ORDER BY name")
         .map((r) => r.name);
 
       expect(allNames.some((n) => n === "embeddings" || n.startsWith("embeddings_"))).toBe(true);
@@ -34,10 +32,7 @@ describe("DatabaseManager", () => {
     it("memories table has the correct columns (no scope after migration 2, no needs_review after migration 3)", () => {
       const mgr = DatabaseManager.openInMemory();
 
-      const cols = mgr.db
-        .prepare<[], { name: string }>("PRAGMA table_info(memories)")
-        .all()
-        .map((r) => r.name);
+      const cols = mgr.query<{ name: string }>("PRAGMA table_info(memories)").map((r) => r.name);
 
       for (const col of [
         "id",
@@ -62,10 +57,7 @@ describe("DatabaseManager", () => {
     it("projects table has the correct columns", () => {
       const mgr = DatabaseManager.openInMemory();
 
-      const cols = mgr.db
-        .prepare<[], { name: string }>("PRAGMA table_info(projects)")
-        .all()
-        .map((r) => r.name);
+      const cols = mgr.query<{ name: string }>("PRAGMA table_info(projects)").map((r) => r.name);
 
       for (const col of ["id", "name", "scope_hash", "created_at", "updated_at"]) {
         expect(cols).toContain(col);
@@ -78,29 +70,19 @@ describe("DatabaseManager", () => {
       const mgr = DatabaseManager.openInMemory();
       const now = new Date().toISOString();
 
-      expect(() =>
-        mgr.db
-          .prepare(
-            "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
-          )
-          .run("test-id", "test", "parasol", now, now)
-      ).toThrow();
+      const insertProject = (id: string, hash: string): number =>
+        mgr.mutate(
+          "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+          id,
+          "test",
+          hash,
+          now,
+          now
+        );
 
-      expect(() =>
-        mgr.db
-          .prepare(
-            "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
-          )
-          .run("test-id-2", "test", "ABCDEF0123456789", now, now)
-      ).toThrow();
-
-      expect(() =>
-        mgr.db
-          .prepare(
-            "INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
-          )
-          .run("test-id-3", "test", "abcdef0123456789", now, now)
-      ).not.toThrow();
+      expect(() => insertProject("test-id", "parasol")).toThrow();
+      expect(() => insertProject("test-id-2", "ABCDEF0123456789")).toThrow();
+      expect(() => insertProject("test-id-3", "abcdef0123456789")).not.toThrow();
 
       mgr.close();
     });
@@ -108,9 +90,8 @@ describe("DatabaseManager", () => {
     it("memory_projects table has the correct columns", () => {
       const mgr = DatabaseManager.openInMemory();
 
-      const cols = mgr.db
-        .prepare<[], { name: string }>("PRAGMA table_info(memory_projects)")
-        .all()
+      const cols = mgr
+        .query<{ name: string }>("PRAGMA table_info(memory_projects)")
         .map((r) => r.name);
 
       expect(cols).toContain("memory_id");
@@ -124,9 +105,7 @@ describe("DatabaseManager", () => {
     it("schema_version in meta is 18 after full init", () => {
       const mgr = DatabaseManager.openInMemory();
 
-      const row = mgr.db
-        .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
-        .get();
+      const row = mgr.one<{ value: string }>("SELECT value FROM meta WHERE key = 'schema_version'");
 
       expect(row).not.toBeUndefined();
       expect(row?.value).toBe("18");
@@ -140,12 +119,8 @@ describe("DatabaseManager", () => {
       const mgr1 = DatabaseManager.openInMemory();
       const mgr2 = DatabaseManager.openInMemory();
 
-      const v1 = mgr1.db
-        .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
-        .get();
-      const v2 = mgr2.db
-        .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
-        .get();
+      const v1 = mgr1.one<{ value: string }>("SELECT value FROM meta WHERE key = 'schema_version'");
+      const v2 = mgr2.one<{ value: string }>("SELECT value FROM meta WHERE key = 'schema_version'");
 
       expect(v1?.value).toBe("18");
       expect(v2?.value).toBe("18");
@@ -170,7 +145,7 @@ describe("DatabaseManager", () => {
       const mgr = DatabaseManager.openInMemory();
       mgr.close();
 
-      expect(() => mgr.db.prepare("SELECT 1").run()).toThrow();
+      expect(() => mgr.query("SELECT 1")).toThrow();
     });
   });
 });

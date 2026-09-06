@@ -24,14 +24,16 @@ jobs:
             src:
               - 'packages/**'
               - 'tools/**'
+              - 'scripts/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'turbo.json'
               - 'tsconfig.json'
+              - 'biome.json'
               - '.github/workflows/pr.yml'
 
   check:
-    name: Build & Test
+    name: Lint, Build, Typecheck & Test
     runs-on: ubuntu-latest
     needs: [changes]
     if: needs.changes.outputs.src == 'true'
@@ -54,8 +56,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm lint
+
       - name: Build
         run: pnpm build
+
+      - name: Typecheck
+        run: pnpm typecheck
 
       - name: Test
         run: pnpm test

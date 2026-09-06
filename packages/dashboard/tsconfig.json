@@ -22,6 +22,7 @@
     "forceConsistentCasingInFileNames": true,
     "noUncheckedIndexedAccess": true,
     "outDir": "dist",
+    "types": ["node"],
     "paths": {
       "@/*": ["./src/client/*"]
     }

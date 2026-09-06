@@ -1,3 +1,4 @@
+import { seedMemory, seedReviewEvent } from "@membank/core/test-support";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
 import { afterEach, describe, expect, it } from "vitest";
@@ -66,20 +67,20 @@ describe("resolve_review tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    session.core.db.db
-      .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-         VALUES ('mem-1', 'use tabs', 'preference', '[]', NULL, 0, 0, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z')`
-      )
-      .run();
+    seedMemory(session.core.db, {
+      id: "mem-1",
+      content: "use tabs",
+      type: "preference",
+      createdAt: "2024-01-01T00:00:00.000Z",
+    });
 
-    session.core.db.db
-      .prepare(
-        `INSERT INTO memory_review_events
-           (id, memory_id, conflicting_memory_id, similarity, conflict_content_snapshot, reason, created_at)
-         VALUES ('evt-1', 'mem-1', NULL, 0.85, 'use spaces', 'similarity_dedup', '2024-01-01T00:00:00.000Z')`
-      )
-      .run();
+    seedReviewEvent(session.core.db, {
+      id: "evt-1",
+      memoryId: "mem-1",
+      similarity: 0.85,
+      conflictContentSnapshot: "use spaces",
+      createdAt: "2024-01-01T00:00:00.000Z",
+    });
 
     const result = await session.client.callTool({
       name: "resolve_review",
@@ -98,12 +99,12 @@ describe("resolve_review tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    session.core.db.db
-      .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-         VALUES ('mem-2', 'use tabs', 'preference', '[]', NULL, 0, 0, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z')`
-      )
-      .run();
+    seedMemory(session.core.db, {
+      id: "mem-2",
+      content: "use tabs",
+      type: "preference",
+      createdAt: "2024-01-01T00:00:00.000Z",
+    });
 
     const result = await session.client.callTool({
       name: "resolve_review",

@@ -50,16 +50,16 @@ export class SqliteMemoryRepository implements MemoryRepository {
     const embeddingBlob = Buffer.from(embedding.buffer);
     const scopeHash = projectHash ?? GLOBAL_SCOPE_HASH;
 
-    const row = this.#db.db
-      .prepare<[Buffer, string], SimilarityRow>(
-        `SELECT m.rowid, m.*, (1 - vec_distance_cosine(e.embedding, ?)) AS similarity
+    const row = this.#db.one<SimilarityRow>(
+      `SELECT m.rowid, m.*, (1 - vec_distance_cosine(e.embedding, ?)) AS similarity
          FROM memories m JOIN embeddings e ON e.rowid = m.rowid
          JOIN memory_projects mp ON mp.memory_id = m.id
          JOIN projects p ON p.id = mp.project_id
          WHERE p.scope_hash = ?
-         ORDER BY similarity DESC LIMIT 1`
-      )
-      .get(embeddingBlob, scopeHash);
+         ORDER BY similarity DESC LIMIT 1`,
+      embeddingBlob,
+      scopeHash
+    );
 
     return row !== undefined
       ? [{ id: row.id, type: MemoryTypeSchema.parse(row.type), similarity: row.similarity }]
@@ -71,18 +71,24 @@ export class SqliteMemoryRepository implements MemoryRepository {
     const now = new Date().toISOString();
     const embeddingBlob = Buffer.from(embedding.buffer);
 
-    this.#db.db
-      .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, durability, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?)`
-      )
-      .run(id, content, type, JSON.stringify(tags), sourceHarness, durability ?? null, now, now);
+    this.#db.mutate(
+      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, durability, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?)`,
+      id,
+      content,
+      type,
+      JSON.stringify(tags),
+      sourceHarness,
+      durability ?? null,
+      now,
+      now
+    );
 
-    this.#db.db
-      .prepare(
-        `INSERT INTO embeddings (rowid, embedding) SELECT m.rowid, ? FROM memories m WHERE m.id = ?`
-      )
-      .run(embeddingBlob, id);
+    this.#db.mutate(
+      `INSERT INTO embeddings (rowid, embedding) SELECT m.rowid, ? FROM memories m WHERE m.id = ?`,
+      embeddingBlob,
+      id
+    );
 
     if (projectScope !== undefined) {
       const project = this.#projects.upsertByHash(
@@ -94,7 +100,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
     }
 
     const row = MemoryRowSchema.parse(
-      this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(id)
+      this.#db.one<unknown>(`SELECT * FROM memories WHERE id = ?`, id)
     );
 
     const projectMap = this.#projects.getProjectsForMemories([id]);
@@ -105,31 +111,31 @@ export class SqliteMemoryRepository implements MemoryRepository {
     const now = new Date().toISOString();
     const embeddingBlob = Buffer.from(embedding.buffer);
 
-    this.#db.db.transaction(() => {
+    this.#db.inTransaction(() => {
       this.#archiveCurrentContent(id);
       // An overwrite is the same memory being stated again: the strongest available
       // evidence that it earns its place, and previously discarded.
-      this.#db.db
-        .prepare(
-          `UPDATE memories
+      this.#db.mutate(
+        `UPDATE memories
            SET content = ?, updated_at = ?, corroboration_count = corroboration_count + 1
-           WHERE id = ?`
-        )
-        .run(content, now, id);
-    })();
+           WHERE id = ?`,
+        content,
+        now,
+        id
+      );
+    });
 
-    const rowid = this.#db.db
-      .prepare<[string], { rowid: number }>(`SELECT rowid FROM memories WHERE id = ?`)
-      .get(id)?.rowid;
+    const rowid = this.#db.one<{ rowid: number }>(
+      `SELECT rowid FROM memories WHERE id = ?`,
+      id
+    )?.rowid;
 
     if (rowid !== undefined) {
-      this.#db.db
-        .prepare(`UPDATE embeddings SET embedding = ? WHERE rowid = ?`)
-        .run(embeddingBlob, rowid);
+      this.#db.mutate(`UPDATE embeddings SET embedding = ? WHERE rowid = ?`, embeddingBlob, rowid);
     }
 
     const updated = MemoryRowSchema.parse(
-      this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(id)
+      this.#db.one<unknown>(`SELECT * FROM memories WHERE id = ?`, id)
     );
 
     const projectMap = this.#projects.getProjectsForMemories([id]);
@@ -138,9 +144,7 @@ export class SqliteMemoryRepository implements MemoryRepository {
   }
 
   findById(id: string): Memory | undefined {
-    const row = this.#db.db
-      .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
-      .get(id);
+    const row = this.#db.one<MemoryRow>(`SELECT * FROM memories WHERE id = ?`, id);
 
     if (row === undefined) return undefined;
 
@@ -152,9 +156,10 @@ export class SqliteMemoryRepository implements MemoryRepository {
   findManyById(ids: string[]): Memory[] {
     if (ids.length === 0) return [];
     const placeholders = ids.map(() => "?").join(", ");
-    const rows = this.#db.db
-      .prepare<string[], MemoryRow>(`SELECT * FROM memories WHERE id IN (${placeholders})`)
-      .all(...ids);
+    const rows = this.#db.query<MemoryRow>(
+      `SELECT * FROM memories WHERE id IN (${placeholders})`,
+      ...ids
+    );
     if (rows.length === 0) return [];
     const foundIds = rows.map((r) => r.id);
     const projectMap = this.#projects.getProjectsForMemories(foundIds);
@@ -167,11 +172,10 @@ export class SqliteMemoryRepository implements MemoryRepository {
   update(id: string, patch: MemoryPatch, embedding?: Float32Array): Memory {
     const { content, tags, type } = MemoryPatchSchema.parse(patch);
 
-    const existing = this.#db.db
-      .prepare<[string], MemoryRow & { rowid: number }>(
-        `SELECT m.rowid, m.* FROM memories m WHERE m.id = ?`
-      )
-      .get(id);
+    const existing = this.#db.one<MemoryRow & { rowid: number }>(
+      `SELECT m.rowid, m.* FROM memories m WHERE m.id = ?`,
+      id
+    );
 
     if (existing === undefined) {
       throw new Error(`Memory not found: ${id}`);
@@ -195,20 +199,22 @@ export class SqliteMemoryRepository implements MemoryRepository {
     }
 
     values.push(id);
-    this.#db.db.transaction(() => {
+    this.#db.inTransaction(() => {
       if (content !== undefined) this.#archiveCurrentContent(id);
-      this.#db.db.prepare(`UPDATE memories SET ${sets.join(", ")} WHERE id = ?`).run(...values);
-    })();
+      this.#db.mutate(`UPDATE memories SET ${sets.join(", ")} WHERE id = ?`, ...values);
+    });
 
     if (embedding !== undefined) {
       const embeddingBlob = Buffer.from(embedding.buffer);
-      this.#db.db
-        .prepare(`UPDATE embeddings SET embedding = ? WHERE rowid = ?`)
-        .run(embeddingBlob, existing.rowid);
+      this.#db.mutate(
+        `UPDATE embeddings SET embedding = ? WHERE rowid = ?`,
+        embeddingBlob,
+        existing.rowid
+      );
     }
 
     const updated = MemoryRowSchema.parse(
-      this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(id)
+      this.#db.one<unknown>(`SELECT * FROM memories WHERE id = ?`, id)
     );
 
     const projectMap = this.#projects.getProjectsForMemories([id]);
@@ -217,16 +223,14 @@ export class SqliteMemoryRepository implements MemoryRepository {
   }
 
   delete(id: string): void {
-    const row = this.#db.db
-      .prepare<[string], { rowid: number }>(`SELECT rowid FROM memories WHERE id = ?`)
-      .get(id);
+    const row = this.#db.one<{ rowid: number }>(`SELECT rowid FROM memories WHERE id = ?`, id);
 
     if (row !== undefined) {
-      this.#db.db.prepare(`DELETE FROM embeddings WHERE rowid = ?`).run(row.rowid);
+      this.#db.mutate(`DELETE FROM embeddings WHERE rowid = ?`, row.rowid);
     }
 
-    this.#db.db.prepare(`DELETE FROM memory_projects WHERE memory_id = ?`).run(id);
-    this.#db.db.prepare(`DELETE FROM memories WHERE id = ?`).run(id);
+    this.#db.mutate(`DELETE FROM memory_projects WHERE memory_id = ?`, id);
+    this.#db.mutate(`DELETE FROM memories WHERE id = ?`, id);
   }
 
   list(opts?: {
@@ -261,11 +265,10 @@ export class SqliteMemoryRepository implements MemoryRepository {
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-    const rows = this.#db.db
-      .prepare<(string | number)[], MemoryRow>(
-        `SELECT m.* FROM memories m ${where} ORDER BY m.created_at DESC`
-      )
-      .all(...params);
+    const rows = this.#db.query<MemoryRow>(
+      `SELECT m.* FROM memories m ${where} ORDER BY m.created_at DESC`,
+      ...params
+    );
 
     if (rows.length === 0) return [];
 
@@ -282,14 +285,13 @@ export class SqliteMemoryRepository implements MemoryRepository {
   }
 
   listPinnedForProject(projectHash: string): Memory[] {
-    const rows = this.#db.db
-      .prepare<[string], MemoryRow>(
-        `SELECT m.* FROM memories m
+    const rows = this.#db.query<MemoryRow>(
+      `SELECT m.* FROM memories m
          JOIN memory_projects mp ON mp.memory_id = m.id
          JOIN projects p ON p.id = mp.project_id
-         WHERE p.scope_hash = ? AND m.pinned = 1`
-      )
-      .all(projectHash);
+         WHERE p.scope_hash = ? AND m.pinned = 1`,
+      projectHash
+    );
     return rows.map((row) => rowToMemory(row, []));
   }
 
@@ -316,22 +318,23 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
     let rows: MemoryRow[];
     if (projectHash !== undefined) {
-      rows = this.#db.db
-        .prepare<unknown[], MemoryRow>(
-          `SELECT * FROM memories
+      rows = this.#db.query<MemoryRow>(
+        `SELECT * FROM memories
            WHERE ${existsClause}
            AND ${this.#projectScopeClause()}
-           ORDER BY created_at DESC ${limitClause}`
-        )
-        .all(...simParams, projectHash, ...limitParams);
+           ORDER BY created_at DESC ${limitClause}`,
+        ...simParams,
+        projectHash,
+        ...limitParams
+      );
     } else {
-      rows = this.#db.db
-        .prepare<unknown[], MemoryRow>(
-          `SELECT * FROM memories
+      rows = this.#db.query<MemoryRow>(
+        `SELECT * FROM memories
            WHERE ${existsClause}
-           ORDER BY created_at DESC ${limitClause}`
-        )
-        .all(...simParams, ...limitParams);
+           ORDER BY created_at DESC ${limitClause}`,
+        ...simParams,
+        ...limitParams
+      );
     }
 
     if (rows.length === 0) return [];
@@ -350,27 +353,25 @@ export class SqliteMemoryRepository implements MemoryRepository {
       conflicting_memory_id: string;
     }
     if (projectHash !== undefined) {
-      const rows = this.#db.db
-        .prepare<[string], EdgeRow>(
-          `SELECT e.memory_id, e.conflicting_memory_id
+      const rows = this.#db.query<EdgeRow>(
+        `SELECT e.memory_id, e.conflicting_memory_id
            FROM memory_review_events e
            JOIN memories m ON m.id = e.memory_id
            WHERE e.resolved_at IS NULL
              AND e.conflicting_memory_id IS NOT NULL
-             AND ${this.#projectScopeClause("m")}`
-        )
-        .all(projectHash);
+             AND ${this.#projectScopeClause("m")}`,
+        projectHash
+      );
       return rows.map((r) => ({
         memoryId: r.memory_id,
         conflictingMemoryId: r.conflicting_memory_id,
       }));
     }
-    const rows = this.#db.db
-      .prepare<[], EdgeRow>(
-        `SELECT memory_id, conflicting_memory_id FROM memory_review_events
+    const rows = this.#db.query<EdgeRow>(
+      `SELECT memory_id, conflicting_memory_id
+         FROM memory_review_events
          WHERE resolved_at IS NULL AND conflicting_memory_id IS NOT NULL`
-      )
-      .all();
+    );
     return rows.map((r) => ({
       memoryId: r.memory_id,
       conflictingMemoryId: r.conflicting_memory_id,
@@ -383,57 +384,50 @@ export class SqliteMemoryRepository implements MemoryRepository {
         ? "WHERE memory_id = ? AND resolved_at IS NULL"
         : "WHERE memory_id = ?";
 
-    const rows = this.#db.db
-      .prepare<[string], ReviewEventRow>(
-        `SELECT * FROM memory_review_events ${where} ORDER BY created_at DESC`
-      )
-      .all(memoryId);
+    const rows = this.#db.query<ReviewEventRow>(
+      `SELECT * FROM memory_review_events ${where} ORDER BY created_at DESC`,
+      memoryId
+    );
 
     return rows.map((r) => rowToReviewEvent(ReviewEventRowSchema.parse(r)));
   }
 
   createReviewEvent(opts: CreateReviewEventOpts): void {
     const now = new Date().toISOString();
-    this.#db.db
-      .prepare(
-        `INSERT INTO memory_review_events
+    this.#db.mutate(
+      `INSERT INTO memory_review_events
            (id, memory_id, conflicting_memory_id, similarity, conflict_content_snapshot, reason, created_at)
-         VALUES (?, ?, ?, ?, ?, 'similarity_dedup', ?)`
-      )
-      .run(
-        randomUUID(),
-        opts.memoryId,
-        opts.conflictingMemoryId,
-        opts.similarity,
-        opts.conflictContentSnapshot,
-        now
-      );
+         VALUES (?, ?, ?, ?, ?, 'similarity_dedup', ?)`,
+      randomUUID(),
+      opts.memoryId,
+      opts.conflictingMemoryId,
+      opts.similarity,
+      opts.conflictContentSnapshot,
+      now
+    );
   }
 
   resolveReviewEvents(memoryId: string): void {
     const now = new Date().toISOString();
-    this.#db.db
-      .prepare(
-        `UPDATE memory_review_events SET resolved_at = ? WHERE memory_id = ? AND resolved_at IS NULL`
-      )
-      .run(now, memoryId);
+    this.#db.mutate(
+      `UPDATE memory_review_events SET resolved_at = ? WHERE memory_id = ? AND resolved_at IS NULL`,
+      now,
+      memoryId
+    );
   }
 
   getPinnedCharCount(projectHash?: string): number {
     if (projectHash !== undefined) {
-      const row = this.#db.db
-        .prepare<[string], { total: number }>(
-          `SELECT COALESCE(SUM(LENGTH(content)), 0) as total FROM memories
-           WHERE pinned = 1 AND ${this.#projectScopeClause()}`
-        )
-        .get(projectHash) ?? { total: 0 };
+      const row = this.#db.one<{ total: number }>(
+        `SELECT COALESCE(SUM(LENGTH(content)), 0) as total FROM memories
+           WHERE pinned = 1 AND ${this.#projectScopeClause()}`,
+        projectHash
+      ) ?? { total: 0 };
       return row.total;
     }
-    const row = this.#db.db
-      .prepare<[], { total: number }>(
-        `SELECT COALESCE(SUM(LENGTH(content)), 0) as total FROM memories WHERE pinned = 1`
-      )
-      .get() ?? { total: 0 };
+    const row = this.#db.one<{ total: number }>(
+      `SELECT COALESCE(SUM(LENGTH(content)), 0) as total FROM memories WHERE pinned = 1`
+    ) ?? { total: 0 };
     return row.total;
   }
 
@@ -444,36 +438,37 @@ export class SqliteMemoryRepository implements MemoryRepository {
     >;
 
     if (projectHash !== undefined) {
-      const typeRows = this.#db.db
-        .prepare<[string], { type: string; count: number }>(
-          `SELECT type, COUNT(*) as count FROM memories
+      const typeRows = this.#db.query<{ type: string; count: number }>(
+        `SELECT type, COUNT(*) as count FROM memories
            WHERE ${this.#projectScopeClause()}
-           GROUP BY type`
-        )
-        .all(projectHash);
+           GROUP BY type`,
+        projectHash
+      );
 
       for (const row of typeRows) {
         const parsed = MemoryTypeSchema.safeParse(row.type);
         if (parsed.success) byType[parsed.data] = row.count;
       }
 
-      const aggregates = this.#db.db
-        .prepare<[string], { total: number; pinned: number | null; pinBudgetChars: number }>(
-          `SELECT COUNT(*) as total, SUM(pinned) as pinned,
+      const aggregates = this.#db.one<{
+        total: number;
+        pinned: number | null;
+        pinBudgetChars: number;
+      }>(
+        `SELECT COUNT(*) as total, SUM(pinned) as pinned,
            COALESCE(SUM(CASE WHEN pinned = 1 THEN LENGTH(content) ELSE 0 END), 0) as pinBudgetChars
-           FROM memories WHERE ${this.#projectScopeClause()}`
-        )
-        .get(projectHash) ?? { total: 0, pinned: 0, pinBudgetChars: 0 };
+           FROM memories WHERE ${this.#projectScopeClause()}`,
+        projectHash
+      ) ?? { total: 0, pinned: 0, pinBudgetChars: 0 };
 
-      const reviewRow = this.#db.db
-        .prepare<[string], { needsReview: number }>(
-          `SELECT COUNT(DISTINCT e.memory_id) as needsReview
+      const reviewRow = this.#db.one<{ needsReview: number }>(
+        `SELECT COUNT(DISTINCT e.memory_id) as needsReview
            FROM memory_review_events e
            JOIN memories m ON m.id = e.memory_id
            WHERE e.resolved_at IS NULL
-           AND ${this.#projectScopeClause("m")}`
-        )
-        .get(projectHash) ?? { needsReview: 0 };
+           AND ${this.#projectScopeClause("m")}`,
+        projectHash
+      ) ?? { needsReview: 0 };
 
       return {
         byType,
@@ -484,28 +479,22 @@ export class SqliteMemoryRepository implements MemoryRepository {
       };
     }
 
-    const typeRows = this.#db.db
-      .prepare<[], { type: string; count: number }>(
-        `SELECT type, COUNT(*) as count FROM memories GROUP BY type`
-      )
-      .all();
+    const typeRows = this.#db.query<{ type: string; count: number }>(
+      `SELECT type, COUNT(*) as count FROM memories GROUP BY type`
+    );
 
     for (const row of typeRows) {
       const parsed = MemoryTypeSchema.safeParse(row.type);
       if (parsed.success) byType[parsed.data] = row.count;
     }
 
-    const aggregates = this.#db.db
-      .prepare<[], { total: number; pinned: number | null }>(
-        `SELECT COUNT(*) as total, SUM(pinned) as pinned FROM memories`
-      )
-      .get() ?? { total: 0, pinned: 0 };
+    const aggregates = this.#db.one<{ total: number; pinned: number | null }>(
+      `SELECT COUNT(*) as total, SUM(pinned) as pinned FROM memories`
+    ) ?? { total: 0, pinned: 0 };
 
-    const reviewRow = this.#db.db
-      .prepare<[], { needsReview: number }>(
-        `SELECT COUNT(DISTINCT memory_id) as needsReview FROM memory_review_events WHERE resolved_at IS NULL`
-      )
-      .get() ?? { needsReview: 0 };
+    const reviewRow = this.#db.one<{ needsReview: number }>(
+      `SELECT COUNT(DISTINCT memory_id) as needsReview FROM memory_review_events WHERE resolved_at IS NULL`
+    ) ?? { needsReview: 0 };
 
     return {
       byType,
@@ -537,9 +526,8 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
     const params: string[] = projectHash !== undefined ? [projectHash] : [];
 
-    const bandRows = this.#db.db
-      .prepare<string[], BandRow>(
-        `SELECT
+    const bandRows = this.#db.query<BandRow>(
+      `SELECT
            CASE
              WHEN e.similarity >= 0.85 THEN 'high'
              WHEN e.similarity >= 0.80 THEN 'mid'
@@ -547,23 +535,21 @@ export class SqliteMemoryRepository implements MemoryRepository {
            END AS band,
            COUNT(DISTINCT e.memory_id) AS count
          FROM memory_review_events e ${scopeJoin}
-         GROUP BY band`
-      )
-      .all(...params);
+         GROUP BY band`,
+      ...params
+    );
 
-    const typeRows = this.#db.db
-      .prepare<string[], TypeRow>(
-        `SELECT m.type, COUNT(DISTINCT e.memory_id) AS count
+    const typeRows = this.#db.query<TypeRow>(
+      `SELECT m.type, COUNT(DISTINCT e.memory_id) AS count
          FROM memory_review_events e ${scopeJoin}
-         GROUP BY m.type`
-      )
-      .all(...params);
+         GROUP BY m.type`,
+      ...params
+    );
 
-    const pairsRow = this.#db.db
-      .prepare<string[], PairsRow>(
-        `SELECT COUNT(*) AS pairs FROM memory_review_events e ${scopeJoin}`
-      )
-      .get(...params) ?? { pairs: 0 };
+    const pairsRow = this.#db.one<PairsRow>(
+      `SELECT COUNT(*) AS pairs FROM memory_review_events e ${scopeJoin}`,
+      ...params
+    ) ?? { pairs: 0 };
 
     const byBand = { high: 0, mid: 0, low: 0 };
     for (const row of bandRows) {
@@ -582,21 +568,22 @@ export class SqliteMemoryRepository implements MemoryRepository {
   }
 
   setPin(id: string, pinned: boolean): Memory {
-    const existing = this.#db.db
-      .prepare<[string], MemoryRow>(`SELECT * FROM memories WHERE id = ?`)
-      .get(id);
+    const existing = this.#db.one<MemoryRow>(`SELECT * FROM memories WHERE id = ?`, id);
 
     if (existing === undefined) {
       throw new Error(`Memory not found: ${id}`);
     }
 
     const now = new Date().toISOString();
-    this.#db.db
-      .prepare(`UPDATE memories SET pinned = ?, updated_at = ? WHERE id = ?`)
-      .run(pinned ? 1 : 0, now, id);
+    this.#db.mutate(
+      `UPDATE memories SET pinned = ?, updated_at = ? WHERE id = ?`,
+      pinned ? 1 : 0,
+      now,
+      id
+    );
 
     const updated = MemoryRowSchema.parse(
-      this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(id)
+      this.#db.one<unknown>(`SELECT * FROM memories WHERE id = ?`, id)
     );
 
     const projectMap = this.#projects.getProjectsForMemories([id]);
@@ -605,13 +592,11 @@ export class SqliteMemoryRepository implements MemoryRepository {
   }
 
   incrementAccessCount(id: string): void {
-    this.#db.db.prepare(`UPDATE memories SET access_count = access_count + 1 WHERE id = ?`).run(id);
+    this.#db.mutate(`UPDATE memories SET access_count = access_count + 1 WHERE id = ?`, id);
   }
 
   incrementAccessCountBy(id: string, delta: number): void {
-    this.#db.db
-      .prepare(`UPDATE memories SET access_count = access_count + ? WHERE id = ?`)
-      .run(delta, id);
+    this.#db.mutate(`UPDATE memories SET access_count = access_count + ? WHERE id = ?`, delta, id);
   }
 
   atomicMerge(opts: AtomicMergeOpts): Memory {
@@ -619,40 +604,48 @@ export class SqliteMemoryRepository implements MemoryRepository {
     const now = new Date().toISOString();
     const embeddingBlob = Buffer.from(embedding.buffer);
 
-    this.#db.db.transaction(() => {
+    this.#db.inTransaction(() => {
       this.#archiveCurrentContent(keepId);
 
-      this.#db.db
-        .prepare(
-          `UPDATE memories SET content = ?, updated_at = ?, access_count = ?, pinned = ?, tags = ? WHERE id = ?`
-        )
-        .run(mergedContent, now, accessCount, pinned ? 1 : 0, JSON.stringify(tags), keepId);
+      this.#db.mutate(
+        `UPDATE memories SET content = ?, updated_at = ?, access_count = ?, pinned = ?, tags = ? WHERE id = ?`,
+        mergedContent,
+        now,
+        accessCount,
+        pinned ? 1 : 0,
+        JSON.stringify(tags),
+        keepId
+      );
 
-      const rowid = this.#db.db
-        .prepare<[string], { rowid: number }>(`SELECT rowid FROM memories WHERE id = ?`)
-        .get(keepId)?.rowid;
+      const rowid = this.#db.one<{ rowid: number }>(
+        `SELECT rowid FROM memories WHERE id = ?`,
+        keepId
+      )?.rowid;
 
       if (rowid !== undefined) {
-        this.#db.db
-          .prepare(`UPDATE embeddings SET embedding = ? WHERE rowid = ?`)
-          .run(embeddingBlob, rowid);
+        this.#db.mutate(
+          `UPDATE embeddings SET embedding = ? WHERE rowid = ?`,
+          embeddingBlob,
+          rowid
+        );
       }
 
       for (const dropId of deleteIds) {
-        const dropRow = this.#db.db
-          .prepare<[string], { rowid: number }>(`SELECT rowid FROM memories WHERE id = ?`)
-          .get(dropId);
+        const dropRow = this.#db.one<{ rowid: number }>(
+          `SELECT rowid FROM memories WHERE id = ?`,
+          dropId
+        );
 
         if (dropRow !== undefined) {
-          this.#db.db.prepare(`DELETE FROM embeddings WHERE rowid = ?`).run(dropRow.rowid);
+          this.#db.mutate(`DELETE FROM embeddings WHERE rowid = ?`, dropRow.rowid);
         }
 
-        this.#db.db.prepare(`DELETE FROM memories WHERE id = ?`).run(dropId);
+        this.#db.mutate(`DELETE FROM memories WHERE id = ?`, dropId);
       }
-    })();
+    });
 
     const updated = MemoryRowSchema.parse(
-      this.#db.db.prepare<[string], unknown>(`SELECT * FROM memories WHERE id = ?`).get(keepId)
+      this.#db.one<unknown>(`SELECT * FROM memories WHERE id = ?`, keepId)
     );
 
     const projectMap = this.#projects.getProjectsForMemories([keepId]);
@@ -662,13 +655,11 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
   exportAll(): MemoryExportRecord[] {
     interface ExportRow extends MemoryRow {
-      embedding: Buffer | null;
+      embedding: Uint8Array | null;
     }
-    const rows = this.#db.db
-      .prepare<[], ExportRow>(
-        `SELECT m.*, e.embedding FROM memories m LEFT JOIN embeddings e ON e.rowid = m.rowid ORDER BY m.created_at DESC`
-      )
-      .all();
+    const rows = this.#db.query<ExportRow>(
+      `SELECT m.*, e.embedding FROM memories m LEFT JOIN embeddings e ON e.rowid = m.rowid ORDER BY m.created_at DESC`
+    );
     return rows.map((row) => ({
       id: row.id,
       content: row.content,
@@ -691,16 +682,11 @@ export class SqliteMemoryRepository implements MemoryRepository {
   }
 
   importAll(records: MemoryExportRecord[]): void {
-    const insertMemory = this.#db.db.prepare(
-      `INSERT OR REPLACE INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    );
-    const insertEmbedding = this.#db.db.prepare(
-      `INSERT OR REPLACE INTO embeddings (rowid, embedding) SELECT m.rowid, ? FROM memories m WHERE m.id = ?`
-    );
-    this.#db.db.transaction(() => {
+    this.#db.inTransaction(() => {
       for (const rec of records) {
-        insertMemory.run(
+        this.#db.mutate(
+          `INSERT OR REPLACE INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           rec.id,
           rec.content,
           rec.type,
@@ -712,13 +698,14 @@ export class SqliteMemoryRepository implements MemoryRepository {
           rec.updatedAt
         );
         if (rec.embedding !== null) {
-          insertEmbedding.run(
+          this.#db.mutate(
+            `INSERT OR REPLACE INTO embeddings (rowid, embedding) SELECT m.rowid, ? FROM memories m WHERE m.id = ?`,
             Buffer.from(rec.embedding.buffer, rec.embedding.byteOffset, rec.embedding.byteLength),
             rec.id
           );
         }
       }
-    })();
+    });
   }
 
   #projectScopeClause(tableAlias = "memories"): string {
@@ -729,46 +716,47 @@ export class SqliteMemoryRepository implements MemoryRepository {
   }
 
   listVersions(memoryId: string): MemoryVersion[] {
-    const rows = this.#db.db
-      .prepare<[string], MemoryVersionRow>(
-        `SELECT * FROM memory_versions WHERE memory_id = ? ORDER BY version DESC`
-      )
-      .all(memoryId);
+    const rows = this.#db.query<MemoryVersionRow>(
+      `SELECT * FROM memory_versions WHERE memory_id = ? ORDER BY version DESC`,
+      memoryId
+    );
     return rows.map(rowToMemoryVersion);
   }
 
   getVersion(memoryId: string, version: number): MemoryVersion | undefined {
-    const row = this.#db.db
-      .prepare<[string, number], MemoryVersionRow>(
-        `SELECT * FROM memory_versions WHERE memory_id = ? AND version = ?`
-      )
-      .get(memoryId, version);
+    const row = this.#db.one<MemoryVersionRow>(
+      `SELECT * FROM memory_versions WHERE memory_id = ? AND version = ?`,
+      memoryId,
+      version
+    );
     return row !== undefined ? rowToMemoryVersion(row) : undefined;
   }
 
   #archiveCurrentContent(id: string): void {
-    const snapshot = this.#db.db
-      .prepare<[string], { content: string; next_version: number }>(
-        `SELECT m.content, COALESCE(MAX(v.version), 0) + 1 AS next_version
+    const snapshot = this.#db.one<{ content: string; next_version: number }>(
+      `SELECT m.content, COALESCE(MAX(v.version), 0) + 1 AS next_version
          FROM memories m
          LEFT JOIN memory_versions v ON v.memory_id = m.id
          WHERE m.id = ?
-         GROUP BY m.id`
-      )
-      .get(id);
+         GROUP BY m.id`,
+      id
+    );
     if (snapshot === undefined) return;
 
-    this.#db.db
-      .prepare(`INSERT INTO memory_versions (memory_id, version, content) VALUES (?, ?, ?)`)
-      .run(id, snapshot.next_version, snapshot.content);
+    this.#db.mutate(
+      `INSERT INTO memory_versions (memory_id, version, content) VALUES (?, ?, ?)`,
+      id,
+      snapshot.next_version,
+      snapshot.content
+    );
 
-    this.#db.db
-      .prepare(
-        `DELETE FROM memory_versions WHERE memory_id = ? AND version <= (
+    this.#db.mutate(
+      `DELETE FROM memory_versions WHERE memory_id = ? AND version <= (
            SELECT MAX(version) - ${MAX_VERSIONS} FROM memory_versions WHERE memory_id = ?
-         )`
-      )
-      .run(id, id);
+         )`,
+      id,
+      id
+    );
   }
 
   #getEventsForMemories(
@@ -779,13 +767,12 @@ export class SqliteMemoryRepository implements MemoryRepository {
 
     const placeholders = ids.map(() => "?").join(", ");
     const unresolvedClause = opts?.unresolvedOnly === true ? "AND resolved_at IS NULL" : "";
-    const rows = this.#db.db
-      .prepare<string[], ReviewEventRow>(
-        `SELECT * FROM memory_review_events
+    const rows = this.#db.query<ReviewEventRow>(
+      `SELECT * FROM memory_review_events
          WHERE memory_id IN (${placeholders}) ${unresolvedClause}
-         ORDER BY created_at DESC`
-      )
-      .all(...ids);
+         ORDER BY created_at DESC`,
+      ...ids
+    );
 
     const map = new Map<string, ReviewEvent[]>();
     for (const row of rows) {

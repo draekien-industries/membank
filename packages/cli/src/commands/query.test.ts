@@ -1,5 +1,6 @@
 import type { EmbeddingService, Memory } from "@membank/core";
 import { createQueryEngine, DatabaseManager } from "@membank/core";
+import { seedMemory } from "@membank/core/test-support";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Formatter } from "../formatter.js";
 
@@ -20,28 +21,15 @@ interface InsertOpts {
 
 function insertMemory(db: DatabaseManager, opts: InsertOpts): void {
   const now = new Date().toISOString();
-  db.db
-    .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
-      opts.id,
-      opts.content,
-      opts.type,
-      JSON.stringify(opts.tags ?? []),
-      null,
-      0,
-      opts.pinned ? 1 : 0,
-      now,
-      now
-    );
-
-  db.db
-    .prepare(
-      `INSERT INTO embeddings (rowid, embedding) SELECT m.rowid, ? FROM memories m WHERE m.id = ?`
-    )
-    .run(Buffer.from(opts.embedding.buffer), opts.id);
+  seedMemory(db, {
+    id: opts.id,
+    content: opts.content,
+    type: opts.type,
+    tags: opts.tags,
+    pinned: opts.pinned,
+    createdAt: now,
+    embedding: opts.embedding,
+  });
 }
 
 async function captureStdoutAsync(fn: () => Promise<void>): Promise<string> {

@@ -1,4 +1,5 @@
 import { createProjectRepository, DatabaseManager } from "@membank/core";
+import { seedExtractionRun } from "@membank/core/test-support";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Formatter } from "../formatter.js";
 import { PromptHelper } from "../prompt-helper.js";
@@ -90,12 +91,7 @@ describe("doctor command", () => {
   });
 
   it("detects stuck in-flight runs and reaps them under --fix", async () => {
-    db.db
-      .prepare(
-        `INSERT INTO extraction_runs (session_id, started_at, completed_at, status, error)
-         VALUES (?, ?, NULL, 'in_flight', NULL)`
-      )
-      .run("dead", "2020-01-01T00:00:00.000Z");
+    seedExtractionRun(db, { sessionId: "dead", startedAt: "2020-01-01T00:00:00.000Z" });
 
     const detected = await runDoctor({});
     expect(check(detected, "stale-runs").status).toBe("warn");
@@ -136,13 +132,20 @@ describe("doctor command", () => {
   });
 
   it("warns when the extraction failure rate is above the threshold", async () => {
-    const insert = db.db.prepare(
-      `INSERT INTO extraction_runs (session_id, started_at, completed_at, status, error)
-       VALUES (?, ?, ?, ?, ?)`
-    );
     const now = new Date().toISOString();
-    insert.run("ok-1", now, now, "completed", null);
-    insert.run("bad-1", now, now, "failed", "ENOENT");
+    seedExtractionRun(db, {
+      sessionId: "ok-1",
+      startedAt: now,
+      completedAt: now,
+      status: "completed",
+    });
+    seedExtractionRun(db, {
+      sessionId: "bad-1",
+      startedAt: now,
+      completedAt: now,
+      status: "failed",
+      error: "ENOENT",
+    });
 
     const output = await runDoctor({});
 
