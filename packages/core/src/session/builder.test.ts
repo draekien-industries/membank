@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { DatabaseManager } from "../db/manager.js";
 import { createMemoryRepository } from "../memory/infrastructure/sqlite-memory-repository.js";
 import { createProjectRepository } from "../project/infrastructure/sqlite-project-repository.js";
+import { seedMemory, seedProject } from "../test-support/index.js";
 import { listMemoryTypes, SessionContextBuilder } from "./builder.js";
 
 const SENTINEL_PROJECT_ID = "00000000-0000-0000-0000-000000000000";
@@ -19,38 +20,19 @@ function insertMemory(
     projectId?: string; // defaults to sentinel (global)
   }
 ): string {
-  const id = opts.id ?? randomUUID();
-  const now = new Date().toISOString();
-  db.db
-    .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)`
-    )
-    .run(
-      id,
-      opts.content ?? "test content",
-      opts.type ?? "fact",
-      JSON.stringify(opts.tags ?? []),
-      opts.source ?? null,
-      opts.pinned ? 1 : 0,
-      now,
-      now
-    );
-  db.db
-    .prepare(`INSERT INTO memory_projects (memory_id, project_id) VALUES (?, ?)`)
-    .run(id, opts.projectId ?? SENTINEL_PROJECT_ID);
-  return id;
+  return seedMemory(db, {
+    id: opts.id ?? randomUUID(),
+    content: opts.content ?? "test content",
+    type: opts.type ?? "fact",
+    tags: opts.tags,
+    source: opts.source,
+    pinned: opts.pinned,
+    projectId: opts.projectId ?? SENTINEL_PROJECT_ID,
+  });
 }
 
 function insertProject(db: DatabaseManager, scopeHash: string, name?: string): string {
-  const id = randomUUID();
-  const now = new Date().toISOString();
-  db.db
-    .prepare(
-      `INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
-    )
-    .run(id, name ?? `project-${scopeHash.slice(0, 8)}`, scopeHash, now, now);
-  return id;
+  return seedProject(db, { scopeHash, name: name ?? `project-${scopeHash.slice(0, 8)}` });
 }
 
 describe("listMemoryTypes()", () => {

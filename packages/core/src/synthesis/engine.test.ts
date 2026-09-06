@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseManager } from "../db/manager.js";
 import { GLOBAL_PROJECT_ID, GLOBAL_SCOPE_HASH } from "../project/domain/global-scope.js";
 import type { MemoryType } from "../schemas.js";
+import { seedMemory, seedProject, setSynthesisInFlight } from "../test-support/index.js";
 import { SynthesisEngine } from "./application/engine.js";
 import { createSynthesisRepository } from "./infrastructure/sqlite-synthesis-repository.js";
 import type { AgentRunner, SynthesisConfig, SynthesisRepository } from "./ports.js";
@@ -25,33 +26,22 @@ function makeAgentRunner(result = "synthesized content"): AgentRunner {
 }
 
 function insertProject(db: DatabaseManager, scopeHash: string): string {
-  const id = `proj-${scopeHash}`;
-  db.db
-    .prepare(
-      `INSERT OR IGNORE INTO projects (id, name, scope_hash, created_at, updated_at)
-       VALUES (?, ?, ?, datetime('now'), datetime('now'))`
-    )
-    .run(id, `proj-${scopeHash}`, scopeHash);
-  return id;
+  return seedProject(db, { id: `proj-${scopeHash}`, name: `proj-${scopeHash}`, scopeHash });
 }
 
 function insertMemory(
   db: DatabaseManager,
   opts: { scope: string; type?: MemoryType; content?: string; pinned?: boolean }
 ): void {
-  const id = `mem-${Math.random().toString(36).slice(2)}`;
-  const now = new Date().toISOString();
   const projectId =
     opts.scope === GLOBAL_SCOPE_HASH ? GLOBAL_PROJECT_ID : insertProject(db, opts.scope);
-  db.db
-    .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-       VALUES (?, ?, ?, '[]', NULL, 0, ?, ?, ?)`
-    )
-    .run(id, opts.content ?? "a memory", opts.type ?? "preference", opts.pinned ? 1 : 0, now, now);
-  db.db
-    .prepare(`INSERT INTO memory_projects (memory_id, project_id) VALUES (?, ?)`)
-    .run(id, projectId);
+  seedMemory(db, {
+    id: `mem-${Math.random().toString(36).slice(2)}`,
+    content: opts.content ?? "a memory",
+    type: opts.type ?? "preference",
+    pinned: opts.pinned,
+    projectId,
+  });
 }
 
 describe("SynthesisEngine", () => {
@@ -216,9 +206,7 @@ describe("SynthesisEngine", () => {
     synthRepo.saveSynthesis(GLOBAL_SCOPE_HASH, "preference", "old content", "oldhash");
 
     const staleTime = new Date(Date.now() - 3 * 60 * 1000).toISOString();
-    db.db
-      .prepare(`UPDATE syntheses SET in_flight_since = ? WHERE scope = ?`)
-      .run(staleTime, GLOBAL_SCOPE_HASH);
+    setSynthesisInFlight(db, GLOBAL_SCOPE_HASH, staleTime);
 
     const engine2 = new SynthesisEngine(
       synthRepo,

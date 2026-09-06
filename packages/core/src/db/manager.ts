@@ -446,8 +446,12 @@ ALTER TABLE memories ADD COLUMN corroboration_count INTEGER NOT NULL DEFAULT 0;
   ],
 ];
 
+/** Every value SQLite can bind. Excludes `boolean` — SQLite has no boolean type. */
+export type Bindable = null | number | bigint | string | Uint8Array;
+
 export class DatabaseManager {
   readonly #db: BetterSqlite3.Database;
+  readonly #statements = new Map<string, BetterSqlite3.Statement>();
 
   private constructor(db: BetterSqlite3.Database) {
     this.#db = db;
@@ -516,11 +520,62 @@ export class DatabaseManager {
     }
   }
 
+  #stmt(sql: string): BetterSqlite3.Statement {
+    let statement = this.#statements.get(sql);
+    if (statement === undefined) {
+      statement = this.#db.prepare(sql);
+      this.#statements.set(sql, statement);
+    }
+    return statement;
+  }
+
+  /**
+   * Runs a SELECT and returns every row.
+   *
+   * `sql` must be a source constant or a template with a bounded set of shapes —
+   * statements are cached by their text for the lifetime of the connection.
+   *
+   * Rows carry no guaranteed prototype. Assert against them with `toEqual`, never
+   * `toStrictEqual`.
+   */
+  query<Row>(sql: string, ...params: Bindable[]): Row[] {
+    return this.#stmt(sql).all(...params) as Row[];
+  }
+
+  /** Runs a SELECT and returns the first row, or `undefined` when there are none. */
+  one<Row>(sql: string, ...params: Bindable[]): Row | undefined {
+    return this.#stmt(sql).get(...params) as Row | undefined;
+  }
+
+  /** Runs an INSERT, UPDATE or DELETE and returns the number of rows affected. */
+  mutate(sql: string, ...params: Bindable[]): number {
+    return this.#stmt(sql).run(...params).changes;
+  }
+
+  /**
+   * Runs `work` inside a transaction, committing on return and rolling back on throw.
+   * Nested calls use a savepoint, so a repository method that opens a transaction
+   * stays safe to call from inside another one.
+   */
+  inTransaction<T>(work: () => T): T {
+    const nested = this.#db.inTransaction;
+    this.#db.exec(nested ? "SAVEPOINT membank_tx" : "BEGIN");
+    try {
+      const result = work();
+      this.#db.exec(nested ? "RELEASE membank_tx" : "COMMIT");
+      return result;
+    } catch (err) {
+      this.#db.exec(nested ? "ROLLBACK TO membank_tx" : "ROLLBACK");
+      throw err;
+    }
+  }
+
   get db(): BetterSqlite3.Database {
     return this.#db;
   }
 
   close(): void {
+    this.#statements.clear();
     this.#db.close();
   }
 }

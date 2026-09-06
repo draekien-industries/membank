@@ -1,4 +1,5 @@
 import { saveMemory } from "@membank/core";
+import { seedReviewEvent } from "@membank/core/test-support";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
 import { afterEach, describe, expect, it } from "vitest";
@@ -180,13 +181,13 @@ describe("get_memory_summary tool", () => {
     );
 
     // Insert directly: real similarity dedup is non-deterministic in unit tests.
-    session.core.db.db
-      .prepare(
-        `INSERT INTO memory_review_events
-           (id, memory_id, conflicting_memory_id, similarity, conflict_content_snapshot, reason, created_at)
-         VALUES (?, ?, ?, ?, ?, 'similarity_dedup', ?)`
-      )
-      .run("test-event-id", m1.id, m2.id, 0.8, m2.content, new Date().toISOString());
+    seedReviewEvent(session.core.db, {
+      id: "test-event-id",
+      memoryId: m1.id,
+      conflictingMemoryId: m2.id,
+      similarity: 0.8,
+      conflictContentSnapshot: m2.content,
+    });
 
     const result = await session.client.callTool({ name: "get_memory_summary", arguments: {} });
     if ("toolResult" in result) throw new Error("unreachable");

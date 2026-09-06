@@ -173,11 +173,9 @@ describe.skipIf(!runIntegration)("extraction — integration (real Claude Haiku 
 
     expect(result.status).toBe("completed");
 
-    const memories = world.db.db
-      .prepare<[], { content: string; type: string }>(
-        "SELECT content, type FROM memories ORDER BY created_at"
-      )
-      .all();
+    const memories = world.db.query<{ content: string; type: string }>(
+      "SELECT content, type FROM memories ORDER BY created_at"
+    );
     // The agent must save at least one memory: the corrections and decisions above are
     // exactly the durable signal the system prompt instructs it to capture.
     expect(memories.length).toBeGreaterThanOrEqual(1);
@@ -225,9 +223,7 @@ describe.skipIf(!runIntegration)("extraction — integration (real Claude Haiku 
 
     expect(result.status).toBe("completed");
 
-    const count = world.db.db
-      .prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM memories")
-      .get();
+    const count = world.db.one<{ n: number }>("SELECT COUNT(*) AS n FROM memories");
     // The system prompt instructs the agent to skip transient/ephemeral content. A
     // chit-chat transcript with no corrections, preferences, decisions, learnings, or
     // facts must result in zero saved memories.
@@ -236,9 +232,7 @@ describe.skipIf(!runIntegration)("extraction — integration (real Claude Haiku 
     const run = world.runRepo.get(`int-triv-${randomUUID()}`);
     // The specific session id is randomised per-test, but the run we just executed must
     // be recorded — verify by listing all runs.
-    const rows = world.db.db
-      .prepare<[], { status: string }>("SELECT status FROM extraction_runs")
-      .all();
+    const rows = world.db.query<{ status: string }>("SELECT status FROM extraction_runs");
     expect(rows.map((r) => r.status)).toEqual(["completed"]);
     expect(run).toBeUndefined();
   });

@@ -2,6 +2,7 @@ import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseManager } from "@membank/core";
+import { countRows } from "@membank/core/test-support";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Formatter } from "../formatter.js";
 import { PromptHelper } from "../prompt-helper.js";
@@ -92,9 +93,7 @@ describe("import command — real in-memory SQLite", () => {
       await importCommand(p, db, humanFormatter, autoConfirm);
     });
 
-    const row = db.db
-      .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
-      .get("import-mem-1");
+    const row = db.one<{ id: string }>(`SELECT id FROM memories WHERE id = ?`, "import-mem-1");
     expect(row).toBeDefined();
     expect(row?.id).toBe("import-mem-1");
   });
@@ -149,15 +148,17 @@ describe("import command — real in-memory SQLite", () => {
       await importCommand(p, db, humanFormatter, autoConfirm);
     });
 
-    const row = db.db
-      .prepare<[string], { rowid: number }>(`SELECT m.rowid FROM memories m WHERE m.id = ?`)
-      .get("emb-mem-1");
+    const row = db.one<{ rowid: number }>(
+      `SELECT m.rowid FROM memories m WHERE m.id = ?`,
+      "emb-mem-1"
+    );
     expect(row).toBeDefined();
     if (!row) throw new Error("row not found");
 
-    const embRow = db.db
-      .prepare<[number], { embedding: Buffer }>(`SELECT embedding FROM embeddings WHERE rowid = ?`)
-      .get(row.rowid);
+    const embRow = db.one<{ embedding: Buffer }>(
+      `SELECT embedding FROM embeddings WHERE rowid = ?`,
+      row.rowid
+    );
     expect(embRow).toBeDefined();
     if (!embRow) throw new Error("embedding row not found");
     expect(Buffer.from(embRow.embedding).byteLength).toBe(384 * 4);
@@ -175,9 +176,7 @@ describe("import command — real in-memory SQLite", () => {
       await importCommand(p, db, humanFormatter, decline);
     });
 
-    const row = db.db
-      .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
-      .get("import-mem-1");
+    const row = db.one<{ id: string }>(`SELECT id FROM memories WHERE id = ?`, "import-mem-1");
     expect(row).toBeUndefined();
   });
 
@@ -253,8 +252,7 @@ describe("import command — real in-memory SQLite", () => {
     process.exit = origExit;
     expect(exitCode).toBe(1);
 
-    const rows = db.db.prepare("SELECT COUNT(*) as n FROM memories").get() as { n: number };
-    expect(rows.n).toBe(0);
+    expect(countRows(db, "memories")).toBe(0);
   });
 
   it("exits with code 1 for invalid memory records (missing type)", async () => {
@@ -287,8 +285,7 @@ describe("import command — real in-memory SQLite", () => {
     expect(exitCode).toBe(1);
     expect(stderrOutput).toContain("Invalid export file:");
 
-    const rows = db.db.prepare("SELECT COUNT(*) as n FROM memories").get() as { n: number };
-    expect(rows.n).toBe(0);
+    expect(countRows(db, "memories")).toBe(0);
   });
 
   it("--yes flag (autoConfirm: true) imports without prompt", async () => {
@@ -359,19 +356,16 @@ describe("import command — real in-memory SQLite", () => {
       await importCommand(exportPath, db, humanFormatter, autoConfirm);
     });
 
-    const row1 = db.db
-      .prepare<[string], { id: string; content: string; pinned: number; access_count: number }>(
-        `SELECT id, content, pinned, access_count FROM memories WHERE id = ?`
-      )
-      .get("rt-1");
+    const row1 = db.one<{ id: string; content: string; pinned: number; access_count: number }>(
+      `SELECT id, content, pinned, access_count FROM memories WHERE id = ?`,
+      "rt-1"
+    );
     expect(row1).toBeDefined();
     expect(row1?.content).toBe("Round trip content 1");
     expect(row1?.pinned).toBe(1);
     expect(row1?.access_count).toBe(3);
 
-    const row2 = db.db
-      .prepare<[string], { id: string }>(`SELECT id FROM memories WHERE id = ?`)
-      .get("rt-2");
+    const row2 = db.one<{ id: string }>(`SELECT id FROM memories WHERE id = ?`, "rt-2");
     expect(row2).toBeDefined();
   });
 
@@ -420,7 +414,6 @@ describe("import command — real in-memory SQLite", () => {
       await importCommand(p, db, humanFormatter, autoConfirm);
     });
 
-    const rows = db.db.prepare("SELECT COUNT(*) as n FROM memories").get() as { n: number };
-    expect(rows.n).toBe(2);
+    expect(countRows(db, "memories")).toBe(2);
   });
 });

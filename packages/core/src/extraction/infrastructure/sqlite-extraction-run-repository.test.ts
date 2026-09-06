@@ -1,33 +1,23 @@
-import { randomUUID } from "node:crypto";
-import { mkdirSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DatabaseManager } from "../../db/manager.js";
+import type { DatabaseManager } from "../../db/manager.js";
+import { openTempDatabase, type TempDatabase } from "../../test-support/index.js";
 import { DEFAULT_IN_FLIGHT_TIMEOUT_MS } from "../domain/extraction-policy.js";
 import type { ExtractionRunRepository } from "../ports.js";
 import { createExtractionRunRepository } from "./sqlite-extraction-run-repository.js";
 
-const runIntegration = process.env.MEMBANK_INTEGRATION === "true";
-const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "../../../../test-fixtures");
-
-describe.skipIf(!runIntegration)("SqliteExtractionRunRepository — reapStale", () => {
-  let dbPath: string;
+describe("SqliteExtractionRunRepository — reapStale", () => {
+  let temp: TempDatabase;
   let db: DatabaseManager;
   let runs: ExtractionRunRepository;
 
   beforeEach(() => {
-    mkdirSync(fixturesDir, { recursive: true });
-    dbPath = join(fixturesDir, `${randomUUID()}.db`);
-    db = DatabaseManager.open(dbPath);
+    temp = openTempDatabase();
+    db = temp.db;
     runs = createExtractionRunRepository(db);
   });
 
   afterEach(() => {
-    db.close();
-    for (const suffix of ["", "-wal", "-shm"]) {
-      rmSync(dbPath + suffix, { force: true });
-    }
+    temp.cleanup();
   });
 
   it("fails out in-flight runs older than the timeout", () => {

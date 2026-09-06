@@ -1,15 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DatabaseManager } from "../../db/manager.js";
+import type { DatabaseManager } from "../../db/manager.js";
 import { SqliteMemoryRepository } from "../../memory/infrastructure/sqlite-memory-repository.js";
+import {
+  openTempDatabase,
+  seedActivityEvent,
+  seedSynthesis,
+  seedSynthesisVersion,
+  type TempDatabase,
+} from "../../test-support/index.js";
 import { GLOBAL_PROJECT_ID } from "../domain/global-scope.js";
 import { SqliteProjectRepository } from "./sqlite-project-repository.js";
-
-const runIntegration = process.env.MEMBANK_INTEGRATION === "true";
-const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "../../../../test-fixtures");
 
 const HASH_A = "aaaaaaaaaaaaaaaa";
 const HASH_B = "bbbbbbbbbbbbbbbb";
@@ -20,25 +21,21 @@ function makeEmbedding(dimension: number): Float32Array {
   return arr;
 }
 
-describe.skipIf(!runIntegration)("SqliteProjectRepository — integration (file-based DB)", () => {
-  let dbPath: string;
+describe("SqliteProjectRepository — file-based DB", () => {
+  let temp: TempDatabase;
   let db: DatabaseManager;
   let projects: SqliteProjectRepository;
   let memories: SqliteMemoryRepository;
 
   beforeEach(() => {
-    mkdirSync(fixturesDir, { recursive: true });
-    dbPath = join(fixturesDir, `${randomUUID()}.db`);
-    db = DatabaseManager.open(dbPath);
+    temp = openTempDatabase();
+    db = temp.db;
     projects = new SqliteProjectRepository(db);
     memories = new SqliteMemoryRepository(db, projects);
   });
 
   afterEach(() => {
-    db.close();
-    for (const suffix of ["", "-wal", "-shm"]) {
-      rmSync(dbPath + suffix, { force: true });
-    }
+    temp.cleanup();
   });
 
   function createMemory(hash: string): string {
@@ -56,7 +53,7 @@ describe.skipIf(!runIntegration)("SqliteProjectRepository — integration (file-
   }
 
   function countWhere(sql: string, ...params: string[]): number {
-    const row = db.db.prepare<string[], { count: number }>(sql).get(...params);
+    const row = db.one<{ count: number }>(sql, ...params);
     return row?.count ?? 0;
   }
 
@@ -68,42 +65,28 @@ describe.skipIf(!runIntegration)("SqliteProjectRepository — integration (file-
       const shared = createMemory(HASH_A);
       projects.addAssociation(shared, target.id);
 
-      db.db
-        .prepare(
-          `INSERT INTO activity_events (id, project_hash, event_type, payload, created_at)
-           VALUES (?, ?, ?, ?, ?)`
-        )
-        .run(randomUUID(), HASH_A, "memory_saved", "{}", "2026-01-01T00:00:00.000Z");
-      db.db
-        .prepare(
-          `INSERT INTO syntheses (id, scope, memory_type, content, source_memory_hash, synthesized_at, expires_at, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-        .run(
-          randomUUID(),
-          HASH_A,
-          "preference",
-          "summary",
-          "h",
-          "2026-01-01T00:00:00.000Z",
-          "2026-12-31T00:00:00.000Z",
-          "2026-01-01T00:00:00.000Z",
-          "2026-01-01T00:00:00.000Z"
-        );
-      db.db
-        .prepare(
-          `INSERT INTO synthesis_versions (scope, memory_type, version, content, source_memory_hash, synthesized_at, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
-        )
-        .run(
-          HASH_A,
-          "preference",
-          1,
-          "summary v1",
-          "h",
-          "2026-01-01T00:00:00.000Z",
-          "2026-01-01T00:00:00.000Z"
-        );
+      seedActivityEvent(db, {
+        projectHash: HASH_A,
+        eventType: "memory_saved",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      });
+      seedSynthesis(db, {
+        scope: HASH_A,
+        content: "summary",
+        sourceMemoryHash: "h",
+        synthesizedAt: "2026-01-01T00:00:00.000Z",
+        expiresAt: "2026-12-31T00:00:00.000Z",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      });
+      seedSynthesisVersion(db, {
+        scope: HASH_A,
+        version: 1,
+        content: "summary v1",
+        sourceMemoryHash: "h",
+        synthesizedAt: "2026-01-01T00:00:00.000Z",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      });
 
       const result = projects.merge(source.id, target.id);
 
@@ -143,9 +126,10 @@ describe.skipIf(!runIntegration)("SqliteProjectRepository — integration (file-
 
       expect(projects.listExclusiveMemoryIds(doomed.id)).toEqual([exclusive]);
 
-      const rowidRow = db.db
-        .prepare<[string], { rowid: number }>(`SELECT rowid FROM memories WHERE id = ?`)
-        .get(exclusive);
+      const rowidRow = db.one<{ rowid: number }>(
+        `SELECT rowid FROM memories WHERE id = ?`,
+        exclusive
+      );
       const exclusiveRowid = rowidRow?.rowid ?? -1;
 
       memories.delete(exclusive);
@@ -156,11 +140,10 @@ describe.skipIf(!runIntegration)("SqliteProjectRepository — integration (file-
       expect(countWhere(`SELECT COUNT(*) AS count FROM memories WHERE id = ?`, exclusive)).toBe(0);
       expect(countWhere(`SELECT COUNT(*) AS count FROM memories WHERE id = ?`, shared)).toBe(1);
       expect(
-        db.db
-          .prepare<[number], { count: number }>(
-            `SELECT COUNT(*) AS count FROM embeddings WHERE rowid = ?`
-          )
-          .get(exclusiveRowid)?.count
+        db.one<{ count: number }>(
+          `SELECT COUNT(*) AS count FROM embeddings WHERE rowid = ?`,
+          exclusiveRowid
+        )?.count
       ).toBe(0);
     });
 

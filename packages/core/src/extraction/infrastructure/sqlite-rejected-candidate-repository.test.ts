@@ -31,11 +31,9 @@ describe("SqliteRejectedCandidateRepository", () => {
   it("records a rejection with its rubric, clause and smells", () => {
     rejections.record(candidate(), new Date("2026-07-01T00:00:00.000Z"));
 
-    const row = db.db
-      .prepare<[], { content: string; rejected_clause: string; smells: string }>(
-        "SELECT content, rejected_clause, smells FROM rejected_candidates"
-      )
-      .get();
+    const row = db.one<{ content: string; rejected_clause: string; smells: string }>(
+      "SELECT content, rejected_clause, smells FROM rejected_candidates"
+    );
 
     expect(row?.rejected_clause).toBe("trivially-derivable");
     expect(JSON.parse(row?.smells ?? "[]")).toEqual(["code-reference"]);

@@ -1,5 +1,6 @@
 import type { Memory, MemoryType } from "@membank/core";
 import { DatabaseManager } from "@membank/core";
+import { seedMemory } from "@membank/core/test-support";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Formatter } from "../formatter.js";
 
@@ -13,22 +14,14 @@ interface InsertOpts {
 
 function insertMemory(db: DatabaseManager, opts: InsertOpts): void {
   const now = new Date().toISOString();
-  db.db
-    .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
-      opts.id,
-      opts.content,
-      opts.type,
-      JSON.stringify(opts.tags ?? []),
-      null,
-      0,
-      opts.pinned === true ? 1 : 0,
-      now,
-      now
-    );
+  seedMemory(db, {
+    id: opts.id,
+    content: opts.content,
+    type: opts.type,
+    tags: opts.tags,
+    pinned: opts.pinned,
+    createdAt: now,
+  });
 }
 
 function captureStdout(fn: () => void): string {
@@ -57,7 +50,7 @@ describe("list command integration — real in-memory SQLite", () => {
     insertMemory(db, { id: "mem-1", content: "Use TypeScript", type: "preference" });
     insertMemory(db, { id: "mem-2", content: "Always test", type: "correction" });
 
-    const memories = db.db.prepare("SELECT * FROM memories ORDER BY created_at DESC").all() as {
+    const memories = db.query<{
       id: string;
       content: string;
       type: string;
@@ -67,7 +60,7 @@ describe("list command integration — real in-memory SQLite", () => {
       pinned: number;
       created_at: string;
       updated_at: string;
-    }[];
+    }>("SELECT * FROM memories ORDER BY created_at DESC");
 
     const mapped: Memory[] = memories.map((r) => ({
       id: r.id,
@@ -101,9 +94,7 @@ describe("list command integration — real in-memory SQLite", () => {
     insertMemory(db, { id: "corr-1", content: "A correction", type: "correction" });
     insertMemory(db, { id: "pref-1", content: "A preference", type: "preference" });
 
-    const rows = db.db
-      .prepare("SELECT * FROM memories WHERE type = ? ORDER BY created_at DESC")
-      .all("correction") as {
+    const rows = db.query<{
       id: string;
       content: string;
       type: string;
@@ -113,7 +104,7 @@ describe("list command integration — real in-memory SQLite", () => {
       pinned: number;
       created_at: string;
       updated_at: string;
-    }[];
+    }>("SELECT * FROM memories WHERE type = ? ORDER BY created_at DESC", "correction");
 
     expect(rows.length).toBe(1);
     expect(rows[0]?.id).toBe("corr-1");
@@ -124,9 +115,9 @@ describe("list command integration — real in-memory SQLite", () => {
     insertMemory(db, { id: "pin-1", content: "Pinned memory", type: "fact", pinned: true });
     insertMemory(db, { id: "unpin-1", content: "Not pinned", type: "fact", pinned: false });
 
-    const rows = db.db
-      .prepare("SELECT * FROM memories WHERE pinned = 1 ORDER BY created_at DESC")
-      .all() as { id: string }[];
+    const rows = db.query<{ id: string }>(
+      "SELECT * FROM memories WHERE pinned = 1 ORDER BY created_at DESC"
+    );
 
     expect(rows.length).toBe(1);
     expect(rows[0]?.id).toBe("pin-1");
@@ -135,7 +126,7 @@ describe("list command integration — real in-memory SQLite", () => {
   it("outputMemories JSON mode returns array of memory objects", () => {
     insertMemory(db, { id: "mem-j1", content: "JSON output test", type: "learning" });
 
-    const rows = db.db.prepare("SELECT * FROM memories").all() as {
+    const rows = db.query<{
       id: string;
       content: string;
       type: string;
@@ -145,7 +136,7 @@ describe("list command integration — real in-memory SQLite", () => {
       pinned: number;
       created_at: string;
       updated_at: string;
-    }[];
+    }>("SELECT * FROM memories");
 
     const mapped: Memory[] = rows.map((r) => ({
       id: r.id,

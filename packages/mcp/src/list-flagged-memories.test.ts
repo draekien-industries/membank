@@ -1,4 +1,5 @@
 import type { FlagCluster, Memory } from "@membank/core";
+import { GLOBAL_PROJECT_ID, seedMemory, seedReviewEvent } from "@membank/core/test-support";
 import { Client } from "@modelcontextprotocol/sdk/client";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory";
 import { afterEach, describe, expect, it } from "vitest";
@@ -77,26 +78,21 @@ describe("list_flagged_memories tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    session.core.db.db
-      .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-         VALUES ('mem-1', 'use tabs', 'preference', '[]', NULL, 0, 0, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z')`
-      )
-      .run();
+    seedMemory(session.core.db, {
+      id: "mem-1",
+      content: "use tabs",
+      type: "preference",
+      createdAt: "2024-01-01T00:00:00.000Z",
+      projectId: GLOBAL_PROJECT_ID,
+    });
 
-    session.core.db.db
-      .prepare(
-        `INSERT INTO memory_projects (memory_id, project_id) VALUES ('mem-1', '00000000-0000-0000-0000-000000000000')`
-      )
-      .run();
-
-    session.core.db.db
-      .prepare(
-        `INSERT INTO memory_review_events
-           (id, memory_id, conflicting_memory_id, similarity, conflict_content_snapshot, reason, created_at)
-         VALUES ('evt-1', 'mem-1', NULL, 0.85, 'use spaces', 'similarity_dedup', '2024-01-01T00:00:00.000Z')`
-      )
-      .run();
+    seedReviewEvent(session.core.db, {
+      id: "evt-1",
+      memoryId: "mem-1",
+      similarity: 0.85,
+      conflictContentSnapshot: "use spaces",
+      createdAt: "2024-01-01T00:00:00.000Z",
+    });
 
     const result = await session.client.callTool({
       name: "list_flagged_memories",
@@ -113,20 +109,21 @@ describe("list_flagged_memories tool", () => {
     const session = await startInProcess();
     cleanup = session.cleanup;
 
-    session.core.db.db
-      .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-         VALUES ('mem-2', 'use tabs', 'preference', '[]', NULL, 0, 0, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z')`
-      )
-      .run();
+    seedMemory(session.core.db, {
+      id: "mem-2",
+      content: "use tabs",
+      type: "preference",
+      createdAt: "2024-01-01T00:00:00.000Z",
+    });
 
-    session.core.db.db
-      .prepare(
-        `INSERT INTO memory_review_events
-           (id, memory_id, conflicting_memory_id, similarity, conflict_content_snapshot, reason, created_at, resolved_at)
-         VALUES ('evt-2', 'mem-2', NULL, 0.85, 'use spaces', 'similarity_dedup', '2024-01-01T00:00:00.000Z', '2024-01-02T00:00:00.000Z')`
-      )
-      .run();
+    seedReviewEvent(session.core.db, {
+      id: "evt-2",
+      memoryId: "mem-2",
+      similarity: 0.85,
+      conflictContentSnapshot: "use spaces",
+      createdAt: "2024-01-01T00:00:00.000Z",
+      resolvedAt: "2024-01-02T00:00:00.000Z",
+    });
 
     const result = await session.client.callTool({
       name: "list_flagged_memories",

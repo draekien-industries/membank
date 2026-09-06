@@ -17,11 +17,17 @@
       "types": "./dist/client.d.mts",
       "import": "./dist/client.mjs",
       "require": "./dist/client.cjs"
+    },
+    "./test-support": {
+      "types": "./dist/test-support.d.mts",
+      "import": "./dist/test-support.mjs",
+      "require": "./dist/test-support.cjs"
     }
   },
   "files": [
     "dist",
-    "!dist/**/*.map"
+    "!dist/**/*.map",
+    "!dist/test-support.*"
   ],
   "scripts": {
     "build": "tsdown",

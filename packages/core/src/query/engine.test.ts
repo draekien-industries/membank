@@ -1,8 +1,14 @@
-import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CapabilityKey } from "../capability/domain/capability-key.js";
 import { DatabaseManager } from "../db/manager.js";
 import type { Embedder } from "../memory/ports.js";
+import {
+  linkMemoryToCapability,
+  linkMemoryToProject,
+  seedCapability,
+  seedMemory,
+  seedProject,
+} from "../test-support/index.js";
 import type { QueryEngine } from "./engine.js";
 import { createQueryEngine } from "./index.js";
 
@@ -26,58 +32,31 @@ interface InsertMemoryOptions {
 }
 
 function insertMemory(db: DatabaseManager, opts: InsertMemoryOptions): void {
-  const now = new Date().toISOString();
-  db.db
-    .prepare(
-      `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
-      opts.id,
-      opts.content,
-      opts.type,
-      JSON.stringify(opts.tags ?? []),
-      opts.source ?? null,
-      opts.accessCount ?? 0,
-      opts.pinned ? 1 : 0,
-      opts.createdAt ?? now,
-      opts.updatedAt ?? now
-    );
-
-  db.db
-    .prepare(
-      `INSERT INTO embeddings (rowid, embedding) SELECT m.rowid, ? FROM memories m WHERE m.id = ?`
-    )
-    .run(Buffer.from(opts.embedding.buffer), opts.id);
+  seedMemory(db, {
+    id: opts.id,
+    content: opts.content,
+    type: opts.type,
+    tags: opts.tags,
+    source: opts.source,
+    accessCount: opts.accessCount,
+    pinned: opts.pinned,
+    createdAt: opts.createdAt,
+    updatedAt: opts.updatedAt,
+    embedding: opts.embedding,
+  });
 }
 
 function insertProject(db: DatabaseManager, scopeHash: string): string {
-  const id = randomUUID();
-  const now = new Date().toISOString();
-  db.db
-    .prepare(
-      `INSERT INTO projects (id, name, scope_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
-    )
-    .run(id, `project-${scopeHash.slice(0, 8)}`, scopeHash, now, now);
-  return id;
+  return seedProject(db, { scopeHash });
 }
 
 function associateMemoryProject(db: DatabaseManager, memoryId: string, projectId: string): void {
-  db.db
-    .prepare(`INSERT INTO memory_projects (memory_id, project_id) VALUES (?, ?)`)
-    .run(memoryId, projectId);
+  linkMemoryToProject(db, memoryId, projectId);
 }
 
 function insertCapability(db: DatabaseManager, key: string): string {
-  const id = randomUUID();
-  const now = new Date().toISOString();
-  const kind = key.split(":")[0];
-  db.db
-    .prepare(
-      `INSERT INTO capabilities (id, kind, key, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
-    )
-    .run(id, kind, key, now, now);
-  return id;
+  const kind = key.split(":")[0] === "skill" ? "skill" : "tool";
+  return seedCapability(db, { key, kind });
 }
 
 function associateMemoryCapability(
@@ -85,15 +64,14 @@ function associateMemoryCapability(
   memoryId: string,
   capabilityId: string
 ): void {
-  db.db
-    .prepare(`INSERT INTO memory_capabilities (memory_id, capability_id) VALUES (?, ?)`)
-    .run(memoryId, capabilityId);
+  linkMemoryToCapability(db, memoryId, capabilityId);
 }
 
 function getAccessCount(db: DatabaseManager, id: string): number {
-  const row = db.db
-    .prepare<[string], { access_count: number }>("SELECT access_count FROM memories WHERE id = ?")
-    .get(id);
+  const row = db.one<{ access_count: number }>(
+    "SELECT access_count FROM memories WHERE id = ?",
+    id
+  );
   return row?.access_count ?? 0;
 }
 

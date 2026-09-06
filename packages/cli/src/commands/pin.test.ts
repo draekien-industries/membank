@@ -57,9 +57,7 @@ describe("pin command — real in-memory SQLite", () => {
 
     expect(output).toContain(`Pinned: ${id}`);
 
-    const row = db.db
-      .prepare<[string], { pinned: number }>("SELECT pinned FROM memories WHERE id = ?")
-      .get(id);
+    const row = db.one<{ pinned: number }>("SELECT pinned FROM memories WHERE id = ?", id);
     expect(row?.pinned).toBe(1);
   });
 
@@ -81,15 +79,13 @@ describe("unpin command — real in-memory SQLite", () => {
   it("sets pinned to false and prints confirmation", async () => {
     const id = await insertMemory(db, embeddingStub);
 
-    db.db.prepare("UPDATE memories SET pinned = 1 WHERE id = ?").run(id);
+    db.mutate("UPDATE memories SET pinned = 1 WHERE id = ?", id);
 
     const output = captureStdout(() => unpinCommand(id, db));
 
     expect(output).toContain(`Unpinned: ${id}`);
 
-    const row = db.db
-      .prepare<[string], { pinned: number }>("SELECT pinned FROM memories WHERE id = ?")
-      .get(id);
+    const row = db.one<{ pinned: number }>("SELECT pinned FROM memories WHERE id = ?", id);
     expect(row?.pinned).toBe(0);
   });
 
