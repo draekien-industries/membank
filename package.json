@@ -19,6 +19,7 @@
     "@biomejs/biome": "2.4.13",
     "@changesets/cli": "^2.27.0",
     "@turbo/gen": "^2.9.6",
+    "fallow": "^3.20.0",
     "lefthook": "^2.1.6",
     "tsdown": "latest",
     "turbo": "^2.9.6",
