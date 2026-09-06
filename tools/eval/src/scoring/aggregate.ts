@@ -111,8 +111,10 @@ export function pickWinners(rollups: RollupStats[]): HarnessWinner[] {
       harness,
       winner: top.promptId,
       winnerStats: top,
-      runnerUp: second ? { promptId: second.promptId, mean: second.mean } : undefined,
-      delta: second ? top.mean - second.mean : undefined,
+      ...(second && {
+        runnerUp: { promptId: second.promptId, mean: second.mean },
+        delta: top.mean - second.mean,
+      }),
       ciOverlapsRunnerUp: overlap,
     });
   }

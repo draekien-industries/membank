@@ -54,7 +54,7 @@ export async function runOne(args: RunArgs): Promise<RawRun> {
           saveCalls.push({
             content: input.content ?? "",
             type: input.type ?? "",
-            tags: input.tags,
+            ...(input.tags !== undefined && { tags: input.tags }),
           });
         } else {
           otherToolCalls.push(block.name);

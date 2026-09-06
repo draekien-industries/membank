@@ -63,7 +63,7 @@ function parseVerdict(text: string): JudgeVerdict {
     const parsed = JSON.parse(match[0]) as Partial<JudgeVerdict>;
     const intent = parsed.intent === 1 ? 1 : parsed.intent === 0.5 ? 0.5 : 0;
     const fp = parsed.fp === 0 ? 0 : 1;
-    return { intent, fp, reason: parsed.reason };
+    return { intent, fp, ...(parsed.reason !== undefined && { reason: parsed.reason }) };
   } catch {
     return { intent: 0, fp: 1, reason: `JSON parse failed: ${text.slice(0, 80)}` };
   }
