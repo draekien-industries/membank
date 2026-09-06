@@ -9,9 +9,11 @@
     "packages/mcp/src/index.ts"
   ],
   "workspaces": {
-    "packages": ["packages/*"]
+    "patterns": ["packages/*", "tools/*"]
   },
-  "rules": {},
+  "rules": {
+    "private-type-leaks": "warn"
+  },
   "publicPackages": ["@membank/cli", "@membank/dashboard", "@membank/core", "@membank/mcp"],
   "ignorePatterns": ["**/*.gen.ts", "**/tsdown.config.ts"],
   "dynamicallyLoaded": ["packages/dashboard/src/client/**/*.tsx"]
