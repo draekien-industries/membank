@@ -5,7 +5,6 @@ export default defineConfig({
     index: "src/index.ts",
     client: "src/client.ts",
     "test-support": "src/test-support/index.ts",
-    "suppress-warning": "src/db/suppress-experimental-warning.ts",
   },
   format: ["esm", "cjs"],
   dts: true,

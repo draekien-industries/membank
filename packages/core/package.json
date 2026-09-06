@@ -22,11 +22,6 @@
       "types": "./dist/test-support.d.mts",
       "import": "./dist/test-support.mjs",
       "require": "./dist/test-support.cjs"
-    },
-    "./suppress-warning": {
-      "types": "./dist/suppress-warning.d.mts",
-      "import": "./dist/suppress-warning.mjs",
-      "require": "./dist/suppress-warning.cjs"
     }
   },
   "files": [

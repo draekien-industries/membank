@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import { cancel, intro, isCancel, multiselect, note, outro } from "@clack/prompts";
 import { DatabaseManager } from "@membank/core";
 import { startServer } from "@membank/mcp";

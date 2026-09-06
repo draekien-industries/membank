@@ -8,7 +8,7 @@
     "directory": "packages/cli"
   },
   "bin": {
-    "membank": "./dist/bin.mjs"
+    "membank": "./dist/index.mjs"
   },
   "files": [
     "dist",
