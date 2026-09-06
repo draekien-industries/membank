@@ -26,12 +26,6 @@ function rowToEvent(row: ActivityEventRow): ActivityEvent {
 
 const PRUNE_THROTTLE_MS = 60_000;
 
-const INSERT_EVENT_SQL = `INSERT INTO activity_events
-   (id, project_hash, event_type, memory_id, payload, created_at)
-   VALUES (?, ?, ?, ?, ?, ?)`;
-
-const PRUNE_EVENTS_SQL = `DELETE FROM activity_events WHERE created_at < ?`;
-
 export class SqliteActivityRepository implements ActivityRepository {
   readonly #db: DatabaseManager;
   #lastPruned = 0;
@@ -49,7 +43,9 @@ export class SqliteActivityRepository implements ActivityRepository {
     createdAt: string;
   }): void {
     this.#db.mutate(
-      INSERT_EVENT_SQL,
+      `INSERT INTO activity_events
+         (id, project_hash, event_type, memory_id, payload, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       event.id,
       event.projectHash,
       event.eventType,
@@ -91,7 +87,7 @@ export class SqliteActivityRepository implements ActivityRepository {
   prune(olderThan: string): void {
     const now = Date.now();
     if (now - this.#lastPruned < PRUNE_THROTTLE_MS) return;
-    this.#db.mutate(PRUNE_EVENTS_SQL, olderThan);
+    this.#db.mutate(`DELETE FROM activity_events WHERE created_at < ?`, olderThan);
     this.#lastPruned = now;
   }
 }

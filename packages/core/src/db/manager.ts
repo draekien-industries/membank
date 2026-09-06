@@ -446,7 +446,12 @@ ALTER TABLE memories ADD COLUMN corroboration_count INTEGER NOT NULL DEFAULT 0;
   ],
 ];
 
-/** Every value SQLite can bind. Excludes `boolean` — SQLite has no boolean type. */
+/**
+ * Ceiling on cached prepared statements. Comfortably above the number of static SQL
+ * shapes in the codebase, so eviction only ever touches generated IN-list variants.
+ */
+const MAX_CACHED_STATEMENTS = 256;
+
 /**
  * Every value SQLite can bind. Excludes `boolean` — SQLite has no boolean type.
  *
@@ -532,19 +537,24 @@ export class DatabaseManager {
   }
 
   #stmt(sql: string): StatementSync {
-    let statement = this.#statements.get(sql);
-    if (statement === undefined) {
-      statement = this.#db.prepare(sql);
-      this.#statements.set(sql, statement);
+    const cached = this.#statements.get(sql);
+    if (cached !== undefined) return cached;
+
+    // Callers that build an IN-list emit one shape per element count, so the set of
+    // distinct SQL texts is not bounded by the source. Evicting the oldest keeps the
+    // hot static statements resident without letting the map grow with the data.
+    if (this.#statements.size >= MAX_CACHED_STATEMENTS) {
+      const oldest = this.#statements.keys().next();
+      if (!oldest.done) this.#statements.delete(oldest.value);
     }
+
+    const statement = this.#db.prepare(sql);
+    this.#statements.set(sql, statement);
     return statement;
   }
 
   /**
    * Runs a SELECT and returns every row.
-   *
-   * `sql` must be a source constant or a template with a bounded set of shapes —
-   * statements are cached by their text for the lifetime of the connection.
    *
    * Rows carry no guaranteed prototype. Assert against them with `toEqual`, never
    * `toStrictEqual`.

@@ -367,9 +367,11 @@ export class SqliteMemoryRepository implements MemoryRepository {
         conflictingMemoryId: r.conflicting_memory_id,
       }));
     }
-    const rows =
-      this.#db.query<EdgeRow>(`SELECT memory_id, conflicting_memory_id FROM memory_review_events
-         WHERE resolved_at IS NULL AND conflicting_memory_id IS NOT NULL`);
+    const rows = this.#db.query<EdgeRow>(
+      `SELECT memory_id, conflicting_memory_id
+         FROM memory_review_events
+         WHERE resolved_at IS NULL AND conflicting_memory_id IS NOT NULL`
+    );
     return rows.map((r) => ({
       memoryId: r.memory_id,
       conflictingMemoryId: r.conflicting_memory_id,
