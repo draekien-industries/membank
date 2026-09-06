@@ -1,13 +1,13 @@
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import BetterSqlite3 from "better-sqlite3";
+import { DatabaseSync, type StatementSync } from "node:sqlite";
 import * as sqliteVec from "sqlite-vec";
 import { DatabaseError } from "./errors.js";
 
 const DEFAULT_DB_PATH = join(homedir(), ".membank", "memory.db");
 
-type VecLoader = (db: BetterSqlite3.Database) => void;
+type VecLoader = (db: DatabaseSync) => void;
 
 const MIGRATIONS: [number, string][] = [
   [
@@ -447,21 +447,27 @@ ALTER TABLE memories ADD COLUMN corroboration_count INTEGER NOT NULL DEFAULT 0;
 ];
 
 /** Every value SQLite can bind. Excludes `boolean` — SQLite has no boolean type. */
+/**
+ * Every value SQLite can bind. Excludes `boolean` — SQLite has no boolean type.
+ *
+ * A JS `number` binds as REAL. Ordinary tables coerce it back via column affinity,
+ * but `vec0` virtual tables inspect the raw type and reject a float rowid on INSERT.
+ * Bind a `bigint` when the target is an `embeddings` rowid.
+ */
 export type Bindable = null | number | bigint | string | Uint8Array;
 
 export class DatabaseManager {
-  readonly #db: BetterSqlite3.Database;
-  readonly #statements = new Map<string, BetterSqlite3.Statement>();
+  readonly #db: DatabaseSync;
+  readonly #statements = new Map<string, StatementSync>();
 
-  private constructor(db: BetterSqlite3.Database) {
+  private constructor(db: DatabaseSync) {
     this.#db = db;
   }
 
   static open(dbPath?: string): DatabaseManager {
     const resolvedPath = dbPath ?? DEFAULT_DB_PATH;
     mkdirSync(dirname(resolvedPath), { recursive: true });
-    const db = new BetterSqlite3(resolvedPath);
-    return DatabaseManager.#init(db, sqliteVec.load);
+    return DatabaseManager.#init(DatabaseManager.#connect(resolvedPath), sqliteVec.load);
   }
 
   static openInMemory(): DatabaseManager {
@@ -474,11 +480,17 @@ export class DatabaseManager {
   }
 
   static #initInMemory(loader: VecLoader): DatabaseManager {
-    const db = new BetterSqlite3(":memory:");
-    return DatabaseManager.#init(db, loader);
+    return DatabaseManager.#init(DatabaseManager.#connect(":memory:"), loader);
   }
 
-  static #init(db: BetterSqlite3.Database, loader: VecLoader): DatabaseManager {
+  static #connect(path: string): DatabaseSync {
+    return new DatabaseSync(path, {
+      allowExtension: true,
+      enableForeignKeyConstraints: true,
+    });
+  }
+
+  static #init(db: DatabaseSync, loader: VecLoader): DatabaseManager {
     try {
       loader(db);
     } catch (err) {
@@ -486,9 +498,9 @@ export class DatabaseManager {
         cause: err,
       });
     }
+    db.enableLoadExtension(false);
 
-    db.pragma("journal_mode = WAL");
-    db.pragma("foreign_keys = ON");
+    db.exec("PRAGMA journal_mode = WAL");
 
     const manager = new DatabaseManager(db);
     manager.#runMigrations();
@@ -504,23 +516,22 @@ export class DatabaseManager {
       );
     `);
 
-    const row = this.#db
-      .prepare<[], { value: string }>("SELECT value FROM meta WHERE key = 'schema_version'")
-      .get();
+    const row = this.one<{ value: string }>("SELECT value FROM meta WHERE key = 'schema_version'");
 
     const currentVersion = row ? Number.parseInt(row.value, 10) : 0;
 
     for (const [targetVersion, sql] of MIGRATIONS) {
       if (currentVersion < targetVersion) {
         this.#db.exec(sql);
-        this.#db
-          .prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)")
-          .run(String(targetVersion));
+        this.mutate(
+          "INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ?)",
+          String(targetVersion)
+        );
       }
     }
   }
 
-  #stmt(sql: string): BetterSqlite3.Statement {
+  #stmt(sql: string): StatementSync {
     let statement = this.#statements.get(sql);
     if (statement === undefined) {
       statement = this.#db.prepare(sql);
@@ -549,7 +560,7 @@ export class DatabaseManager {
 
   /** Runs an INSERT, UPDATE or DELETE and returns the number of rows affected. */
   mutate(sql: string, ...params: Bindable[]): number {
-    return this.#stmt(sql).run(...params).changes;
+    return Number(this.#stmt(sql).run(...params).changes);
   }
 
   /**
@@ -558,7 +569,7 @@ export class DatabaseManager {
    * stays safe to call from inside another one.
    */
   inTransaction<T>(work: () => T): T {
-    const nested = this.#db.inTransaction;
+    const nested = this.#db.isTransaction;
     this.#db.exec(nested ? "SAVEPOINT membank_tx" : "BEGIN");
     try {
       const result = work();
@@ -568,10 +579,6 @@ export class DatabaseManager {
       this.#db.exec(nested ? "ROLLBACK TO membank_tx" : "ROLLBACK");
       throw err;
     }
-  }
-
-  get db(): BetterSqlite3.Database {
-    return this.#db;
   }
 
   close(): void {

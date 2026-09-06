@@ -156,7 +156,7 @@ pnpm clean            # rm dist
 - **Toasts** — sonner
 - **Themes** — next-themes
 - **Build** — Vite 6 (client) + tsdown (server)
-- **Database** — @membank/core (SQLite via better-sqlite3)
+- **Database** — @membank/core (SQLite via `node:sqlite`)
 
 ## Database connection
 

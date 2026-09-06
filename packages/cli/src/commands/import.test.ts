@@ -2,7 +2,7 @@ import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseManager } from "@membank/core";
-import { countRows } from "@membank/core/test-support";
+import { countRows, seedMemory } from "@membank/core/test-support";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Formatter } from "../formatter.js";
 import { PromptHelper } from "../prompt-helper.js";
@@ -322,25 +322,22 @@ describe("import command — real in-memory SQLite", () => {
     // Set up source DB with two memories
     const sourceDb = DatabaseManager.openInMemory();
     const now = new Date().toISOString();
-    sourceDb.db
-      .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run("rt-1", "Round trip content 1", "preference", '["a"]', null, 3, 1, now, now);
-    const zero = Buffer.from(new Float32Array(384).fill(0.2).buffer);
-    sourceDb.db
-      .prepare(
-        `INSERT INTO embeddings (rowid, embedding) SELECT m.rowid, ? FROM memories m WHERE m.id = ?`
-      )
-      .run(zero, "rt-1");
-
-    sourceDb.db
-      .prepare(
-        `INSERT INTO memories (id, content, type, tags, source, access_count, pinned, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run("rt-2", "Round trip content 2", "decision", "[]", null, 0, 0, now, now);
+    seedMemory(sourceDb, {
+      id: "rt-1",
+      content: "Round trip content 1",
+      type: "preference",
+      tags: ["a"],
+      accessCount: 3,
+      pinned: true,
+      createdAt: now,
+      embedding: new Float32Array(384).fill(0.2),
+    });
+    seedMemory(sourceDb, {
+      id: "rt-2",
+      content: "Round trip content 2",
+      type: "decision",
+      createdAt: now,
+    });
 
     // Export
     const exportPath = join(tmpdir(), "round-trip-export.json");

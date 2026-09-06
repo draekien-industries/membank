@@ -31,7 +31,7 @@ Existing LLM memory (e.g. markdown files) suffers from:
 
 ### Storage
 
-- **Database:** SQLite via `better-sqlite3`, single file at `~/.membank/memory.db`
+- **Database:** SQLite via Node's built-in `node:sqlite`, single file at `~/.membank/memory.db`
 - **Vector search:** `sqlite-vec` WASM extension — no native deps, no external server
 - **Embeddings:** `bge-small-en-v1.5` (~33MB ONNX) via Transformers.js, CPU-only, cached at `~/.membank/models/`
 - **Model download:** happens once during `membank setup`, never silently mid-session

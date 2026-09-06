@@ -1,11 +1,11 @@
 #!/usr/bin/env node
+import "@membank/core/suppress-warning";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import chalk from "chalk";
 import { Command } from "commander";
 import ora from "ora";
-import { startDashboard } from "./index.js";
 
 const { version } = JSON.parse(
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../package.json"), "utf8")
@@ -24,6 +24,7 @@ program
   .option("--open", "open the dashboard in your browser on startup")
   .action(async (opts: { port?: number; open?: boolean }) => {
     const spinner = ora("Starting membank dashboard…").start();
+    const { startDashboard } = await import("./index.js");
 
     await startDashboard({
       port: opts.port,

@@ -26,20 +26,18 @@ function rowToEvent(row: ActivityEventRow): ActivityEvent {
 
 const PRUNE_THROTTLE_MS = 60_000;
 
+const INSERT_EVENT_SQL = `INSERT INTO activity_events
+   (id, project_hash, event_type, memory_id, payload, created_at)
+   VALUES (?, ?, ?, ?, ?, ?)`;
+
+const PRUNE_EVENTS_SQL = `DELETE FROM activity_events WHERE created_at < ?`;
+
 export class SqliteActivityRepository implements ActivityRepository {
   readonly #db: DatabaseManager;
   #lastPruned = 0;
 
-  readonly #stmtInsert;
-  readonly #stmtPrune;
-
   constructor(db: DatabaseManager) {
     this.#db = db;
-    this.#stmtInsert = db.db.prepare(
-      `INSERT INTO activity_events (id, project_hash, event_type, memory_id, payload, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    );
-    this.#stmtPrune = db.db.prepare(`DELETE FROM activity_events WHERE created_at < ?`);
   }
 
   insert(event: {
@@ -50,7 +48,8 @@ export class SqliteActivityRepository implements ActivityRepository {
     payload: Record<string, unknown>;
     createdAt: string;
   }): void {
-    this.#stmtInsert.run(
+    this.#db.mutate(
+      INSERT_EVENT_SQL,
       event.id,
       event.projectHash,
       event.eventType,
@@ -81,11 +80,10 @@ export class SqliteActivityRepository implements ActivityRepository {
     const limitClause = filter.limit !== undefined ? "LIMIT ?" : "";
     if (filter.limit !== undefined) params.push(filter.limit);
 
-    const rows = this.#db.db
-      .prepare<(string | number)[], ActivityEventRow>(
-        `SELECT * FROM activity_events ${where} ORDER BY created_at DESC ${limitClause}`
-      )
-      .all(...params);
+    const rows = this.#db.query<ActivityEventRow>(
+      `SELECT * FROM activity_events ${where} ORDER BY created_at DESC ${limitClause}`,
+      ...params
+    );
 
     return rows.map(rowToEvent);
   }
@@ -93,7 +91,7 @@ export class SqliteActivityRepository implements ActivityRepository {
   prune(olderThan: string): void {
     const now = Date.now();
     if (now - this.#lastPruned < PRUNE_THROTTLE_MS) return;
-    this.#stmtPrune.run(olderThan);
+    this.#db.mutate(PRUNE_EVENTS_SQL, olderThan);
     this.#lastPruned = now;
   }
 }

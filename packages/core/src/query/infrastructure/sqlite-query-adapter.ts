@@ -1,4 +1,4 @@
-import type { DatabaseManager } from "../../db/manager.js";
+import type { Bindable, DatabaseManager } from "../../db/manager.js";
 import type { Memory, MemoryType } from "../../memory/domain/memory.js";
 import { rowToMemory } from "../../persistence/infrastructure/row-types.js";
 import { GLOBAL_SCOPE_HASH } from "../../project/domain/global-scope.js";
@@ -28,7 +28,7 @@ export class SqliteQueryAdapter implements QueryAdapter {
     const blob = Buffer.from(embedding.buffer);
     const { type, projectHash, capabilityKey, includePinned } = opts;
     const whereClauses: string[] = [];
-    const params: unknown[] = [blob];
+    const params: Bindable[] = [blob];
     let joinClause = "";
 
     if (!includePinned) {
@@ -58,11 +58,11 @@ export class SqliteQueryAdapter implements QueryAdapter {
       ${whereSQL}
     `;
 
-    const rows = this.#db.db.prepare<unknown[], QueryMemoryRow>(sql).all(...params);
+    const rows = this.#db.query<QueryMemoryRow>(sql, ...params);
     return rows.map((row) => ({ ...rowToMemory(row, []), cosineSim: row.cosine_sim }));
   }
 
   incrementAccessCount(id: string): void {
-    this.#db.db.prepare("UPDATE memories SET access_count = access_count + 1 WHERE id = ?").run(id);
+    this.#db.mutate("UPDATE memories SET access_count = access_count + 1 WHERE id = ?", id);
   }
 }

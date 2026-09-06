@@ -58,39 +58,51 @@ class SqliteSynthesisRepository implements SynthesisRepository {
     const now = new Date().toISOString();
     const expiresAt = new Date(Date.now() + STALENESS_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-    const { id, createdAt } = this.#db.db.transaction(() => {
-      const existing = this.#db.db
-        .prepare<[string, string], SynthesisRow>(
-          "SELECT * FROM syntheses WHERE scope = ? AND memory_type = ?"
-        )
-        .get(scope, memoryType);
+    const { id, createdAt } = this.#db.inTransaction(() => {
+      const existing = this.#db.one<SynthesisRow>(
+        "SELECT * FROM syntheses WHERE scope = ? AND memory_type = ?",
+        scope,
+        memoryType
+      );
 
       if (existing !== undefined) {
         if (!isPlaceholderRow(existing)) {
           this.#archiveCurrentSynthesis(scope, memoryType);
         }
-        this.#db.db
-          .prepare(
-            `UPDATE syntheses
-             SET content = ?, source_memory_hash = ?, synthesized_at = ?, expires_at = ?,
-                 in_flight_since = NULL, updated_at = ?
-             WHERE scope = ? AND memory_type = ?`
-          )
-          .run(content, sourceHash, now, expiresAt, now, scope, memoryType);
+        this.#db.mutate(
+          `UPDATE syntheses
+           SET content = ?, source_memory_hash = ?, synthesized_at = ?, expires_at = ?,
+               in_flight_since = NULL, updated_at = ?
+           WHERE scope = ? AND memory_type = ?`,
+          content,
+          sourceHash,
+          now,
+          expiresAt,
+          now,
+          scope,
+          memoryType
+        );
         return { id: existing.id, createdAt: existing.created_at };
       }
 
       const newId = randomUUID();
-      this.#db.db
-        .prepare(
-          `INSERT INTO syntheses
-             (id, scope, memory_type, content, source_memory_hash, synthesized_at, expires_at,
-              in_flight_since, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`
-        )
-        .run(newId, scope, memoryType, content, sourceHash, now, expiresAt, now, now);
+      this.#db.mutate(
+        `INSERT INTO syntheses
+           (id, scope, memory_type, content, source_memory_hash, synthesized_at, expires_at,
+            in_flight_since, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+        newId,
+        scope,
+        memoryType,
+        content,
+        sourceHash,
+        now,
+        expiresAt,
+        now,
+        now
+      );
       return { id: newId, createdAt: now };
-    })();
+    });
 
     return SynthesisSchema.parse({
       id,
@@ -107,154 +119,162 @@ class SqliteSynthesisRepository implements SynthesisRepository {
   }
 
   listVersions(scope: string, memoryType: MemoryType): SynthesisVersion[] {
-    const rows = this.#db.db
-      .prepare<[string, string], SynthesisVersionRow>(
-        `SELECT * FROM synthesis_versions WHERE scope = ? AND memory_type = ? ORDER BY version DESC`
-      )
-      .all(scope, memoryType);
+    const rows = this.#db.query<SynthesisVersionRow>(
+      `SELECT * FROM synthesis_versions WHERE scope = ? AND memory_type = ? ORDER BY version DESC`,
+      scope,
+      memoryType
+    );
     return rows.map(rowToSynthesisVersion);
   }
 
   getVersion(scope: string, memoryType: MemoryType, version: number): SynthesisVersion | undefined {
-    const row = this.#db.db
-      .prepare<[string, string, number], SynthesisVersionRow>(
-        `SELECT * FROM synthesis_versions WHERE scope = ? AND memory_type = ? AND version = ?`
-      )
-      .get(scope, memoryType, version);
+    const row = this.#db.one<SynthesisVersionRow>(
+      `SELECT * FROM synthesis_versions WHERE scope = ? AND memory_type = ? AND version = ?`,
+      scope,
+      memoryType,
+      version
+    );
     return row !== undefined ? rowToSynthesisVersion(row) : undefined;
   }
 
   #archiveCurrentSynthesis(scope: string, memoryType: MemoryType): void {
-    const snapshot = this.#db.db
-      .prepare<
-        [string, string],
-        {
-          content: string;
-          source_memory_hash: string;
-          synthesized_at: string;
-          next_version: number;
-        }
-      >(
-        `SELECT s.content, s.source_memory_hash, s.synthesized_at,
-                COALESCE(MAX(v.version), 0) + 1 AS next_version
-         FROM syntheses s
-         LEFT JOIN synthesis_versions v
-           ON v.scope = s.scope AND v.memory_type = s.memory_type
-         WHERE s.scope = ? AND s.memory_type = ?
-         GROUP BY s.scope, s.memory_type`
-      )
-      .get(scope, memoryType);
+    const snapshot = this.#db.one<{
+      content: string;
+      source_memory_hash: string;
+      synthesized_at: string;
+      next_version: number;
+    }>(
+      `SELECT s.content, s.source_memory_hash, s.synthesized_at,
+              COALESCE(MAX(v.version), 0) + 1 AS next_version
+       FROM syntheses s
+       LEFT JOIN synthesis_versions v
+         ON v.scope = s.scope AND v.memory_type = s.memory_type
+       WHERE s.scope = ? AND s.memory_type = ?
+       GROUP BY s.scope, s.memory_type`,
+      scope,
+      memoryType
+    );
     if (snapshot === undefined) return;
 
-    this.#db.db
-      .prepare(
-        `INSERT INTO synthesis_versions
-           (scope, memory_type, version, content, source_memory_hash, synthesized_at)
-         VALUES (?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        scope,
-        memoryType,
-        snapshot.next_version,
-        snapshot.content,
-        snapshot.source_memory_hash,
-        snapshot.synthesized_at
-      );
+    this.#db.mutate(
+      `INSERT INTO synthesis_versions
+         (scope, memory_type, version, content, source_memory_hash, synthesized_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      scope,
+      memoryType,
+      snapshot.next_version,
+      snapshot.content,
+      snapshot.source_memory_hash,
+      snapshot.synthesized_at
+    );
 
-    this.#db.db
-      .prepare(
-        `DELETE FROM synthesis_versions
-         WHERE scope = ? AND memory_type = ? AND version <= ?`
-      )
-      .run(scope, memoryType, snapshot.next_version - MAX_SYNTHESIS_VERSIONS);
+    this.#db.mutate(
+      `DELETE FROM synthesis_versions
+       WHERE scope = ? AND memory_type = ? AND version <= ?`,
+      scope,
+      memoryType,
+      snapshot.next_version - MAX_SYNTHESIS_VERSIONS
+    );
   }
 
   getSynthesis(scope: string, memoryType: MemoryType): Synthesis | undefined {
-    const row = this.#db.db
-      .prepare<[string, string], SynthesisRow>(
-        "SELECT * FROM syntheses WHERE scope = ? AND memory_type = ?"
-      )
-      .get(scope, memoryType);
+    const row = this.#db.one<SynthesisRow>(
+      "SELECT * FROM syntheses WHERE scope = ? AND memory_type = ?",
+      scope,
+      memoryType
+    );
     return row !== undefined ? rowToSynthesis(row) : undefined;
   }
 
   listAll(): Synthesis[] {
-    const rows = this.#db.db
-      .prepare<[], SynthesisRow>("SELECT * FROM syntheses ORDER BY scope, memory_type")
-      .all();
+    const rows = this.#db.query<SynthesisRow>(
+      "SELECT * FROM syntheses ORDER BY scope, memory_type"
+    );
     return rows.map(rowToSynthesis);
   }
 
   markInFlight(scope: string, memoryType: MemoryType): void {
     const now = new Date().toISOString();
-    const existing = this.#db.db
-      .prepare<[string, string], { id: string }>(
-        "SELECT id FROM syntheses WHERE scope = ? AND memory_type = ?"
-      )
-      .get(scope, memoryType);
+    const existing = this.#db.one<{ id: string }>(
+      "SELECT id FROM syntheses WHERE scope = ? AND memory_type = ?",
+      scope,
+      memoryType
+    );
 
     if (existing !== undefined) {
-      this.#db.db
-        .prepare(
-          "UPDATE syntheses SET in_flight_since = ?, updated_at = ? WHERE scope = ? AND memory_type = ?"
-        )
-        .run(now, now, scope, memoryType);
+      this.#db.mutate(
+        "UPDATE syntheses SET in_flight_since = ?, updated_at = ? WHERE scope = ? AND memory_type = ?",
+        now,
+        now,
+        scope,
+        memoryType
+      );
     } else {
       const id = randomUUID();
       const future = new Date(Date.now() + STALENESS_DAYS * 24 * 60 * 60 * 1000).toISOString();
-      this.#db.db
-        .prepare(
-          `INSERT INTO syntheses
-             (id, scope, memory_type, content, source_memory_hash, synthesized_at, expires_at,
-              in_flight_since, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-        .run(id, scope, memoryType, "pending", "", now, future, now, now, now);
+      this.#db.mutate(
+        `INSERT INTO syntheses
+           (id, scope, memory_type, content, source_memory_hash, synthesized_at, expires_at,
+            in_flight_since, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id,
+        scope,
+        memoryType,
+        "pending",
+        "",
+        now,
+        future,
+        now,
+        now,
+        now
+      );
     }
   }
 
   clearInFlight(scope: string, memoryType: MemoryType): void {
     const now = new Date().toISOString();
-    this.#db.db
-      .prepare(
-        "UPDATE syntheses SET in_flight_since = NULL, updated_at = ? WHERE scope = ? AND memory_type = ?"
-      )
-      .run(now, scope, memoryType);
+    this.#db.mutate(
+      "UPDATE syntheses SET in_flight_since = NULL, updated_at = ? WHERE scope = ? AND memory_type = ?",
+      now,
+      scope,
+      memoryType
+    );
   }
 
   clearStaleInFlight(thresholdMs: number): void {
     const cutoff = new Date(Date.now() - thresholdMs).toISOString();
     const now = new Date().toISOString();
-    this.#db.db
-      .prepare(
-        "UPDATE syntheses SET in_flight_since = NULL, updated_at = ? WHERE in_flight_since IS NOT NULL AND in_flight_since < ?"
-      )
-      .run(now, cutoff);
+    this.#db.mutate(
+      "UPDATE syntheses SET in_flight_since = NULL, updated_at = ? WHERE in_flight_since IS NOT NULL AND in_flight_since < ?",
+      now,
+      cutoff
+    );
   }
 
   nonPinnedMemoryContents(scope: string, memoryType: MemoryType): string[] {
-    return this.#db.db
-      .prepare<[string, string], { content: string }>(
+    return this.#db
+      .query<{ content: string }>(
         `SELECT m.content FROM memories m
          JOIN memory_projects mp ON mp.memory_id = m.id
          JOIN projects p ON p.id = mp.project_id
          WHERE p.scope_hash = ? AND m.type = ? AND m.pinned = 0
-         ORDER BY m.id`
+         ORDER BY m.id`,
+        scope,
+        memoryType
       )
-      .all(scope, memoryType)
       .map((r) => r.content);
   }
 
   sourceMemoryHash(scope: string, memoryType: MemoryType): string {
-    const contents = this.#db.db
-      .prepare<[string, string], { content: string }>(
-        `SELECT m.content FROM memories m
-         JOIN memory_projects mp ON mp.memory_id = m.id
-         JOIN projects p ON p.id = mp.project_id
-         WHERE p.scope_hash = ? AND m.type = ?
-         ORDER BY m.id`
-      )
-      .all(scope, memoryType);
+    const contents = this.#db.query<{ content: string }>(
+      `SELECT m.content FROM memories m
+       JOIN memory_projects mp ON mp.memory_id = m.id
+       JOIN projects p ON p.id = mp.project_id
+       WHERE p.scope_hash = ? AND m.type = ?
+       ORDER BY m.id`,
+      scope,
+      memoryType
+    );
 
     return createHash("sha256")
       .update(JSON.stringify(contents.map((r) => r.content)))
@@ -265,21 +285,19 @@ class SqliteSynthesisRepository implements SynthesisRepository {
     const now = new Date().toISOString();
     const results: DirtyScope[] = [];
 
-    const scopeTypes = this.#db.db
-      .prepare<[], { scope: string; memory_type: MemoryType }>(
-        `SELECT DISTINCT p.scope_hash AS scope, m.type AS memory_type
-         FROM memories m
-         JOIN memory_projects mp ON mp.memory_id = m.id
-         JOIN projects p ON p.id = mp.project_id`
-      )
-      .all();
+    const scopeTypes = this.#db.query<{ scope: string; memory_type: MemoryType }>(
+      `SELECT DISTINCT p.scope_hash AS scope, m.type AS memory_type
+       FROM memories m
+       JOIN memory_projects mp ON mp.memory_id = m.id
+       JOIN projects p ON p.id = mp.project_id`
+    );
 
     for (const { scope, memory_type: memoryType } of scopeTypes) {
-      const row = this.#db.db
-        .prepare<[string, string], SynthesisRow>(
-          "SELECT * FROM syntheses WHERE scope = ? AND memory_type = ?"
-        )
-        .get(scope, memoryType);
+      const row = this.#db.one<SynthesisRow>(
+        "SELECT * FROM syntheses WHERE scope = ? AND memory_type = ?",
+        scope,
+        memoryType
+      );
 
       if (row === undefined || isPlaceholderRow(row)) {
         results.push({ scope, memoryType, reason: "missing" });
@@ -301,23 +319,22 @@ class SqliteSynthesisRepository implements SynthesisRepository {
   }
 
   getAllActiveScopes(): string[] {
-    return this.#db.db
-      .prepare<[], { scope_hash: string }>("SELECT DISTINCT scope_hash FROM projects")
-      .all()
+    return this.#db
+      .query<{ scope_hash: string }>("SELECT DISTINCT scope_hash FROM projects")
       .map((r) => r.scope_hash);
   }
 
   expireStale(): void {
     const now = new Date().toISOString();
-    this.#db.db.prepare("DELETE FROM syntheses WHERE expires_at < ?").run(now);
+    this.#db.mutate("DELETE FROM syntheses WHERE expires_at < ?", now);
   }
 
   initializeAndGetDirtyScopes(inFlightTimeoutMs: number): DirtyScope[] {
-    return this.#db.db.transaction(() => {
+    return this.#db.inTransaction(() => {
       this.clearStaleInFlight(inFlightTimeoutMs);
       this.expireStale();
       return this.getExpiredOrDirtyScopes();
-    })();
+    });
   }
 }
 

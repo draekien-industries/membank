@@ -11,7 +11,6 @@ trustPolicy: no-downgrade # blocks packages whose trust level regressed vs prior
 
 onlyBuiltDependencies:
   - "@biomejs/biome"
-  - better-sqlite3
   - esbuild
   - lefthook
   - onnxruntime-node
