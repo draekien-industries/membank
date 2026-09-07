@@ -1,3 +1,5 @@
+export type { PromoteRejectedCandidateResult } from "./application/promote-rejected-candidate.js";
+export { promoteRejectedCandidate } from "./application/promote-rejected-candidate.js";
 export type { RunExtractionInput, RunExtractionResult } from "./application/run-extraction.js";
 export { runExtraction } from "./application/run-extraction.js";
 export type {
@@ -14,6 +16,7 @@ export {
   DURABILITY_VALUES,
   decideAdmission,
   explainRejection,
+  REJECTION_CLAUSE_VALUES,
 } from "./domain/admission-policy.js";
 export type { ContentSmell } from "./domain/content-smells.js";
 export { CONTENT_SMELL_VALUES, detectContentSmells } from "./domain/content-smells.js";
@@ -33,7 +36,10 @@ export type {
   ExtractionRunRepository,
   ExtractionRunStats,
   ExtractionTools,
+  PromotedMemoryWriter,
   RejectedCandidate,
+  RejectedCandidateFilter,
+  RejectedCandidateRecord,
   RejectedCandidateRepository,
   RejectionClauseCount,
   TranscriptReader,

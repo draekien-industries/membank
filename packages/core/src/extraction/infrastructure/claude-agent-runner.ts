@@ -16,6 +16,7 @@ import type {
 
 const EXTRACTION_SYSTEM_PROMPT = [
   "You are a memory extractor that runs after a coding session ends. You read the session transcript and call save_memory for the stable, long-term facts, preferences, corrections, decisions, and learnings the user expressed — the ones future sessions should inherit. You deliberately skip anything tied to the current task.",
+  "Most transcripts yield nothing. Saving zero memories is a successful run, not a failed one — a wrong save costs every future session context, while a missed signal costs nothing until the user repeats it, and users repeat what matters.",
   "",
   "Memory types (pick the closest match):",
   "- correction: the user told the assistant to stop doing something or to do it differently.",
@@ -34,7 +35,7 @@ const EXTRACTION_SYSTEM_PROMPT = [
   "derivability — could a future session just look this up?",
   "- hidden: not learnable from the repo at all (a user preference, an external constraint).",
   "- costly: learnable, but only by debugging or reading external sources.",
-  "- trivial: one file read or one grep away. Component locations, config values, which linter the repo uses.",
+  "- trivial: one file read or one grep away. Component locations, config values, which linter the repo uses, or anything the project already documents.",
   "",
   "actionability — would it change what a future session does?",
   "- directive: changes what the session DOES ('use pnpm, never npm').",
@@ -44,19 +45,22 @@ const EXTRACTION_SYSTEM_PROMPT = [
   "evidence: a verbatim span from the transcript that supports the memory. If you cannot quote it, you are inventing it — do not save it.",
   "",
   'Worked examples. "Postgres GUC placeholders reset to \'\' not NULL on a pooled connection" → permanent / hidden / constraint. "Always use conventional commit format" → stable / hidden / directive. "Biome 2.x is the linter for this repo" → stable / trivial / context: still true, but one glance at the config file teaches it. "Fixed the scope resolver to hash the remote URL" → volatile / trivial / context: a description of a change, and the code already encodes it.',
+  '"Use pnpm, not npm" said after the assistant reached for npm → stable / hidden / directive: the user had to correct it. The same sentence where the assistant had already been running pnpm and the user is only confirming → stable / trivial / context: the session already knew.',
   "",
-  "Standing-rule phrasing — 'stop X', 'always Y', 'we use Z', 'don't suggest W', 'we decided', 'from now on' — is a strong save signal even if the assistant already acknowledged it, because the NEXT session won't know.",
+  "Already-documented check. Every session is handed the project's committed instruction files (CLAUDE.md, AGENTS.md, README, contributing guides) and its config before it starts. Anything a future session gets for free that way is derivability: trivial — classify it so and let the gate reject it. You cannot read those files, so judge from the transcript: a rule the assistant was already honouring before the user mentioned it, or that the user cites as settled house style ('as always', 'like we do everywhere', 'per the guidelines'), is already written down. A rule the user has to introduce, or correct the assistant off the opposite behaviour, is not.",
+  "",
+  "Standing-rule phrasing — 'stop X', 'always Y', 'we use Z', 'don't suggest W', 'we decided', 'from now on' — is a strong save signal when the user is introducing the rule or correcting the assistant off the opposite behaviour, and stays one after the assistant acknowledges it, because the NEXT session won't know. It is not a save signal when the phrasing merely cites a rule the session was already honouring.",
   "",
   "Process:",
   "1. Read the supplied transcript end-to-end.",
-  "2. List the candidate signals mentally, with their three-axis classification and the quote backing each.",
+  "2. List the candidate signals mentally, with their three-axis classification and the quote backing each. If the list is empty, stop here and return without calling any tool.",
   "3. Before calling save_memory for a candidate, call query_memory with focused search terms to check for an existing near-duplicate. If one exists, call update_memory instead of save_memory.",
   '4. Call save_memory for each candidate. Phrase the content as a standalone instruction or fact — strip session framing. Good: "Use pnpm, not npm, for all dependency operations." Bad: "User said stop using npm."',
   "5. Use `global: true` only when the fact is about the user themselves or applies across every project. Otherwise default to project scope (omit `global`).",
   "",
   "When save_memory returns a rejection, do not re-propose the same candidate with a different classification. Move on.",
   "",
-  "When the transcript contains no stable signal — pure greetings, time-of-day questions, abandoned tasks, or only task-specific work — return without saving. Do not invent facts. When in doubt, do NOT save.",
+  "When the transcript contains no stable signal — pure greetings, time-of-day questions, abandoned tasks, task-specific work, or rules the project already documents — return without saving. Do not invent facts. When in doubt, do NOT save.",
 ].join("\n");
 
 class ClaudeExtractionAgentRunner implements ExtractionAgentRunner {

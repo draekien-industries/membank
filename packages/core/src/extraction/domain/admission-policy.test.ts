@@ -20,14 +20,9 @@ function candidate(
   return { content: "c", type: "learning", durability, derivability, actionability, evidence };
 }
 
-function expected(
-  durability: Durability,
-  derivability: Derivability,
-  actionability: Actionability
-): AdmissionDecision {
+function expected(durability: Durability, derivability: Derivability): AdmissionDecision {
   if (durability === "volatile") return { kind: "reject", clause: "volatile" };
   if (derivability === "trivial") return { kind: "reject", clause: "trivially-derivable" };
-  if (actionability === "context") return { kind: "reject", clause: "inert" };
   return { kind: "admit" };
 }
 
@@ -37,7 +32,7 @@ describe("decideAdmission", () => {
       for (const derivability of DERIVABILITY_VALUES) {
         for (const actionability of ACTIONABILITY_VALUES) {
           expect(decideAdmission(candidate(durability, derivability, actionability))).toEqual(
-            expected(durability, derivability, actionability)
+            expected(durability, derivability)
           );
         }
       }
@@ -53,10 +48,20 @@ describe("decideAdmission", () => {
     }
   });
 
-  it("admits only when all four tests pass", () => {
+  it("admits only when all three tests pass", () => {
     expect(decideAdmission(candidate("permanent", "hidden", "directive"))).toEqual({
       kind: "admit",
     });
+  });
+
+  it("admits durable, non-derivable context: synthesis injects it without the session asking", () => {
+    for (const derivability of ["hidden", "costly"] as const) {
+      for (const durability of ["permanent", "stable"] as const) {
+        expect(decideAdmission(candidate(durability, derivability, "context"))).toEqual({
+          kind: "admit",
+        });
+      }
+    }
   });
 });
 

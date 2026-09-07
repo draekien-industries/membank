@@ -78,6 +78,9 @@ const rejections: RejectedCandidateRepository & { prunes: number } = {
     return 0;
   },
   countByClause: () => [],
+  list: () => [],
+  get: () => undefined,
+  remove: () => false,
 };
 
 const noSleep = async (): Promise<void> => {};

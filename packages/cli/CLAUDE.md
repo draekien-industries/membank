@@ -4,7 +4,14 @@ CLI + npx entrypoint for Membank.
 
 ## Commands
 
-`query`, `add`, `list`, `pin`, `unpin`, `delete`, `stats`, `export`, `import`, `setup`, `doctor`, `review`, `migrate`, `config`, `synthesize`, `inject`
+`query`, `add`, `list`, `pin`, `unpin`, `delete`, `stats`, `export`, `import`, `setup`, `doctor`, `review`, `rejected`, `migrate`, `config`, `synthesize`, `inject`
+
+## rejected
+
+Lists candidates the extraction admission gate rejected, filterable by `--clause` and `--limit`.
+`--promote <id>` saves one as a memory, overriding the gate, and spends the row. Deliberately
+CLI-only and not exposed over MCP: promotion is a human override, so the extraction agent must not
+be able to promote what it just failed to save. Rows disappear at the 30-day prune horizon.
 
 ## doctor
 
