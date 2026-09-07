@@ -1,5 +1,7 @@
 pre-commit:
   commands:
+    fallow:
+      run: bash scripts/fallow-precommit.sh
     biome:
       glob: "*.{ts,tsx,js,jsx,json}"
       run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
