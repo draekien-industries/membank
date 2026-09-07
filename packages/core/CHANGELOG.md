@@ -1,5 +1,16 @@
 # @membank/core
 
+## 0.24.0
+
+### Minor Changes
+
+- db4bcbd: Stopped rejecting memories for being purely descriptive. The admission gate's `inert` clause assumed a memory only reaches a session that goes looking for it, but synthesis injects the stored corpus into the session prompt unprompted — so a memory that describes state still shapes the session. Durable, non-derivable candidates are now admitted regardless of actionability, and `membank rejected` lists what the gate did reject with `--promote <id>` to override it by hand.
+
+### Patch Changes
+
+- db4bcbd: Tuned the extraction agent's system prompt to save nothing more readily: rules a project already documents in its instruction files now classify as trivially derivable, standing-rule phrasing only counts as a save signal when the user introduces or corrects it rather than merely citing it, and an empty candidate list ends the run without a tool call.
+- 56fab4f: Fixed synthesis showing as stuck on the dashboard with no way out: the stuck state now only appears once a run outlives the timeout the synthesis engine itself uses, an "attempt unlock" control checks whether a process is really working on it before clearing the claim, and `membank doctor` reports and clears stuck syntheses instead of only stuck extraction runs.
+
 ## 0.23.0
 
 ### Minor Changes
