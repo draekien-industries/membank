@@ -30,6 +30,9 @@
     "build": "vite build && tsdown",
     "dev": "concurrently --kill-others \"node --watch --import tsx/esm src/server/dev.ts\" \"vite\"",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.app.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev:seed": "tsx scripts/seed-dev-db.mts",
     "lint": "biome check ./src",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
@@ -77,7 +80,8 @@
     "tailwindcss": "^4.0.0",
     "tsx": "^4.0.0",
     "typescript": "^7.0.2",
-    "vite": "^8.0.11"
+    "vite": "^8.0.11",
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=24.0.0"

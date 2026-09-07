@@ -20,3 +20,6 @@ pre-commit:
     test-cli:
       glob: "packages/cli/**/*.ts"
       run: pnpm --filter @membank/cli test
+    test-dashboard:
+      glob: "packages/dashboard/**/*.{ts,tsx}"
+      run: pnpm --filter @membank/dashboard test

@@ -95,6 +95,11 @@ export interface Synthesis {
   updatedAt: string;
 }
 
+export interface SynthesisUnlockResult {
+  unlocked: MemoryType[];
+  live: MemoryType[];
+}
+
 export interface ActivityDay {
   date: string;
   count: number;

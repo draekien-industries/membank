@@ -1,5 +1,5 @@
 import { createProjectRepository, DatabaseManager } from "@membank/core";
-import { seedExtractionRun } from "@membank/core/test-support";
+import { seedExtractionRun, seedSynthesis } from "@membank/core/test-support";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Formatter } from "../formatter.js";
 import { PromptHelper } from "../prompt-helper.js";
@@ -102,6 +102,28 @@ describe("doctor command", () => {
 
     const after = await runDoctor({});
     expect(check(after, "stale-runs").status).toBe("ok");
+  });
+
+  it("detects a synthesis stuck in flight and clears it under --fix", async () => {
+    seedSynthesis(db, { memoryType: "preference", inFlightSince: "2020-01-01T00:00:00.000Z" });
+
+    const detected = await runDoctor({});
+    expect(check(detected, "stale-syntheses").status).toBe("warn");
+    expect(check(detected, "stale-syntheses").summary).toContain("1 synthesis");
+
+    const fixed = await runDoctor({ fix: true });
+    expect(check(fixed, "stale-syntheses").fixed).toBe(true);
+
+    const after = await runDoctor({});
+    expect(check(after, "stale-syntheses").status).toBe("ok");
+  });
+
+  it("leaves a synthesis alone while its claim is still within the timeout", async () => {
+    seedSynthesis(db, { memoryType: "preference", inFlightSince: new Date().toISOString() });
+
+    const output = await runDoctor({});
+
+    expect(check(output, "stale-syntheses").status).toBe("ok");
   });
 
   it("detects a split project scope and merges it under --fix", async () => {

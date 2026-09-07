@@ -17,6 +17,7 @@ import type {
   SessionContext,
   Stats,
   Synthesis,
+  SynthesisUnlockResult,
   SynthesisVersion,
 } from "./types";
 
@@ -125,8 +126,8 @@ export function runProjectSynthesis(projectId: string, memoryType?: MemoryType):
   return postJson<void>(`/projects/${projectId}/synthesis`, memoryType ? { memoryType } : {});
 }
 
-export function resetProjectSynthesis(projectId: string): Promise<void> {
-  return request<void>(`/projects/${projectId}/synthesis/in-flight`, { method: "DELETE" });
+export function unlockProjectSynthesis(projectId: string): Promise<SynthesisUnlockResult> {
+  return postJson<SynthesisUnlockResult>(`/projects/${projectId}/synthesis/unlock`, {});
 }
 
 export function getProjectActivity(projectId: string, days?: number): Promise<ActivityDay[]> {

@@ -14,7 +14,7 @@ import { createApiApp } from "./index.js";
 
 const PORT = 3847;
 
-const db = DatabaseManager.open();
+const db = DatabaseManager.open(process.env.MEMBANK_DB_PATH);
 const embedding = new EmbeddingService();
 const projects = createProjectRepository(db);
 const repo = createMemoryRepository(db, projects);
