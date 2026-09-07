@@ -2,8 +2,8 @@
   "mcpServers": {
     "fallow": {
       "type": "stdio",
-      "command": "fallow-mcp",
-      "args": []
+      "command": "node",
+      "args": ["node_modules/fallow/bin/fallow-mcp"]
     }
   }
 }
