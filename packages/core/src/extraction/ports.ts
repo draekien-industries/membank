@@ -58,11 +58,43 @@ export interface RejectionClauseCount {
   count: number;
 }
 
+export interface RejectedCandidateRecord extends RejectedCandidate {
+  id: string;
+  createdAt: string;
+}
+
+export interface RejectedCandidateFilter {
+  clause?: RejectionClause;
+  projectHash?: string;
+  limit?: number;
+}
+
 export interface RejectedCandidateRepository {
   record(candidate: RejectedCandidate, now: Date): void;
-  /** Drops rejections older than `before`. This is a diagnostic log, not an archive. */
+  /**
+   * Drops rejections older than `before`. Rows awaiting promotion go with them: this is a review
+   * queue with a horizon, not an archive.
+   */
   prune(before: Date): number;
   countByClause(since: Date): RejectionClauseCount[];
+  /** Newest first. */
+  list(filter?: RejectedCandidateFilter): RejectedCandidateRecord[];
+  get(id: string): RejectedCandidateRecord | undefined;
+  /** Returns false when the row was already pruned or promoted. */
+  remove(id: string): boolean;
+}
+
+/**
+ * Writes a promoted candidate into the memory corpus. Promotion is a human override of the
+ * admission gate, so the writer — not the caller — owns scope resolution and provenance.
+ */
+export interface PromotedMemoryWriter {
+  save(args: {
+    content: string;
+    type: string;
+    durability: Durability;
+    projectHash: string | null;
+  }): Promise<{ id: string }>;
 }
 
 export type TranscriptReadResult = { status: "read"; chunks: string[] } | { status: "unavailable" };

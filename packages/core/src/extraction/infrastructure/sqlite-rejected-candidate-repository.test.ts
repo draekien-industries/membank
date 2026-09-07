@@ -66,4 +66,45 @@ describe("SqliteRejectedCandidateRepository", () => {
       { clause: "trivially-derivable", count: 1 },
     ]);
   });
+
+  it("lists newest first and round-trips the rubric, smells and evidence", () => {
+    rejections.record(candidate({ content: "older" }), new Date("2026-07-01T00:00:00.000Z"));
+    rejections.record(candidate({ content: "newer" }), new Date("2026-07-02T00:00:00.000Z"));
+
+    const listed = rejections.list();
+
+    expect(listed.map((c) => c.content)).toEqual(["newer", "older"]);
+    expect(listed[0]).toMatchObject({
+      type: "learning",
+      durability: "stable",
+      derivability: "trivial",
+      actionability: "context",
+      evidenceQuote: "we use biome",
+      rejectedClause: "trivially-derivable",
+      smells: ["code-reference"],
+      projectHash: "0123456789abcdef",
+    });
+  });
+
+  it("filters by clause, project and limit", () => {
+    const now = new Date("2026-07-01T00:00:00.000Z");
+    rejections.record(candidate({ rejectedClause: "inert" }), now);
+    rejections.record(candidate({ rejectedClause: "volatile" }), now);
+    rejections.record(candidate({ projectHash: "other" }), now);
+
+    expect(rejections.list({ clause: "inert" })).toHaveLength(1);
+    expect(rejections.list({ projectHash: "other" })).toHaveLength(1);
+    expect(rejections.list({ limit: 2 })).toHaveLength(2);
+  });
+
+  it("gets by id and removes exactly once", () => {
+    rejections.record(candidate(), new Date("2026-07-01T00:00:00.000Z"));
+    const [only] = rejections.list();
+    if (only === undefined) throw new Error("expected a recorded candidate");
+
+    expect(rejections.get(only.id)?.content).toBe("Biome 2.x is the linter for membank");
+    expect(rejections.remove(only.id)).toBe(true);
+    expect(rejections.remove(only.id)).toBe(false);
+    expect(rejections.get(only.id)).toBeUndefined();
+  });
 });

@@ -1,5 +1,7 @@
-import { MemoryTypeSchema } from "@membank/core";
+import { MemoryTypeSchema, REJECTION_CLAUSE_VALUES } from "@membank/core";
 import { z } from "zod";
+
+export const RejectionClauseSchema = z.enum(REJECTION_CLAUSE_VALUES);
 
 export { MemoryTypeSchema, TagsJsonSchema as TagsRowSchema } from "@membank/core";
 

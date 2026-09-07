@@ -69,7 +69,6 @@ A pure, exhaustively testable predicate. Reject is the default; every admit need
 admit(candidate) =
      candidate.durability   != "volatile"
   && candidate.derivability != "trivial"
-  && candidate.actionability != "context"
   && candidate.evidence.quote is non-empty
 ```
 
@@ -80,10 +79,17 @@ Rationale per clause:
   `Memory type coloring uses CVA via typeColorVariants in @/lib/typeColors.ts` and the 104
   path-bearing entries that restate the repo back to itself. The code is the source of truth; a
   memory that duplicates it is a stale copy waiting to happen.
-- **`actionability != context`** — kills inert description. If nothing a future session does would
-  change, storing it only costs retrieval precision.
+- **`actionability`** — no longer gates admission. The clause assumed a memory only reaches a
+  session that goes looking for it, so pure description earned nothing. That is not how this system
+  delivers: synthesis injects the stored corpus into the session prompt unprompted, which means a
+  `context` memory shapes the session whether or not anything queries it. `actionability` is still
+  classified and stored — it feeds retention scoring — but it no longer rejects.
 - **non-empty `evidence.quote`** — forces grounding in the transcript. An agent that cannot quote
   the user saying it is inventing it.
+
+Candidates the gate rejects are not discarded: they land in `rejected_candidates` and can be
+promoted by a human via `membank rejected --promote <id>` until the 30-day prune horizon. Promotion
+is a deliberate override and never re-runs the gate — see `extraction/application/promote-rejected-candidate.ts`.
 
 `correction` and `preference` are near-automatic passes (they are directives, by definition
 non-derivable, and stated by the user). The gate does its real work on `decision` and `learning`,

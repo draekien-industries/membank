@@ -1,4 +1,10 @@
-import type { Memory, MemoryType, ReviewEvent } from "@membank/core";
+import type {
+  Memory,
+  MemoryType,
+  PromoteRejectedCandidateResult,
+  RejectedCandidateRecord,
+  ReviewEvent,
+} from "@membank/core";
 import { PIN_BUDGET_THRESHOLD } from "@membank/core";
 import chalk from "chalk";
 import Table from "cli-table3";
@@ -182,6 +188,51 @@ export class Formatter {
         `      ${chalk.dim("snapshot:")} ${truncate(event.conflictContentSnapshot, 60)}\n`
       );
     }
+  }
+
+  outputRejected(candidates: RejectedCandidateRecord[]): void {
+    if (this.#isJson) {
+      process.stdout.write(`${JSON.stringify(candidates)}\n`);
+      return;
+    }
+
+    if (candidates.length === 0) {
+      process.stdout.write(`${chalk.dim("No rejected candidates awaiting review.")}\n`);
+      return;
+    }
+
+    for (const c of candidates) {
+      const rubric = `${c.durability}/${c.derivability}/${c.actionability}`;
+      const smells = c.smells.length === 0 ? "" : `  ${chalk.yellow(c.smells.join(", "))}`;
+      process.stdout.write("\n");
+      process.stdout.write(
+        `  ${chalk.bold(c.type)}  ${chalk.dim(c.id)}  ${chalk.red(c.rejectedClause)}\n`
+      );
+      process.stdout.write(`  ${truncate(c.content, 80)}\n`);
+      process.stdout.write(
+        `  ${chalk.dim(`${rubric} · ${new Date(c.createdAt).toLocaleString()}`)}${smells}\n`
+      );
+      process.stdout.write(`  ${chalk.dim(`evidence: ${truncate(c.evidenceQuote, 70)}`)}\n`);
+    }
+    process.stdout.write(`\n${chalk.dim(`Promote one with: membank rejected --promote <id>`)}\n\n`);
+  }
+
+  outputPromotion(result: PromoteRejectedCandidateResult, requestedId: string): void {
+    if (this.#isJson) {
+      process.stdout.write(`${JSON.stringify(result)}\n`);
+      return;
+    }
+
+    if (result.status === "not_found") {
+      process.stdout.write(
+        `${chalk.yellow("Not found:")} no rejected candidate with id ${requestedId}. ` +
+          `It may have been promoted already, or pruned at the 30-day horizon.\n`
+      );
+      return;
+    }
+
+    process.stdout.write(`${chalk.green("Promoted")} ${chalk.dim(result.memoryId)}\n`);
+    process.stdout.write(`  ${truncate(result.content, 80)}\n`);
   }
 
   error(msg: string): void {

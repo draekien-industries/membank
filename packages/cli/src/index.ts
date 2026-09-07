@@ -24,6 +24,7 @@ import { pinCommand } from "./commands/pin.js";
 import { projectsListCommand } from "./commands/projects/list.js";
 import { projectsReconcileCommand } from "./commands/projects/reconcile.js";
 import { queryCommand } from "./commands/query.js";
+import { rejectedCommand } from "./commands/rejected.js";
 import { reviewCommand } from "./commands/review.js";
 import { statsCommand } from "./commands/stats.js";
 import { synthesizeDiffCommand } from "./commands/synthesize/diff.js";
@@ -434,6 +435,23 @@ program
     const formatter = Formatter.create(globalOpts.json === true);
     try {
       await reviewCommand(cmdOptions, formatter);
+    } catch (err) {
+      formatter.error(err instanceof Error ? err.message : String(err));
+      process.exit(2);
+    }
+  });
+
+program
+  .command("rejected")
+  .description("list candidates the admission gate rejected, or promote one into memory")
+  .option("--clause <clause>", "filter by rejection clause")
+  .option("--limit <n>", "maximum candidates to list")
+  .option("--promote <id>", "save the given candidate as a memory, overriding the gate")
+  .action(async (cmdOptions: { clause?: string; limit?: string; promote?: string }) => {
+    const globalOpts = program.opts<{ json?: boolean; yes?: boolean }>();
+    const formatter = Formatter.create(globalOpts.json === true);
+    try {
+      await rejectedCommand(cmdOptions, formatter);
     } catch (err) {
       formatter.error(err instanceof Error ? err.message : String(err));
       process.exit(2);
