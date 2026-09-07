@@ -27,5 +27,5 @@
       "@/*": ["./src/client/*"]
     }
   },
-  "include": ["src/server/**/*", "tsdown.config.ts"]
+  "include": ["src/server/**/*", "scripts/**/*", "tsdown.config.ts", "vitest.config.ts"]
 }

@@ -228,6 +228,9 @@ importers:
       vite:
         specifier: ^8.0.11
         version: 8.0.11(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(tsx@4.21.0)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@25.6.0)(jiti@2.6.1)(lightningcss@1.32.0)(msw@2.13.6(@types/node@25.6.0)(typescript@7.0.2))(tsx@4.21.0)
 
   packages/mcp:
     dependencies:
@@ -9261,7 +9264,7 @@ snapshots:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.4)
       picomatch: 4.0.4
-      postcss: 8.5.12
+      postcss: 8.5.14
       rollup: 4.60.2
       tinyglobby: 0.2.16
     optionalDependencies:

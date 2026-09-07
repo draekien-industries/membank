@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useActivityEvents } from "@/hooks/useActivityEvents";
 import { useProjectActivity } from "@/hooks/useProjectActivity";
 import type { ProjectRow } from "@/hooks/useProjectRows";
+import type { SynthesisPhase } from "@/hooks/useProjectSynthesis";
 import { memoriesCollection } from "@/lib/collections";
 import { typeColorVariants } from "@/lib/typeColors";
 import type { MemoryType, Project, Synthesis } from "@/lib/types";
@@ -136,7 +137,7 @@ interface OverviewKpiStripProps {
   row: ProjectRow;
   synthesis: Synthesis | null;
   isStale: boolean;
-  isStuck: boolean;
+  phase: SynthesisPhase;
   isLoading: boolean;
 }
 
@@ -171,15 +172,14 @@ export function OverviewKpiStrip({
   row,
   synthesis,
   isStale,
-  isStuck,
+  phase,
   isLoading,
 }: OverviewKpiStripProps) {
   const { total, newInWindow: recentCount, flaggedCount } = row;
   const { pinnedGlobal, pinnedProject } = usePinnedCounts(project.id);
 
-  const isInFlight = synthesis?.inFlightSince != null;
   const synthesizedAt = synthesis?.synthesizedAt ?? null;
-  const synthLine = getSynthLine({ synthesis, isLoading, isInFlight, isStuck, isStale });
+  const synthLine = getSynthLine({ synthesis, isLoading, phase, isStale });
 
   const pinnedTotal = pinnedGlobal + pinnedProject;
   const pinnedParts = [
@@ -236,19 +236,18 @@ export function OverviewKpiStrip({
 function getSynthLine({
   synthesis,
   isLoading,
-  isInFlight,
-  isStuck,
+  phase,
   isStale,
 }: {
   synthesis: Synthesis | null;
   isLoading: boolean;
-  isInFlight: boolean;
-  isStuck: boolean;
+  phase: SynthesisPhase;
   isStale: boolean;
 }): { text: string; className: string } {
   if (isLoading && !synthesis) return { text: "loading…", className: "text-muted-foreground/40" };
-  if (isStuck) return { text: "stuck", className: "text-destructive" };
-  if (isInFlight) return { text: "synthesizing…", className: "text-muted-foreground/50" };
+  if (phase.kind === "stuck") return { text: "stuck", className: "text-destructive" };
+  if (phase.kind !== "idle")
+    return { text: "synthesizing…", className: "text-muted-foreground/50" };
   if (isStale) return { text: "stale", className: "text-stale" };
   if (!synthesis) return { text: "none", className: "text-muted-foreground/40" };
   return { text: "fresh", className: "text-muted-foreground/70" };

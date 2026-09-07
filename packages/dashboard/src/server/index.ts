@@ -58,6 +58,7 @@ import {
 } from "@membank/core";
 import { Hono } from "hono";
 import open from "open";
+import { createSynthesisRuns } from "./synthesis-runs.js";
 
 const PREFERRED_PORT = 3847;
 
@@ -142,6 +143,7 @@ export function createApiApp(
   thresholds: Thresholds
 ): Hono {
   const app = new Hono();
+  const synthesisRuns = createSynthesisRuns(synthRepo);
 
   app.get("/api/memories", (c) => {
     const { type, pinned, needsReview, search, projectId } = c.req.query();
@@ -413,22 +415,24 @@ export function createApiApp(
       .catch((): { memoryType?: unknown } => ({}));
     const memoryType = MEMORY_TYPE_VALUES.find((type) => type === body.memoryType);
     const agentRunner = createSynthesisAgentRunner();
-    void runSynthesis(
-      project.scopeHash,
-      { synthRepo, agentRunner },
-      {
-        ...(memoryType !== undefined && { type: memoryType }),
-        thresholdWords: resolveThresholdWords(),
-      }
+    const types = memoryType !== undefined ? [memoryType] : MEMORY_TYPE_VALUES;
+    synthesisRuns.claim(project.scopeHash, types, () =>
+      runSynthesis(
+        project.scopeHash,
+        { synthRepo, agentRunner },
+        {
+          ...(memoryType !== undefined && { type: memoryType }),
+          thresholdWords: resolveThresholdWords(),
+        }
+      )
     );
     return c.json({ ok: true }, 202);
   });
 
-  app.delete("/api/projects/:id/synthesis/in-flight", (c) => {
+  app.post("/api/projects/:id/synthesis/unlock", (c) => {
     const project = projectRepo.list().find((p) => p.id === c.req.param("id"));
     if (!project) return c.json({ error: "Not found" }, 404);
-    for (const type of MEMORY_TYPE_VALUES) synthRepo.clearInFlight(project.scopeHash, type);
-    return c.json({ ok: true });
+    return c.json(synthesisRuns.unlock(project.scopeHash));
   });
 
   app.get("/api/projects/:id/synthesis/history", (c) => {

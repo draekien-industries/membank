@@ -79,6 +79,8 @@ Changelog and release notes are generated automatically by changesets from the c
 
 ## Implementation checklist
 
+Before writing code for any non-trivial change, run `/software-design-skills:module-design` on the modules in scope — it blocks on the five strict rules (information hiding, Law of Demeter, errors out of existence, temporal decomposition, strategic programming) before the shape is set in code.
+
 After completing any implementation task, run `/simplify` to review the changes for reuse, quality, and efficiency before considering the work done.
 
 ## Harness hook reference

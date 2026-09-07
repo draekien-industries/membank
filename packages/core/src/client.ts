@@ -8,3 +8,7 @@ export {
   GLOBAL_PROJECT_NAME,
   GLOBAL_SCOPE_HASH,
 } from "./project/domain/global-scope.js";
+export {
+  IN_FLIGHT_TIMEOUT_MS as SYNTHESIS_IN_FLIGHT_TIMEOUT_MS,
+  isReclaimableInFlight,
+} from "./synthesis/domain/debounce-policy.js";

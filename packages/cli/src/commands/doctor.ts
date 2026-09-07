@@ -2,11 +2,14 @@ import {
   createExtractionRunRepository,
   createProjectRepository,
   createRejectedCandidateRepository,
+  createSynthesisRepository,
   DatabaseManager,
   DEFAULT_IN_FLIGHT_TIMEOUT_MS,
   findSplitScopePairs,
+  isReclaimableInFlight,
   mergeProjects,
   type SplitScopePair,
+  SYNTHESIS_IN_FLIGHT_TIMEOUT_MS,
 } from "@membank/core";
 import chalk from "chalk";
 import type { Formatter } from "../formatter.js";
@@ -18,7 +21,13 @@ const FAILURE_RATE_WINDOW_DAYS = 30;
 const FAILURE_RATE_WARN = 0.1;
 
 export interface DoctorCheck {
-  id: "auto-memory" | "stale-runs" | "split-scope" | "extraction-failures" | "admission-gate";
+  id:
+    | "auto-memory"
+    | "stale-runs"
+    | "stale-syntheses"
+    | "split-scope"
+    | "extraction-failures"
+    | "admission-gate";
   status: "ok" | "warn";
   summary: string;
   detail: string[];
@@ -87,6 +96,28 @@ export async function doctorCommand(
         staleCheck.fixed = true;
       }
       checks.push(staleCheck);
+    }
+
+    const syntheses = createSynthesisRepository(db);
+    const stuck = syntheses
+      .listAll()
+      .filter(
+        (s) => s.inFlightSince !== null && isReclaimableInFlight(s.inFlightSince, now.getTime())
+      );
+
+    if (stuck.length === 0) {
+      checks.push(ok("stale-syntheses", "No stuck syntheses"));
+    } else {
+      const stuckCheck = warn(
+        "stale-syntheses",
+        `${stuck.length} synthesis stuck in_flight`,
+        stuck.map((s) => `${s.memoryType} in ${s.scope}, in flight since ${s.inFlightSince}`)
+      );
+      if (fix) {
+        syntheses.clearStaleInFlight(SYNTHESIS_IN_FLIGHT_TIMEOUT_MS);
+        stuckCheck.fixed = true;
+      }
+      checks.push(stuckCheck);
     }
 
     const pairs = findSplitScopePairs(projects.list());

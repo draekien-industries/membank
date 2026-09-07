@@ -13,3 +13,4 @@ tools/eval/results/report-*.md
 tools/eval/results/winners.json
 tools/eval/.env
 packages/core/test-fixtures/
+packages/dashboard/.dev-db/

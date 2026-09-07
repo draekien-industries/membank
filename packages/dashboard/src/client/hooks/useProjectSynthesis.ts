@@ -1,13 +1,30 @@
+import { isReclaimableInFlight, SYNTHESIS_IN_FLIGHT_TIMEOUT_MS } from "@membank/core/client";
 import { eq, useLiveQuery } from "@tanstack/react-db";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { resetProjectSynthesis, runProjectSynthesis } from "@/lib/api";
+import { runProjectSynthesis, unlockProjectSynthesis } from "@/lib/api";
 import { queryClient, synthesisCollection } from "@/lib/collections";
-import type { MemoryType, Project, Synthesis } from "@/lib/types";
+import type { MemoryType, Project, Synthesis, SynthesisUnlockResult } from "@/lib/types";
 
-const IN_FLIGHT_STUCK_MS = 60_000;
+const SLOW_AFTER_MS = 60_000;
+const POLL_MS = 3000;
+
+export type SynthesisPhase =
+  | { kind: "idle" }
+  | { kind: "running" }
+  | { kind: "slow"; since: string }
+  | { kind: "stuck"; since: string };
 
 function isStaleSynthesis(synthesis: Synthesis): boolean {
   return synthesis.inFlightSince === null && new Date(synthesis.expiresAt) < new Date();
+}
+
+function phaseOf(inFlightSince: string | null, now: number): SynthesisPhase {
+  if (inFlightSince === null) return { kind: "idle" };
+  if (isReclaimableInFlight(inFlightSince, now)) return { kind: "stuck", since: inFlightSince };
+  if (now - Date.parse(inFlightSince) >= SLOW_AFTER_MS) {
+    return { kind: "slow", since: inFlightSince };
+  }
+  return { kind: "running" };
 }
 
 export interface ProjectSynthesisState {
@@ -15,15 +32,14 @@ export interface ProjectSynthesisState {
   representative: Synthesis | null;
   isLoading: boolean;
   isStale: boolean;
-  isStuck: boolean;
+  phase: SynthesisPhase;
   error: string | null;
   run: (memoryType?: MemoryType) => Promise<void>;
-  reset: () => Promise<void>;
+  unlock: () => Promise<SynthesisUnlockResult | null>;
 }
 
 export function useProjectSynthesis(project: Project): ProjectSynthesisState {
   const [error, setError] = useState<string | null>(null);
-  const [isStuck, setIsStuck] = useState(false);
 
   const { data: syntheses = [], isLoading } = useLiveQuery(
     (q) => q.from({ s: synthesisCollection }).where(({ s }) => eq(s.scope, project.scopeHash)),
@@ -51,27 +67,31 @@ export function useProjectSynthesis(project: Project): ProjectSynthesisState {
     [syntheses]
   );
 
+  const [phase, setPhase] = useState<SynthesisPhase>(() => phaseOf(earliestInFlight, Date.now()));
+
   useEffect(() => {
     if (earliestInFlight === null) return;
     const timer = setInterval(() => {
       void queryClient.invalidateQueries({ queryKey: ["syntheses"] });
-    }, 3000);
+    }, POLL_MS);
     return () => clearInterval(timer);
   }, [earliestInFlight]);
 
+  // Waking only at the two thresholds keeps a long synthesis from re-rendering the overview
+  // every poll, since nothing else in the phase changes between them.
   useEffect(() => {
-    if (earliestInFlight === null) {
-      setIsStuck(false);
-      return;
-    }
-    const elapsed = Date.now() - new Date(earliestInFlight).getTime();
-    const remaining = IN_FLIGHT_STUCK_MS - elapsed;
-    if (remaining <= 0) {
-      setIsStuck(true);
-      return;
-    }
-    const timer = setTimeout(() => setIsStuck(true), remaining);
-    return () => clearTimeout(timer);
+    const update = (): void => setPhase(phaseOf(earliestInFlight, Date.now()));
+    update();
+    if (earliestInFlight === null) return;
+
+    const elapsedMs = Date.now() - Date.parse(earliestInFlight);
+    const timers = [SLOW_AFTER_MS, SYNTHESIS_IN_FLIGHT_TIMEOUT_MS]
+      .filter((threshold) => elapsedMs < threshold)
+      .map((threshold) => setTimeout(update, threshold - elapsedMs));
+
+    return () => {
+      for (const timer of timers) clearTimeout(timer);
+    };
   }, [earliestInFlight]);
 
   const run = useCallback(
@@ -87,18 +107,19 @@ export function useProjectSynthesis(project: Project): ProjectSynthesisState {
     [project.id]
   );
 
-  const reset = useCallback(async () => {
+  const unlock = useCallback(async (): Promise<SynthesisUnlockResult | null> => {
     setError(null);
-    setIsStuck(false);
     try {
-      await resetProjectSynthesis(project.id);
+      const result = await unlockProjectSynthesis(project.id);
       await queryClient.invalidateQueries({ queryKey: ["syntheses"] });
+      return result;
     } catch {
-      setError("Failed to reset synthesis");
+      setError("Failed to unlock synthesis");
+      return null;
     }
   }, [project.id]);
 
   const isStale = syntheses.some(isStaleSynthesis);
 
-  return { syntheses, representative, isLoading, isStale, isStuck, error, run, reset };
+  return { syntheses, representative, isLoading, isStale, phase, error, run, unlock };
 }

@@ -3,6 +3,7 @@ import { MEMORY_TYPE_VALUES } from "../../schemas.js";
 import {
   DEFAULT_DEBOUNCE_MS,
   IN_FLIGHT_TIMEOUT_MS,
+  isReclaimableInFlight,
   MAX_BACKOFF_MULTIPLIER,
 } from "../domain/debounce-policy.js";
 import { decideSynthesis } from "../domain/synthesis-threshold.js";
@@ -95,9 +96,9 @@ export class SynthesisEngine {
     const inFlightTimeoutMs = this.#config.inFlightTimeoutMs ?? IN_FLIGHT_TIMEOUT_MS;
     const synthesis = this.#synthRepo.getSynthesis(scope, type);
 
-    if (synthesis?.inFlightSince !== null && synthesis?.inFlightSince !== undefined) {
-      const inFlightMs = Date.now() - new Date(synthesis.inFlightSince).getTime();
-      if (inFlightMs < inFlightTimeoutMs) return;
+    const inFlightSince = synthesis?.inFlightSince;
+    if (inFlightSince != null) {
+      if (!isReclaimableInFlight(inFlightSince, Date.now(), inFlightTimeoutMs)) return;
       this.#synthRepo.clearInFlight(scope, type);
     }
 

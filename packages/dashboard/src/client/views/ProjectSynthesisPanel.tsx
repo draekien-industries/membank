@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useProjectRow } from "@/hooks/useProjectRows";
+import type { SynthesisPhase } from "@/hooks/useProjectSynthesis";
 import { useProjectSynthesis } from "@/hooks/useProjectSynthesis";
 import { useSynthesisHistory } from "@/hooks/useSynthesisHistory";
 import { getSessionContext } from "@/lib/api";
@@ -29,6 +30,7 @@ import type {
   SessionContext,
   SessionContextSection,
   Synthesis,
+  SynthesisUnlockResult,
   SynthesisVersion,
 } from "@/lib/types";
 import { SYNTHESIS_PENDING } from "@/lib/types";
@@ -41,14 +43,79 @@ import {
   RecentActivityList,
 } from "@/views/ProjectOverviewDashboard";
 
-function StuckResetButton({ onReset }: { onReset: () => Promise<void> }) {
+const ELAPSED_TICK_MS = 60_000;
+
+function formatElapsed(ms: number): string {
+  const minutes = Math.floor(ms / 60_000);
+  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`;
+}
+
+function useElapsedMs(since: string): number {
+  const [elapsedMs, setElapsedMs] = useState(() => Date.now() - Date.parse(since));
+
+  useEffect(() => {
+    const update = (): void => setElapsedMs(Date.now() - Date.parse(since));
+    update();
+    const timer = setInterval(update, ELAPSED_TICK_MS);
+    return () => clearInterval(timer);
+  }, [since]);
+
+  return elapsedMs;
+}
+
+function announceUnlock(result: SynthesisUnlockResult): void {
+  if (result.unlocked.length > 0) {
+    toast.success(`Unlocked ${result.unlocked.join(", ")}`, {
+      description:
+        result.live.length > 0
+          ? `Still synthesizing ${result.live.join(", ")}.`
+          : "No synthesis was running. Synthesize again when ready.",
+    });
+    return;
+  }
+  if (result.live.length > 0) {
+    toast.info(`Still synthesizing ${result.live.join(", ")}`, {
+      description: "A process is working on it. Nothing to unlock yet.",
+    });
+    return;
+  }
+  toast.info("Nothing is in flight", { description: "Synthesis is already unlocked." });
+}
+
+function SynthesisUnlockButton({
+  phase,
+  onUnlock,
+}: {
+  phase: Extract<SynthesisPhase, { kind: "slow" | "stuck" }>;
+  onUnlock: () => Promise<SynthesisUnlockResult | null>;
+}) {
+  const [unlocking, setUnlocking] = useState(false);
+  const elapsedMs = useElapsedMs(phase.since);
+
+  const attempt = useCallback(async () => {
+    setUnlocking(true);
+    try {
+      const result = await onUnlock();
+      if (result !== null) announceUnlock(result);
+    } finally {
+      setUnlocking(false);
+    }
+  }, [onUnlock]);
+
   return (
     <button
       type="button"
-      onClick={() => void onReset()}
-      className="text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors underline underline-offset-2"
+      disabled={unlocking}
+      onClick={() => void attempt()}
+      className={cn(
+        "text-[11px] underline underline-offset-2 transition-colors disabled:opacity-50",
+        phase.kind === "stuck"
+          ? "text-destructive hover:text-destructive/80"
+          : "text-muted-foreground/60 hover:text-muted-foreground"
+      )}
     >
-      Taking too long? Reset
+      {phase.kind === "stuck" ? "Stuck" : "Taking long"} · {formatElapsed(elapsedMs)} —{" "}
+      {unlocking ? "checking…" : "attempt unlock"}
     </button>
   );
 }
@@ -68,20 +135,11 @@ function XmlOpen({ tag }: { tag: string }) {
   return <span className="text-muted-foreground/40">&lt;{tag}&gt;</span>;
 }
 
-function InFlightIndicator({
-  isStuck,
-  onReset,
-}: {
-  isStuck: boolean;
-  onReset: () => Promise<void>;
-}) {
+function InFlightIndicator() {
   return (
-    <div className="flex items-center justify-between gap-2">
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        <Spinner className="size-3" />
-        <span className="text-[11px]">Synthesizing&hellip;</span>
-      </div>
-      {isStuck && <StuckResetButton onReset={onReset} />}
+    <div className="flex items-center gap-1.5 text-muted-foreground">
+      <Spinner className="size-3" />
+      <span className="text-[11px]">Synthesizing&hellip;</span>
     </div>
   );
 }
@@ -458,13 +516,9 @@ function VerbatimSectionView({
 
 function InFlightSynthesisView({
   synthesis,
-  isStuck,
-  onReset,
   projectId,
 }: {
   synthesis: Synthesis;
-  isStuck: boolean;
-  onReset: () => Promise<void>;
   projectId: string;
 }) {
   const hasPriorContent = synthesis.content !== SYNTHESIS_PENDING;
@@ -476,7 +530,7 @@ function InFlightSynthesisView({
         <Badge variant={synthesis.memoryType}>{synthesis.memoryType}</Badge>
       </div>
       <div className="pl-3 space-y-2 opacity-50">
-        <InFlightIndicator isStuck={isStuck} onReset={onReset} />
+        <InFlightIndicator />
         {hasPriorContent ? (
           <div className="max-h-40 overflow-y-auto text-foreground/70 whitespace-pre-wrap leading-relaxed">
             {synthesis.content}
@@ -577,10 +631,10 @@ interface SessionContextPanelProps {
   project: Project;
   syntheses: Synthesis[];
   isLoading: boolean;
-  isStuck: boolean;
+  phase: SynthesisPhase;
   error: string | null;
   onRun: (memoryType?: MemoryType) => Promise<void>;
-  onReset: () => Promise<void>;
+  onUnlock: () => Promise<SynthesisUnlockResult | null>;
   label?: string;
 }
 
@@ -615,10 +669,10 @@ function SessionContextPanel({
   project,
   syntheses,
   isLoading,
-  isStuck,
+  phase,
   error,
   onRun,
-  onReset,
+  onUnlock,
   label = "Session context",
 }: SessionContextPanelProps) {
   const [guidanceOpen, setGuidanceOpen] = useState(false);
@@ -665,6 +719,9 @@ function SessionContextPanel({
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
         <div className="flex items-center gap-3">
+          {(phase.kind === "slow" || phase.kind === "stuck") && (
+            <SynthesisUnlockButton phase={phase} onUnlock={onUnlock} />
+          )}
           {showSynthesizeAll && (
             <SynthesizeAllButton
               anyInFlight={anyInFlight}
@@ -739,8 +796,6 @@ function SessionContextPanel({
           <InFlightSynthesisView
             key={`inflight:${synthesis.memoryType}`}
             synthesis={synthesis}
-            isStuck={isStuck}
-            onReset={onReset}
             projectId={project.id}
           />
         ))}
@@ -781,7 +836,7 @@ function SessionContextPanel({
 }
 
 export function ProjectOverviewTab({ project }: { project: Project }) {
-  const { syntheses, representative, isLoading, isStale, isStuck, error, run, reset } =
+  const { syntheses, representative, isLoading, isStale, phase, error, run, unlock } =
     useProjectSynthesis(project);
   const row = useProjectRow(project, 30);
 
@@ -795,7 +850,7 @@ export function ProjectOverviewTab({ project }: { project: Project }) {
             row={row}
             synthesis={representative}
             isStale={isStale}
-            isStuck={isStuck}
+            phase={phase}
             isLoading={isLoading}
           />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-8">
@@ -809,10 +864,10 @@ export function ProjectOverviewTab({ project }: { project: Project }) {
             project={project}
             syntheses={syntheses}
             isLoading={isLoading}
-            isStuck={isStuck}
+            phase={phase}
             error={error}
             onRun={run}
-            onReset={reset}
+            onUnlock={unlock}
             label="SESSION INJECTION PREVIEW"
           />
         </div>
